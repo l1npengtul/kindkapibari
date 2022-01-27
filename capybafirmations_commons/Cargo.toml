@@ -6,16 +6,25 @@ edition = "2021"
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [features]
-server = ["sea-orm"]
-client = []
+server = ["sea-orm", "sea-orm/macros"]
+client = ["chrono/wasmbind"]
 
 [dependencies]
 serde = "^1.0"
 serde_derive = "^1.0"
 serde_json = "^1.0"
 language-tag = "^0.9"
+ahash = "^0.7"
+
+[dependencies.semver]
+version = "^1.0"
+features = ["serde"]
 
 [dependencies.sea-orm]
 version = "^0.5"
 features = ["macros"]
 optional = true
+
+[dependencies.chrono]
+version = "^0.4"
+features = ["serde"]

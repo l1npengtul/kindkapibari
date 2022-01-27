@@ -6,9 +6,11 @@
       <sourceFolder url="file://$MODULE_DIR$/capybafirmations_commons/src" isTestSource="false" />
       <sourceFolder url="file://$MODULE_DIR$/capybafirmations_internals/src" isTestSource="false" />
       <sourceFolder url="file://$MODULE_DIR$/frontend/capybafirmations_web/src" isTestSource="false" />
+      <sourceFolder url="file://$MODULE_DIR$/backend/capybafirmations_server/src" isTestSource="false" />
       <excludeFolder url="file://$MODULE_DIR$/frontend/capybafirmations_web/target" />
       <excludeFolder url="file://$MODULE_DIR$/capybafirmations_internals/target" />
       <excludeFolder url="file://$MODULE_DIR$/capybafirmations_commons/target" />
+      <excludeFolder url="file://$MODULE_DIR$/backend/capybafirmations_server/target" />
     </content>
     <orderEntry type="inheritedJdk" />
     <orderEntry type="sourceFolder" forTests="false" />

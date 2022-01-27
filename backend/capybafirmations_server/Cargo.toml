@@ -1,0 +1,20 @@
+[package]
+name = "capybafirmations_server"
+version = "0.1.0"
+edition = "2021"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[dependencies]
+axum = "0.4.4"
+sea-orm = "0.5.0"
+tokio = "1.15.0"
+tower = "0.4.11"
+tracing-subscriber = "0.3.7"
+serde = "1.0.136"
+serde_derive = "1.0.136"
+serde_json = "1.0.78"
+
+[dependencies.capybafirmations_commons]
+path = "../../capybafirmations_commons"
+features = ["server"]
