@@ -1,8 +1,7 @@
 use crate::preferences::Theme;
-
-pub type UserID = u128;
+use uuid::Uuid;
 
 #[derive(Clone, Debug, Hash, PartialOrd, PartialEq, Serialize, Deserialize)]
 pub struct User {
-    user_id: u128,
+    user_id: Uuid,
 }
