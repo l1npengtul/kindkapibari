@@ -6,15 +6,19 @@ edition = "2021"
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-axum = "0.4.4"
-sea-orm = "0.5.0"
-tokio = "1.15.0"
-tower = "0.4.11"
-tracing-subscriber = "0.3.7"
-serde = "1.0.136"
-serde_derive = "1.0.136"
-serde_json = "1.0.78"
+axum = "0.4"
+tokio = "1.15"
+tower = "0.4"
+tracing-subscriber = "0.3"
+serde = "1.0"
+serde_derive = "1.0"
+serde_json = "1.0"
+sled = "0.34"
 
 [dependencies.capybafirmations_commons]
 path = "../../capybafirmations_commons"
 features = ["server"]
+
+[dependencies.sqlx]
+version = "0.5"
+features = ["runtime-tokio-rustls", "postgres"]

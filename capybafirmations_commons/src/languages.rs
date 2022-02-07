@@ -1,5 +1,6 @@
 #[derive(Clone, Debug, Hash, PartialOrd, PartialEq, Serialize, Deserialize)]
 pub enum Languages {
+    AllNone,
     En,
     Ko,
     Ja,

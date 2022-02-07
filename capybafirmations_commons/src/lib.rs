@@ -1,13 +1,10 @@
 #![deny(clippy::pedantic)]
 #![warn(clippy::all)]
 
-#[cfg(feature = "server")]
 #[macro_use]
-extern crate sea_orm;
+extern crate sqlx;
 #[macro_use]
 extern crate serde_derive;
-#[macro_use]
-extern crate serde;
 
 pub mod affirmpak;
 pub mod languages;

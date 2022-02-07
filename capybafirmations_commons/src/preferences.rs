@@ -1,6 +1,5 @@
 use crate::pronouns::Pronouns;
-#[cfg(feature = "server")]
-use sea_orm::entity::prelude::*;
+use uuid::Uuid;
 
 #[derive(Copy, Clone, Debug, Hash, Ord, PartialOrd, Eq, PartialEq, Serialize, Deserialize)]
 pub enum Theme {
@@ -11,6 +10,7 @@ pub enum Theme {
 
 #[derive(Clone, Debug, Hash, PartialOrd, PartialEq, Serialize, Deserialize)]
 pub struct Preferences {
-    theme: Theme,
-    pronouns: Pronouns,
+    pub theme: Theme,
+    pub pronouns: Pronouns,
+    pub subscribed_paks: Vec<Uuid>,
 }

@@ -1,19 +1,10 @@
-use std::hash::{Hash, Hasher};
+#[derive(Clone, Debug, Default, PartialEq, PartialOrd, Serialize, Deserialize)]
+pub struct Message {
+    pub message: String,
+    pub wait_after: f32,
+}
 
-#[derive(Clone, Debug, Default, PartialOrd, Serialize, Deserialize)]
+#[derive(Clone, Debug, Default, PartialEq, PartialOrd, Serialize, Deserialize)]
 pub struct Response {
-    contents: Vec<String>,
-    timings: Vec<f32>,
-}
-
-impl PartialEq for Response {
-    fn eq(&self, other: &Self) -> bool {
-        self.contents.eq(&other.contents)
-    }
-}
-
-impl Hash for Response {
-    fn hash<H: Hasher>(&self, state: &mut H) {
-        self.contents.hash(state);
-    }
+    pub messages: Vec<Message>,
 }
