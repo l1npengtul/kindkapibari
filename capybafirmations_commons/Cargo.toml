@@ -6,7 +6,7 @@ edition = "2021"
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [features]
-server = ["sqlx", "sqlx/uuid", "sqlx/time"]
+server = ["diesel", "diesel/chrono", "diesel/postgres", "diesel/uuid"]
 client = ["chrono/wasmbind"]
 
 [dependencies]
@@ -33,6 +33,11 @@ features = ["serialize"]
 
 [dependencies.sqlx]
 version = "0.5"
+optional = true
+
+[dependencies.diesel]
+version = "1.4"
+features = ["postgres"]
 optional = true
 
 [dependencies.chrono]
