@@ -1,18 +1,20 @@
 use chrono::Utc;
+#[cfg(feature = "server")]
+use sea_orm::*;
 use uuid::Uuid;
 
 #[derive(Clone, Debug, Hash, PartialOrd, PartialEq, Serialize, Deserialize)]
-#[cfg_attr(feature = "server", derive(Insertable, Queryable))]
-#[cfg_attr(feature = "server", table_name = "user_metadata")]
-pub struct UserMetadata {
+#[cfg_attr(feature = "server", derive(DeriveEntityModel))]
+#[cfg_attr(feature = "server", sea_orm(table_name = "user_metadata"))]
+pub struct Model {
+    #[cfg_attr(feature = "server", sea_orm(primary_key))]
     pub id: Uuid,
     pub signup_date: chrono::DateTime<Utc>,
 }
 
 #[cfg(feature = "server")]
-table! {
-    user_metadata {
-        id -> Uuid,
-        signup_date -> Timestampz,
-    }
-}
+#[derive(Copy, Clone, Debug, EnumIter)]
+pub enum Relation {}
+
+#[cfg(feature = "server")]
+impl ActiveModelBehavior for ActiveModel {}

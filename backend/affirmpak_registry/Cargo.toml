@@ -1,5 +1,5 @@
 [package]
-name = "capybafirmations_server"
+name = "affirmpak_registry"
 version = "0.1.0"
 edition = "2021"
 

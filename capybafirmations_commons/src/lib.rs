@@ -2,10 +2,10 @@
 #![warn(clippy::all)]
 
 #[macro_use]
-extern crate serde_derive;
+extern crate serde;
 #[cfg(feature = "server")]
 #[macro_use]
-extern crate diesel;
+extern crate sea_orm;
 
 pub mod affirmpak;
 pub mod languages;

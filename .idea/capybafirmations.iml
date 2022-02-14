@@ -7,10 +7,18 @@
       <sourceFolder url="file://$MODULE_DIR$/capybafirmations_internals/src" isTestSource="false" />
       <sourceFolder url="file://$MODULE_DIR$/frontend/capybafirmations_web/src" isTestSource="false" />
       <sourceFolder url="file://$MODULE_DIR$/backend/capybafirmations_server/src" isTestSource="false" />
+      <sourceFolder url="file://$MODULE_DIR$/affirmpak/compiler/src" isTestSource="false" />
+      <sourceFolder url="file://$MODULE_DIR$/affirmpak/src" isTestSource="false" />
+      <sourceFolder url="file://$MODULE_DIR$/backend/affirmpak_registry/src" isTestSource="false" />
+      <sourceFolder url="file://$MODULE_DIR$/frontend/internals/src" isTestSource="false" />
       <excludeFolder url="file://$MODULE_DIR$/frontend/capybafirmations_web/target" />
       <excludeFolder url="file://$MODULE_DIR$/capybafirmations_internals/target" />
       <excludeFolder url="file://$MODULE_DIR$/capybafirmations_commons/target" />
       <excludeFolder url="file://$MODULE_DIR$/backend/capybafirmations_server/target" />
+      <excludeFolder url="file://$MODULE_DIR$/frontend/internals/target" />
+      <excludeFolder url="file://$MODULE_DIR$/backend/affirmpak_registry/target" />
+      <excludeFolder url="file://$MODULE_DIR$/affirmpak/target" />
+      <excludeFolder url="file://$MODULE_DIR$/affirmpak/compiler/target" />
     </content>
     <orderEntry type="inheritedJdk" />
     <orderEntry type="sourceFolder" forTests="false" />

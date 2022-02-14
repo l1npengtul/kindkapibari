@@ -6,14 +6,16 @@ edition = "2021"
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [features]
-server = ["diesel", "diesel/chrono", "diesel/postgres", "diesel/uuid"]
+server = ["sea-orm", "sea-orm/macros"]
 client = ["chrono/wasmbind"]
 
 [dependencies]
-serde = "^1.0"
-serde_derive = "^1.0"
 serde_json = "^1.0"
 ahash = "^0.7"
+
+[dependencies.serde]
+version = "1.0"
+features = ["derive"]
 
 [dependencies.uuid]
 version = "0.8"
@@ -31,13 +33,9 @@ features = ["serde"]
 version = "^0.22"
 features = ["serialize"]
 
-[dependencies.sqlx]
-version = "0.5"
-optional = true
-
-[dependencies.diesel]
-version = "1.4"
-features = ["postgres"]
+[dependencies.sea-orm]
+version = "0.6"
+features = ["macros"]
 optional = true
 
 [dependencies.chrono]
