@@ -26,3 +26,11 @@ version = "2.1"
 
 [dependencies.html_parser]
 version = "0.6"
+
+[dependencies.staticvec]
+version = "0.11"
+features = ["serde"]
+
+[dependencies.capybafirmations_commons]
+path = "../../capybafirmations_commons"
+default-features = false

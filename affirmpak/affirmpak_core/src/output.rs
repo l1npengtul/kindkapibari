@@ -1,8 +1,10 @@
 use crate::text::TextContainer;
+use capybafirmations_commons::responses::Response;
 use semver::{Version, VersionReq};
+use staticvec::StaticVec;
 use url::Url;
 
-#[derive(Clone, Debug, Serialize, Deserialize)]
+#[derive(Clone, Debug, PartialEq, PartialOrd, Serialize, Deserialize)]
 pub struct Output {
     pub author: Vec<String>,
     pub namespace: String,
@@ -11,11 +13,11 @@ pub struct Output {
     pub compatibility: VersionReq,
     pub source: Url,
     pub description: String,
-    pub tags: [String; 5],
+    pub tags: StaticVec<String, 5>,
     pub docs: Option<Url>,
     pub homepage: Option<Url>,
     pub catagories: Vec<String>,
-    pub readme: String,
+    pub readme: Option<Url>,
     // files
     pub register_text_conntainers: Vec<TextContainer>,
 }
