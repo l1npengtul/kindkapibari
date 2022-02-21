@@ -11,13 +11,12 @@ pub struct Output {
     pub name: String,
     pub version: Version,
     pub compatibility: VersionReq,
-    pub source: Url,
-    pub description: String,
-    pub tags: StaticVec<String, 5>,
+    pub source: Option<Url>,
+    pub description: Option<String>,
+    pub tags: Option<StaticVec<String, 5>>,
     pub docs: Option<Url>,
     pub homepage: Option<Url>,
-    pub catagories: Vec<String>,
-    pub readme: Option<Url>,
+    pub catagories: Option<StaticVec<String, 5>>,
     // files
-    pub register_text_conntainers: Vec<TextContainer>,
+    pub register_text_conntainers: Option<Vec<TextContainer>>,
 }

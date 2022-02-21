@@ -12,6 +12,14 @@ pub enum CompilerError {
     BadManifest,
     #[error("Invalid Text File {file}: {why}")]
     BadText { file: String, why: String },
+    #[error("Invalid Attribute: attribute {attribute} of value {value}, Error: {why}")]
+    BadAttr {
+        attribute: String,
+        value: String,
+        why: String,
+    },
+    #[error("No Attribute: {attribute}")]
+    NoAttr { attribute: String },
     #[error("Failed to generate XML for {file}: {why}")]
     XmlError { file: String, why: String },
     #[error("Error: {0}")]

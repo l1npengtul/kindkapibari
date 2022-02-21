@@ -4,7 +4,7 @@
 AffirmPaks are packages that allow users to add custom extensions to Capybafirmations. Things such as themes,
 custom text, and asset overrides.
 
-Everything is UTF-8. No "but"s. Fvck your non-compliant garbagedos 10 install.
+Everything is UTF-8. No "but"s. Fvck your non-compliant garbagedos 10 installation.
 
 ### 2. The File Format
 An AffirmPak is composed of the following:
@@ -82,8 +82,6 @@ Tags:
 - `<wave>`: Wavy Text
 - `<shaky>`: Shaky Text
 - `<br>`: Newline
-- `<link>`: Link
-  - `where`: Where to go
 - `<spoiler>`: Spoiler Text
 
 You ***MUST*** close your tags. 
@@ -95,7 +93,7 @@ It is very simple, simply place 2 curly brackets `{{` (and its closers) around y
 
 Please refer to `varj`'s [documentation](https://docs.rs/varj/latest/varj/index.html) for more.
 
-A sub-form is defined as `{parent:offspring}`
+A sub-form is defined as `parent:offspring`
 If the first character needs to be capitalized, add a `:C` after the offspring.
 - `pronoun`
     - The user's pronouns. There are 5 forms to this.

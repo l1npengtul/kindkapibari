@@ -1,5 +1,3 @@
-use axum::Router;
-
 mod login;
 mod users;
 

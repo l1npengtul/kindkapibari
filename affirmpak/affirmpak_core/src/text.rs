@@ -6,10 +6,19 @@ pub struct TextContainer {
     sub_namespace: String,
     language: Languages,
     description: String,
-    responses: Response,
+    responses: Vec<Response>,
 }
 
 impl TextContainer {
+    pub fn new(sub_namespace: String, language: Languages, description: String, responses: Vec<Response>) -> Self {
+        TextContainer {
+            sub_namespace,
+            language,
+            description,
+            responses
+        }
+    }
+
     pub fn sub_namespace(&self) -> &str {
         &self.sub_namespace
     }
@@ -19,7 +28,7 @@ impl TextContainer {
     pub fn description(&self) -> &str {
         &self.description
     }
-    pub fn responses(&self) -> &Response {
+    pub fn responses(&self) -> &[Response] {
         &self.responses
     }
 
@@ -32,7 +41,7 @@ impl TextContainer {
     pub fn set_description(&mut self, description: String) {
         self.description = description;
     }
-    pub fn set_responses(&mut self, responses: Response) {
-        self.responses = responses;
+    pub fn set_responses(&mut self) -> &mut Vec<Response> {
+        &mut self.responses
     }
 }

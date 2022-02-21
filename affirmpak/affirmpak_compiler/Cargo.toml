@@ -1,18 +1,22 @@
 [package]
-name = "compiler"
+name = "affirmpak_compiler"
 version = "0.1.0"
 edition = "2021"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[lib]
+path = "src/lib.rs"
+
 
 [dependencies]
 thiserror = "1.0"
 serde_json = "1.0"
 env_logger = "0.9"
 log = "0.4"
-clap = "3.1"
 itertools = "0.10"
-xml_dom = "0.2"
+escaper = "0.1"
+reqwest = "0.11"
 
 [dependencies.url]
 version = "2.2"
@@ -31,6 +35,9 @@ version = "2.1"
 
 [dependencies.html_parser]
 version = "0.6"
+
+[dependencies.clap]
+version = "3.1"
 
 [dependencies.affirmpak_core]
 path = "../affirmpak_core"
