@@ -7,7 +7,6 @@ use url::Url;
 #[derive(Clone, Debug, PartialEq, PartialOrd, Serialize, Deserialize)]
 pub struct Output {
     pub author: Vec<String>,
-    pub namespace: String,
     pub name: String,
     pub version: Version,
     pub compatibility: VersionReq,

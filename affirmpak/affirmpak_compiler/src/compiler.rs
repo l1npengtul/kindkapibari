@@ -311,7 +311,6 @@ impl Compiler {
         Ok(
             Output {
                 author: self.manifest.author,
-                namespace: self.manifest.namespace,
                 name: self.manifest.name,
                 version: self.manifest.version,
                 compatibility: self.manifest.compatibility,

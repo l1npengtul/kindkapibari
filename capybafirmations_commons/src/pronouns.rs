@@ -36,6 +36,7 @@ impl Pronouns {
         }
     }
 
+    #[must_use] 
     pub fn as_profile(&self) -> PronounProfile {
         match self {
             Pronouns::HeHim => PronounProfile::new("he", "him", "his", "his", "himself"),
@@ -96,19 +97,19 @@ impl PronounProfile {
         self.reflexive = reflexive;
     }
 
-    pub fn nominative(&self) -> &str {
+    #[must_use] pub fn nominative(&self) -> &str {
         &self.nominative
     }
-    pub fn accusative(&self) -> &str {
+    #[must_use] pub fn accusative(&self) -> &str {
         &self.accusative
     }
-    pub fn pronominal(&self) -> &str {
+    #[must_use] pub fn pronominal(&self) -> &str {
         &self.pronominal
     }
-    pub fn predicative(&self) -> &str {
+    #[must_use] pub fn predicative(&self) -> &str {
         &self.predicative
     }
-    pub fn reflexive(&self) -> &str {
+    #[must_use] pub fn reflexive(&self) -> &str {
         &self.reflexive
     }
 }

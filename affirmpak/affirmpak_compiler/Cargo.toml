@@ -17,6 +17,10 @@ log = "0.4"
 itertools = "0.10"
 escaper = "0.1"
 reqwest = "0.11"
+dirs = "4.0"
+
+[dependencies.toml]
+version = "0.5"
 
 [dependencies.url]
 version = "2.2"

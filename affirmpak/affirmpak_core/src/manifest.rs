@@ -1,10 +1,10 @@
 use semver::{Version, VersionReq};
+use staticvec::StaticVec;
 use url::Url;
 
 #[derive(Clone, Debug, Hash, PartialEq, Deserialize, Serialize)]
 pub struct AffirmPakManifest {
     pub author: Vec<String>,
-    pub namespace: String,
     pub name: String,
     pub version: Version,
     pub compatibility: VersionReq,

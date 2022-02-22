@@ -1,3 +1,5 @@
+use std::ffi::{OsStr, OsString};
+use std::io;
 use thiserror::Error;
 
 #[derive(Clone, Debug, Error)]
@@ -24,4 +26,14 @@ pub enum CompilerError {
     XmlError { file: String, why: String },
     #[error("Error: {0}")]
     CompileError(String),
+}
+
+#[derive(Clone, Debug, Error)]
+pub enum ConfigError {
+    #[error("Config file not found: {0}")]
+    ConfigNotFound(OsString),
+    #[error("Bad Config File at {path}: {why}")]
+    InvalidConfigFile { path: OsString, why: String },
+    #[error("Config File Error: {path}: {why}")]
+    ConfigFileError { path: OsString, why: String },
 }
