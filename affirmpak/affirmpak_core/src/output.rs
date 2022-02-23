@@ -1,10 +1,9 @@
 use crate::text::TextContainer;
-use capybafirmations_commons::responses::Response;
 use semver::{Version, VersionReq};
 use staticvec::StaticVec;
 use url::Url;
 
-#[derive(Clone, Debug, PartialEq, PartialOrd, Serialize, Deserialize)]
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 pub struct Output {
     pub author: Vec<String>,
     pub name: String,

@@ -1,7 +1,6 @@
-use capybafirmations_commons::languages::Languages;
-use capybafirmations_commons::responses::Response;
+use capybafirmations_commons::{languages::Languages, responses::Response};
 
-#[derive(Clone, Debug, Default, PartialOrd, PartialEq, Serialize, Deserialize)]
+#[derive(Clone, Debug, PartialOrd, PartialEq, Serialize, Deserialize)]
 pub struct TextContainer {
     sub_namespace: String,
     language: Languages,
@@ -10,12 +9,17 @@ pub struct TextContainer {
 }
 
 impl TextContainer {
-    pub fn new(sub_namespace: String, language: Languages, description: String, responses: Vec<Response>) -> Self {
+    pub fn new(
+        sub_namespace: String,
+        language: Languages,
+        description: String,
+        responses: Vec<Response>,
+    ) -> Self {
         TextContainer {
             sub_namespace,
             language,
             description,
-            responses
+            responses,
         }
     }
 
