@@ -1,14 +1,14 @@
-# The AffirmPak v0.1 Standard
+# The Coconut v0.1 Standard
 
-### 1. What is an AffirmPak?
-AffirmPaks are packages that allow users to add custom extensions to Capybafirmations. Things such as themes,
+### 1. What is an coconut?
+Coconuts are packages that allow users to add custom extensions to Capybafirmations. Things such as themes,
 custom text, and asset overrides.
 
-Everything is UTF-8. No "but"s. Fvck your non-compliant garbagedos 10 installation.
+Everything is UTF-8. No "but"s. Fvck your non-compliant wincringe 10 installation.
 
 ### 2. The File Format
-An AffirmPak is composed of the following:
-1. A Manifest (affirmpak.json)
+A coconut is composed of the following:
+1. A Manifest (coconut.json)
 2. An `src/` directory
 3. Assets inside the `src/`
 4. A file called `lib.json` that registers the files to the app.
@@ -19,7 +19,7 @@ A manifest consists of
     1. This is equivalent to the git config by default!
     2. It is a list of strings(for multiple authors).
 2. Name
-    3. The name of the AffirmPak
+    3. The name of the coconut
 3. Version
     1. SemVer-2 REQUIRED!
     2. 0.1.0 by default
