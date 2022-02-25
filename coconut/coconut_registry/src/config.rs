@@ -6,6 +6,7 @@ use std::io::{Read, Write};
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 pub struct ServerConfig {
     pub postgres: PostgresSQL,
+    #[serde(default = "default_port")]
     pub port: u16,
     pub github: GithubLogin,
 }
@@ -29,8 +30,10 @@ impl ServerConfig {
 
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 pub struct Files {
-    pub static_serve_location: String,
-    pub compile_target_directory: String,
+    #[serde(default = "default_static_serve_location")]
+    pub static_serve_location: &'static str,
+    #[serde(default = "default_compile_target_directory")]
+    pub compile_target_directory: &'static str,
 }
 
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
@@ -42,4 +45,16 @@ pub struct GithubLogin {
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 pub struct PostgresSQL {
     pub url: String,
+}
+
+const fn default_port() -> u16 {
+    8000
+}
+
+fn default_static_serve_location() -> &'static str {
+    "static"
+}
+
+fn default_compile_target_directory() -> &'static str {
+    "compile"
 }
