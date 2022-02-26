@@ -1,4 +1,4 @@
-use sea_orm::prelude::DeriveEntityModel;
+use sea_orm::prelude::{DeriveEntityModel, PrimaryKeyTrait, RelationTrait};
 use serde::{Deserialize, Serialize};
 use uuid::Uuid;
 
