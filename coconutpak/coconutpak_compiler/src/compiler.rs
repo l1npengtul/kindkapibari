@@ -2,8 +2,8 @@ use crate::{
     compiler::SpecialTags::HtmlDefault,
     error::CompilerError
 };
-use affirmpak_core::{
-    libjson::LibJson, manifest::AffirmPakManifest, output::Output, text::TextContainer,
+use coconutpak_core::{
+    libjson::LibJson, manifest::CoconutPakManifest, output::Output, text::TextContainer,
 };
 use bson::{document::ValueAccessResult, Document};
 use capybafirmations_commons::languages::Languages;
@@ -34,13 +34,13 @@ static ALLOWED_TAGS: [&'static str; 16] = [
 ];
 
 pub struct Compiler {
-    manifest: AffirmPakManifest,
+    manifest: CoconutPakManifest,
     lib: LibJson,
     source_path: String,
 }
 
 impl Compiler {
-    pub fn new(manifest: AffirmPakManifest, lib: LibJson, source_path: String) -> Self {
+    pub fn new(manifest: CoconutPakManifest, lib: LibJson, source_path: String) -> Self {
         Compiler {
             manifest,
             lib,
@@ -319,8 +319,8 @@ impl Compiler {
                 tags: self.manifest.tags,
                 docs: self.manifest.docs,
                 homepage: self.manifest.homepage,
-                catagories: self.manifest.catagories,
-                register_text_conntainers: {
+                categories: self.manifest.categories,
+                register_text_containers: {
                     if texts.len() > 0 {
                         Some(texts)
                     } else {

@@ -1,10 +1,9 @@
-use crate::text::TextContainer;
 use semver::{Version, VersionReq};
 use staticvec::StaticVec;
 use url::Url;
 
-#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
-pub struct Output {
+#[derive(Clone, Debug, Hash, PartialEq, Deserialize, Serialize)]
+pub struct CoconutPakManifest {
     pub author: Vec<String>,
     pub name: String,
     pub version: Version,
@@ -14,7 +13,5 @@ pub struct Output {
     pub tags: Option<StaticVec<String, 5>>,
     pub docs: Option<Url>,
     pub homepage: Option<Url>,
-    pub catagories: Option<StaticVec<String, 5>>,
-    // files
-    pub register_text_conntainers: Option<Vec<TextContainer>>,
+    pub categories: Option<StaticVec<String, 5>>,
 }

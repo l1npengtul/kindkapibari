@@ -1,5 +1,5 @@
 [package]
-name = "affirmpak_core"
+name = "coconutpak_core"
 version = "0.1.0"
 edition = "2021"
 
@@ -34,5 +34,5 @@ version = "0.11"
 features = ["serde"]
 
 [dependencies.capybafirmations_commons]
-path = "../../capybafirmations_commons"
+path = "../../capybafirmations/capybafirmations_commons"
 default-features = false

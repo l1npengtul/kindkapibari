@@ -1,5 +1,5 @@
 [package]
-name = "affirmpak_compiler"
+name = "coconutpak_compiler"
 version = "0.1.0"
 edition = "2021"
 
@@ -43,9 +43,9 @@ version = "0.6"
 [dependencies.clap]
 version = "3.1"
 
-[dependencies.affirmpak_core]
-path = "../affirmpak_core"
+[dependencies.coconutpak_core]
+path = "../coconutpak_core"
 
 [dependencies.capybafirmations_commons]
-path = "../../capybafirmations_commons"
+path = "../../capybafirmations/capybafirmations_commons"
 default-features = false

@@ -1,7 +1,7 @@
-# The Coconut v0.1 Standard
+# The CoconutPak v0.1 Standard
 
 ### 1. What is an coconut?
-Coconuts are packages that allow users to add custom extensions to Capybafirmations. Things such as themes,
+CoconutPaks are packages that allow users to add custom extensions to Capybafirmations. Things such as themes,
 custom text, and asset overrides.
 
 Everything is UTF-8. No "but"s. Fvck your non-compliant wincringe 10 installation.

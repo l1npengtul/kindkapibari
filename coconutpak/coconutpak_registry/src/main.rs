@@ -2,6 +2,7 @@
 #![warn(clippy::all)]
 
 mod api;
+mod coconut_compiler;
 mod config;
 mod schema;
 
