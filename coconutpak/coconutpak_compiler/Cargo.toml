@@ -8,7 +8,6 @@ edition = "2021"
 [lib]
 path = "src/lib.rs"
 
-
 [dependencies]
 thiserror = "1.0"
 serde_json = "1.0"
@@ -49,3 +48,12 @@ path = "../coconutpak_core"
 [dependencies.capybafirmations_commons]
 path = "../../capybafirmations/capybafirmations_commons"
 default-features = false
+
+[profile.dev]
+panic = "abort"
+
+[profile.release]
+lto = true
+opt-level = "s"
+strip = "true"
+panic = "abort"

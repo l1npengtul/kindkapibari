@@ -1,4 +1,4 @@
-# The CoconutPak v0.1 Standard
+# The CoconutPak v0.1.0 Standard
 
 ### 1. What is an coconut?
 CoconutPaks are packages that allow users to add custom extensions to Capybafirmations. Things such as themes,

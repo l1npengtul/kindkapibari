@@ -1,36 +1,43 @@
-use crate::{
-    compiler::SpecialTags::HtmlDefault,
-    error::CompilerError
+use crate::error::CompilerError;
+use bson::Document;
+use capybafirmations_commons::{
+    languages::Languages,
+    responses::{Message, Response},
 };
 use coconutpak_core::{
-    libjson::LibJson, manifest::CoconutPakManifest, output::Output, text::TextContainer,
+    libjson::LibJson, manifest::CoconutPakManifest, output::CoconutPakOutput, text::TextContainer,
 };
-use bson::{document::ValueAccessResult, Document};
-use capybafirmations_commons::languages::Languages;
 use escaper::encode_minimal;
 use html_parser::{Dom, Element, Node};
 use itertools::Itertools;
 use log::{error, warn};
-use serde_json::from_str;
+use semver::Version;
 use std::{
     borrow::Cow,
-    collections::BTreeMap,
-    fmt::{
-        write,
-        Display,
-        Formatter
-    },
+    fmt::{Display, Formatter},
     fs::File,
-    io::Read,
     ops::{Deref, DerefMut},
     path::Path,
-    num::ParseFloatError
+    str::FromStr,
 };
-use xml_dom::level2::{convert::as_document_mut, get_implementation};
-use capybafirmations_commons::responses::{Message, Response};
 
-static ALLOWED_TAGS: [&'static str; 16] = [
-    "resp", "response", "message", "i", "b", "color", "strike", "under", "inline", "super", "sub", "highlight", "quote", "wave", "shaky", "spoiler"
+static ALLOWED_TAGS: [&str; 16] = [
+    "resp",
+    "response",
+    "message",
+    "i",
+    "b",
+    "color",
+    "strike",
+    "under",
+    "inline",
+    "super",
+    "sub",
+    "highlight",
+    "quote",
+    "wave",
+    "shaky",
+    "spoiler",
 ];
 
 pub struct Compiler {
@@ -48,8 +55,8 @@ impl Compiler {
         }
     }
 
-    pub fn compile(self) -> Result<Output, CompilerError> {
-        let mut source_path = Path::new(&self.source_path);
+    pub fn compile(self) -> Result<CoconutPakOutput, CompilerError> {
+        let source_path = Path::new(&self.source_path);
         if !source_path.is_dir() {
             return Err(CompilerError::SourcePathInvalid);
         }
@@ -59,6 +66,7 @@ impl Compiler {
         for text_to_compile in self.lib.texts() {
             let text_path = Path::new(text_to_compile);
             let total_path = source_path.join(text_path);
+            let file_path = total_path.as_os_str().to_string_lossy().to_string();
             let container = match File::open(total_path) {
                 Ok(f) => match Document::from_reader(f) {
                     Ok(doc) => {
@@ -66,7 +74,7 @@ impl Compiler {
                             Ok(sns) => sns.to_owned(),
                             Err(why) => {
                                 return Err(CompilerError::BadText {
-                                    file: total_path.as_os_str().to_string_lossy().to_string(),
+                                    file: file_path,
                                     why: why.to_string(),
                                 })
                             }
@@ -75,7 +83,7 @@ impl Compiler {
                             Ok(lang_str) => Languages::from(lang_str),
                             Err(why) => {
                                 return Err(CompilerError::BadText {
-                                    file: total_path.as_os_str().to_string_lossy().to_string(),
+                                    file: file_path,
                                     why: why.to_string(),
                                 })
                             }
@@ -84,7 +92,7 @@ impl Compiler {
                             Ok(desc) => desc.to_owned(),
                             Err(why) => {
                                 return Err(CompilerError::BadText {
-                                    file: total_path.as_os_str().to_string_lossy().to_string(),
+                                    file: file_path,
                                     why: why.to_string(),
                                 })
                             }
@@ -94,22 +102,17 @@ impl Compiler {
                                 let dom_parse = match Dom::parse(resp_arr) {
                                     Ok(d) => {
                                         // ignore all root tags that arnt <resp>
-                                        let mut iter = d.children.into_iter().filter_map(|n| match n {
+                                        let element_vec = d.children.into_iter().filter_map(|n| match n {
                                             Node::Element(mut e) => {
                                                 let name = &e.name;
                                                 if name != "resp" {
-                                                    warn!("Ignoring element \"{name}\" in file {total_path:?}, ignored element type.");
+                                                    warn!("Ignoring element \"{name}\" in file {file_path:?}, ignored element type.");
                                                     None
                                                 } else {
                                                     e.children.retain(|e| {
                                                         match e {
                                                             Node::Element(e) => {
-                                                                if e.name != "response" {
-                                                                    false
-                                                                }
-                                                                else {
-                                                                    true
-                                                                }
+                                                                e.name == "response"
                                                             }
                                                             _ => false
                                                         }
@@ -118,31 +121,26 @@ impl Compiler {
                                                 }
                                             }
                                             Node::Text(t) => {
-                                                warn!("Ignoring text \"{t}\" in file {total_path:?}");
+                                                warn!("Ignoring text \"{t}\" in file {file_path:?}");
                                                 None
                                             }
                                             _ => None,
-                                        });
+                                        }).collect::<Vec<Element>>();
 
-                                        let counts = iter.count();
-                                        let filename =
-                                            total_path.as_os_str().to_string_lossy().to_string();
-                                        if iter.count() != 1 {
-                                            error!("In file {filename}: More than one <resp> root tags. ({counts}).");
+                                        let counts = element_vec.len();
+                                        if counts != 1 {
+                                            error!("In file {file_path}: More than one <resp> root tags. ({counts}).");
                                             return Err(CompilerError::BadText {
-                                                file: filename,
+                                                file: file_path,
                                                 why: "More than one <resp>".to_string(),
                                             });
                                         }
 
-                                        iter.nth(0).unwrap()
+                                        element_vec.get(0).unwrap().clone()
                                     }
                                     Err(why) => {
                                         return Err(CompilerError::BadText {
-                                            file: total_path
-                                                .as_os_str()
-                                                .to_string_lossy()
-                                                .to_string(),
+                                            file: file_path,
                                             why: why.to_string(),
                                         })
                                     }
@@ -151,100 +149,62 @@ impl Compiler {
                                 dom_parse
                                     .children
                                     .into_iter()
-                                    .filter_map(|x| -> Option<Result<Response, CompilerError>> match x {
+                                    .filter_map(|x| -> Option<Result<Response, CompilerError>> { match x {
                                         Node::Element(e) => {
                                             if e.name != "response" {
-                                                warn!("Ignoring {e:?} in file {filename}");
+                                                warn!("Ignoring {e:?} in file {file_path}");
                                                 return None;
                                             }
 
-                                            let probability = match e.attributes.get("probability") {
-                                                Some(p) => {
-                                                    match p {
-                                                        Some(chance) => {
-                                                            match str::parse::<f32>(chance) {
-                                                                Ok(f) => f,
-                                                                Err(why) => {
-                                                                    return Some(Err(
-                                                                        CompilerError::BadAttr {
-                                                                            attribute: "probability".to_string(),
-                                                                            value: chance.to_string(),
-                                                                            why: why.to_string()
-                                                                        }
-                                                                    ))
-                                                                }
-                                                            }
+
+                                            let probability = match e.attributes.get("probability").cloned().unwrap_or_else(|| Some("1.0".to_string())).as_deref().map(f32::from_str) {
+                                                None => 1.0,
+                                                Some(Ok(p)) => p,
+                                                Some(Err(why)) => {
+                                                    return Some(Err(
+                                                        CompilerError::BadAttr {
+                                                            attribute: "probability".to_string(),
+                                                            value: format!("{:?}", e.attributes.get("probability")),
+                                                            why: why.to_string()
                                                         }
-                                                        None => {
-                                                            1.0
-                                                        }
-                                                    }
-                                                }
-                                                None => {
-                                                    1.0
+                                                    ))
                                                 }
                                             };
-                                            let welcome = match e.attributes.get("welcome") {
-                                                Some(p) => {
-                                                    match p {
-                                                        Some(welcomable) => {
-                                                            match str::parse::<bool>(welcomable) {
-                                                                Ok(f) => f,
-                                                                Err(why) => {
-                                                                    return Some(Err(
-                                                                        CompilerError::BadAttr {
-                                                                            attribute: "welcome".to_string(),
-                                                                            value: welcomable.to_string(),
-                                                                            why: why.to_string()
-                                                                        }
-                                                                    ))
-                                                                }
-                                                            }
-                                                        }
-                                                        None => {
-                                                            false
-                                                        }
+                                            let welcome = match e.attributes.get("welcome").cloned().unwrap_or_else(|| Some("false".to_string())).as_deref().map(str::parse::<bool>) {
+                                                Some(Ok(b)) => b,
+                                                Some(Err(why)) => return Some(Err(
+                                                    CompilerError::BadAttr {
+                                                        attribute: "welcome".to_string(),
+                                                        value: format!("{:?}", e.attributes.get("welcome")),
+                                                        why: why.to_string()
                                                     }
-                                                }
-                                                None => {
-                                                    false
-                                                }
+                                                )),
+                                                None => false,
                                             };
 
                                             let messages = e.children.into_iter()
-                                                .filter_map(|x| -> Option<Result<Message, CompilerError>> match x {
+                                                .filter_map(|x| -> Option<Result<Message, CompilerError>> { match x {
                                                     Node::Element(e) => {
                                                         if e.name != "message" {
-                                                            warn!("Ignoring {e:?} in file {filename}");
+                                                            warn!("Ignoring {e:?} in file {file_path}");
                                                             return None
                                                         }
 
-                                                        let wait = match e.attributes.get("wait") {
-                                                            Some(w) => {
-                                                                match w {
-                                                                    Some(w_str) => {
-                                                                        match str::parse::<f32>(w_str) {
-                                                                            Ok(wait_time) => wait_time,
-                                                                            Err(why) => {
-                                                                                return Some(Err(
-                                                                                    CompilerError::BadAttr {
-                                                                                        attribute: "probability".to_string(),
-                                                                                        value: chance.to_string(),
-                                                                                        why: why.to_string()
-                                                                                    }
-                                                                                ))
-                                                                            }
-                                                                        }
+                                                        let wait = match e.attributes.get("wait").cloned().unwrap_or_else(|| Some("0.0".to_string())).as_deref().map(f32::from_str) {
+                                                            None => 1.0,
+                                                            Some(Ok(p)) => p,
+                                                            Some(Err(why)) => {
+                                                                return Some(Err(
+                                                                    CompilerError::BadAttr {
+                                                                        attribute: "wait".to_string(),
+                                                                        value: format!("{:?}", e.attributes.get("wait")),
+                                                                        why: why.to_string()
                                                                     }
-                                                                    None => {
-                                                                        0.0
-                                                                    }
-                                                                }
+                                                                ))
                                                             }
-                                                            None => 0.0,
                                                         };
 
-                                                        let message_str = HtmlNodeWrapper { inner: Node::Element(e) }.to_string()?;
+                                                        let message_str = HtmlNodeWrapper { inner: Node::Element(e) }.to_string().ok()?;
 
                                                         Some(Ok(Message {
                                                             message: message_str,
@@ -252,11 +212,11 @@ impl Compiler {
                                                         }))
                                                     }
                                                     i => {
-                                                        warn!("Ignoring {i:?} in file {filename}");
+                                                        warn!("Ignoring {i:?} in file {file_path}");
                                                         None
                                                     }
-                                                }).collect::<Result<Vec<Message>, CompilerError>>()?;
-                                            
+                                                } }).collect::<Result<Vec<Message>, CompilerError>>().ok()?;
+
                                             Some(
                                                 Ok(
                                                     Response {
@@ -269,37 +229,32 @@ impl Compiler {
 
                                         }
                                         i => {
-                                            warn!("Ignoring {i:?} in file {filename}");
+                                            warn!("Ignoring {i:?} in file {file_path}");
                                             None
                                         }
-                                    })
+                                    } })
                                     .collect::<Result<Vec<Response>, CompilerError>>()?
                             }
                             Err(why) => {
                                 return Err(CompilerError::BadText {
-                                    file: total_path.as_os_str().to_string_lossy().to_string(),
+                                    file: file_path,
                                     why: why.to_string(),
                                 })
                             }
                         };
 
-                        TextContainer::new(
-                            sub_namespace,
-                            language_code,
-                            description,
-                            responses
-                        )
+                        TextContainer::new(sub_namespace, language_code, description, responses)
                     }
                     Err(why) => {
                         return Err(CompilerError::FileError {
-                            file: total_path.as_os_str().to_string_lossy().to_string(),
+                            file: file_path,
                             why: why.to_string(),
                         });
                     }
                 },
                 Err(why) => {
                     return Err(CompilerError::FileError {
-                        file: total_path.as_os_str().to_string_lossy().to_string(),
+                        file: file_path,
                         why: why.to_string(),
                     });
                 }
@@ -307,28 +262,17 @@ impl Compiler {
             texts.push(container);
         }
 
-
-        Ok(
-            Output {
-                author: self.manifest.author,
-                name: self.manifest.name,
-                version: self.manifest.version,
-                compatibility: self.manifest.compatibility,
-                source: self.manifest.source,
-                description: self.manifest.description,
-                tags: self.manifest.tags,
-                docs: self.manifest.docs,
-                homepage: self.manifest.homepage,
-                categories: self.manifest.categories,
-                register_text_containers: {
-                    if texts.len() > 0 {
-                        Some(texts)
-                    } else {
-                        None
-                    }
-                },
-            }
-        )
+        Ok(CoconutPakOutput {
+            edition: self.manifest.version.clone(),
+            manifest: self.manifest,
+            register_text_containers: {
+                if !texts.is_empty() {
+                    Some(texts)
+                } else {
+                    None
+                }
+            },
+        })
     }
 }
 
@@ -349,14 +293,6 @@ enum SpecialTags<'a> {
 }
 
 impl<'a> SpecialTags<'a> {
-    pub fn open(&self) -> String {
-        format!("<{}>", self)
-    }
-
-    pub fn open_no_ctag(&self) -> String {
-        format!("<{}", self)
-    }
-
     pub fn closer(&self) -> String {
         format!("</{}>", self)
     }
@@ -385,8 +321,8 @@ impl<'a> Display for SpecialTags<'a> {
     }
 }
 
-impl<'a> From<&String> for SpecialTags<'a> {
-    fn from(s: &String) -> Self {
+impl<'a> From<&'a String> for SpecialTags<'a> {
+    fn from(s: &'a String) -> Self {
         match s.as_ref() {
             "color" => SpecialTags::Color,
             "strike" => SpecialTags::Strike,
@@ -414,7 +350,8 @@ impl HtmlNodeWrapper {
         let write_str = match &self.inner {
             Node::Text(t) => encode_minimal(t),
             Node::Element(e) => {
-                if ALLOWED_TAGS.contains(&(&e).name.as_ref()) { // wtf???? lmao
+                if ALLOWED_TAGS.contains(&e.name.as_ref()) {
+                    // wtf???? lmao
                     let mut tag_strings = Vec::with_capacity(5);
 
                     let open_tag_name = SpecialTags::from(&(e).name);
@@ -436,7 +373,7 @@ impl HtmlNodeWrapper {
                                     return Err(CompilerError::BadAttr {
                                         attribute: "color".to_string(),
                                         value: "None".to_string(),
-                                        why: "Expected".to_string()
+                                        why: "Expected".to_string(),
                                     })
                                 }
                             },
@@ -451,7 +388,7 @@ impl HtmlNodeWrapper {
 
                     tag_strings.push(">".to_string());
 
-                    for child in e.children {
+                    for child in e.children.clone() {
                         let stringed = HtmlNodeWrapper { inner: child }.to_string()?;
 
                         tag_strings.push(stringed);
@@ -473,7 +410,7 @@ impl HtmlNodeWrapper {
                         .join("")
                 } else if e.name == "message" {
                     let mut tag_strings = Vec::with_capacity(e.children.len());
-                    for child in e.children {
+                    for child in e.children.clone() {
                         let stringed = HtmlNodeWrapper { inner: child }.to_string()?;
 
                         tag_strings.push(stringed);

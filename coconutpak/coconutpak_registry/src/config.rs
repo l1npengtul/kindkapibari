@@ -4,14 +4,15 @@ use std::fs::File;
 use std::io::{Read, Write};
 
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
-pub struct ServerConfig {
-    pub postgres: PostgresSQL,
+pub struct ServerCfg {
     #[serde(default = "default_port")]
     pub port: u16,
+    compiler: Compiler,
+    pub postgres: PostgresSQL,
     pub github: GithubLogin,
 }
 
-impl ServerConfig {
+impl ServerCfg {
     pub fn save(&self) -> Result<()> {
         let mut config_file = File::create("Config.toml")?;
         config_file.set_len(0)?;
@@ -45,6 +46,14 @@ pub struct GithubLogin {
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 pub struct PostgresSQL {
     pub url: String,
+}
+
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+pub struct Compiler {
+    pub core_threads: usize,
+    pub max_threads: usize,
+    pub worker_thread_stay_alive: usize,
+    pub max_pak_time: usize,
 }
 
 const fn default_port() -> u16 {
