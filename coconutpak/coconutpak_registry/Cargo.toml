@@ -16,6 +16,8 @@ color-eyre = "0.6"
 uuid = "0.8"
 flume = "0.10"
 rusty_pool = "0.6"
+tabox = "1.2"
+ahash = "0.7"
 
 [dependencies.tokio]
 version = "1.17"
@@ -53,6 +55,13 @@ features = ["url", "bson", "chrono", "email", "static-files", "rapidoc"]
 [dependencies.sea-orm]
 version = "0.6"
 features = ["runtime-tokio-rustls", "sqlx-postgres", "macros"]
+
+[dependencies.atomic_enum]
+git = "https://github.com/l1npengtul/atomic_enum"
+
+[dependencies.bson]
+version = "2.1"
+features = ["chrono-0_4", "serde_with", "uuid-0_8"]
 
 [dependencies.coconutpak_compiler]
 path = "../coconutpak_compiler"

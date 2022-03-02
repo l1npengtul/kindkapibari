@@ -7,8 +7,8 @@ use std::io::{Read, Write};
 pub struct ServerCfg {
     #[serde(default = "default_port")]
     pub port: u16,
-    compiler: Compiler,
-    pub postgres: PostgresSQL,
+    pub compiler: Compiler,
+    pub database: Database,
     pub github: GithubLogin,
 }
 
@@ -32,9 +32,7 @@ impl ServerCfg {
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 pub struct Files {
     #[serde(default = "default_static_serve_location")]
-    pub static_serve_location: &'static str,
-    #[serde(default = "default_compile_target_directory")]
-    pub compile_target_directory: &'static str,
+    pub static_serve_location: String,
 }
 
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
@@ -44,26 +42,53 @@ pub struct GithubLogin {
 }
 
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
-pub struct PostgresSQL {
-    pub url: String,
+pub struct Database {
+    pub postgres_url: String,
+    #[serde(default = "default_sled_store_path")]
+    pub sled_store_path: String,
 }
 
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 pub struct Compiler {
+    #[serde(default = "default_core_threads")]
     pub core_threads: usize,
+    #[serde(default = "default_max_threads")]
     pub max_threads: usize,
+    #[serde(default = "default_wtsa")]
     pub worker_thread_stay_alive: usize,
-    pub max_pak_time: usize,
+    #[serde(default = "default_mpts")]
+    pub max_pak_time_s: usize,
+    #[serde(default)]
+    pub compiler_location: String,
+    #[serde(default = "default_compile_target_directory")]
+    pub compile_target_directory: String,
 }
 
 const fn default_port() -> u16 {
     8000
 }
 
-fn default_static_serve_location() -> &'static str {
-    "static"
+fn default_static_serve_location() -> String {
+    "static".to_string()
 }
 
-fn default_compile_target_directory() -> &'static str {
-    "compile"
+fn default_compile_target_directory() -> String {
+    "compile".to_string()
+}
+
+const fn default_core_threads() -> usize {
+    2
+}
+const fn default_max_threads() -> usize {
+    4
+}
+const fn default_wtsa() -> usize {
+    1000
+}
+const fn default_mpts() -> usize {
+    60
+}
+
+fn default_sled_store_path() -> String {
+    "sled".to_string()
 }
