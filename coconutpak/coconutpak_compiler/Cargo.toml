@@ -5,9 +5,6 @@ edition = "2021"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
-[lib]
-path = "src/lib.rs"
-
 [dependencies]
 thiserror = "1.0"
 serde_json = "1.0"
@@ -38,9 +35,6 @@ version = "2.1"
 
 [dependencies.html_parser]
 version = "0.6"
-
-[dependencies.clap]
-version = "3.1"
 
 [dependencies.coconutpak_core]
 path = "../coconutpak_core"

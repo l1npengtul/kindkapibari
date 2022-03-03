@@ -58,7 +58,7 @@ pub struct Compiler {
     pub worker_thread_stay_alive: usize,
     #[serde(default = "default_mpts")]
     pub max_pak_time_s: usize,
-    #[serde(default)]
+    #[serde(default = "default_compiler_location")]
     pub compiler_location: String,
     #[serde(default = "default_compile_target_directory")]
     pub compile_target_directory: String,
@@ -87,6 +87,10 @@ const fn default_wtsa() -> usize {
 }
 const fn default_mpts() -> usize {
     60
+}
+
+fn default_compiler_location() -> String {
+    "coconutpak".to_string()
 }
 
 fn default_sled_store_path() -> String {

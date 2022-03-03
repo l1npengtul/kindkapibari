@@ -1,5 +1,6 @@
 use std::ffi::OsString;
 use thiserror::Error;
+use toml::ser::Error;
 
 #[derive(Clone, Debug, Hash, PartialEq, PartialOrd, Error)]
 pub enum CompilerError {
@@ -31,8 +32,24 @@ pub enum CompilerError {
 pub enum ConfigError {
     #[error("Config file not found: {0:?}")]
     ConfigNotFound(OsString),
-    #[error("Bad Config File at {path:?}: {why}")]
-    InvalidConfigFile { path: OsString, why: String },
-    #[error("Config File Error: {path:?}: {why}")]
-    ConfigFileError { path: OsString, why: String },
+    #[error("Bad Config File: {why}")]
+    InvalidConfigFile { why: String },
+    #[error("Config File Error: {why}")]
+    ConfigFileError { why: String },
+}
+
+impl From<toml::ser::Error> for ConfigError {
+    fn from(toml_err: Error) -> Self {
+        ConfigError::InvalidConfigFile {
+            why: toml_err.to_string(),
+        }
+    }
+}
+
+impl From<std::io::Error> for ConfigError {
+    fn from(io_error: std::io::Error) -> Self {
+        ConfigError::ConfigFileError {
+            why: io_error.to_string(),
+        }
+    }
 }
