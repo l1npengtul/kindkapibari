@@ -1,7 +1,7 @@
 use std::ffi::OsString;
 use thiserror::Error;
 
-#[derive(Clone, Debug, Error)]
+#[derive(Clone, Debug, Hash, PartialEq, PartialOrd, Error)]
 pub enum CompilerError {
     #[error("Cannot Find or Open Source Path!")]
     SourcePathInvalid,

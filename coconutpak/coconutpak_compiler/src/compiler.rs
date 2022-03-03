@@ -11,7 +11,6 @@ use escaper::encode_minimal;
 use html_parser::{Dom, Element, Node};
 use itertools::Itertools;
 use log::{error, warn};
-use semver::Version;
 use std::{
     borrow::Cow,
     fmt::{Display, Formatter},

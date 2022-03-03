@@ -18,6 +18,7 @@ flume = "0.10"
 rusty_pool = "0.6"
 tabox = "1.2"
 ahash = "0.7"
+dashmap = "5.1"
 
 [dependencies.tokio]
 version = "1.17"

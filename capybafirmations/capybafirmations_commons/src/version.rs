@@ -1,5 +1,4 @@
 use semver::Version;
-use std::io::Write;
 use std::ops::{Deref, DerefMut};
 
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
