@@ -12,6 +12,8 @@ pub struct Model {
     pub uuid: Uuid,
     #[sea_orm(unique, indexed)]
     pub github_id: i64,
+    #[sea_orm(unique, indexed)]
+    pub capybafirmations_id: Uuid,
 }
 
 #[derive(Copy, Clone, Debug, EnumIter)]

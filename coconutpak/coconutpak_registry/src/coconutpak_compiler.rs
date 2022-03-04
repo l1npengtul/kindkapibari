@@ -1,15 +1,14 @@
 use crate::config::ServerCfg;
-use ahash::RandomState;
+
 use chrono::{DateTime, Utc};
 use coconutpak_compiler::error::CompilerError;
-use dashmap::DashMap;
-use flume::{Receiver, Sender};
-use rusty_pool::ThreadPool;
+use bytes::
 use semver::Version;
 use serde::{Deserialize, Serialize};
+use sled::Db as SledDb;
+use std::sync::atomic::AtomicU64;
 use std::{
     cmp::Ordering,
-    future::Future,
     hash::{Hash, Hasher},
     ops::{Deref, DerefMut},
     pin::Pin,
@@ -21,6 +20,8 @@ use std::{
 };
 use tabox::configuration::SandboxConfiguration;
 use uuid::Uuid;
+
+pub type BuildId = u64;
 
 #[derive(Copy, Clone, Hash, Ord, PartialOrd, Eq, PartialEq, Serialize, Deserialize)]
 #[repr(u8)]
@@ -118,98 +119,49 @@ impl PartialEq for AtomicCompileStatus {
     }
 }
 
+#[derive(Clone, Debug, Hash, PartialOrd, PartialEq, Serialize, Deserialize)]
+pub struct CompileTaskMetadata {
+    pub pak_id: Uuid,
+    pub name: String,
+    pub version: Version,
+    pub account_id: Uuid,
+    pub submit_datetime: DateTime<Utc>,
+}
+
 #[derive(Clone, Debug, Serialize, Deserialize)]
-pub struct CompileTask {
-    pub build_id: Uuid,
+pub struct PendingCompileTask {
+    pub build_id: BuildId,
     #[serde(skip)]
     pub bytes_snap: Vec<u8>,
 }
 
-impl PartialEq for CompileTask {
+impl PartialEq for PendingCompileTask {
     fn eq(&self, other: &Self) -> bool {
         self.build_id.eq(&other.build_id)
     }
 }
 
-impl Eq for CompileTask {}
+impl Eq for PendingCompileTask {}
 
-impl PartialOrd for CompileTask {
+impl PartialOrd for PendingCompileTask {
     fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
         self.build_id.partial_cmp(&other.build_id)
     }
 }
 
-impl Hash for CompileTask {
+impl Hash for PendingCompileTask {
     fn hash<H: Hasher>(&self, state: &mut H) {
         self.build_id.hash(state);
     }
 }
 
-impl Future for CompileTask {
-    type Output = Result<CompletedTask, FailedTask>;
-
-    fn poll(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Self::Output> {
-        //
-    }
-}
-
-#[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct CompileTaskHandler {
-    pub package_name: String,
-    pub package_id: Uuid,
-    pub package_version: Version,
-    pub build_id: Uuid,
-    pub status: AtomicCompileStatus,
-}
-
-impl CompileTaskHandler {
-    pub fn from_build_id(build_id: Uuid) -> Self {
-        // all these other fields dont matter for hash
-        CompileTaskHandler {
-            package_name: "".to_string(),
-            package_id: Uuid::default(),
-            package_version: Version::new(0, 0, 0),
-            build_id,
-            status: AtomicCompileStatus::from_compile_status(CompileStatus::Queued),
-        }
-    }
-}
-
-impl Deref for CompileTaskHandler {
-    type Target = Uuid;
-
-    fn deref(&self) -> &Self::Target {
-        &self.build_id
-    }
-}
-
-impl DerefMut for CompileTaskHandler {
-    fn deref_mut(&mut self) -> &mut Self::Target {
-        &mut self.build_id
-    }
-}
-
-impl Hash for CompileTaskHandler {
-    fn hash<H: Hasher>(&self, state: &mut H) {
-        self.build_id.hash(state);
-    }
-}
-
-impl PartialEq for CompileTaskHandler {
-    fn eq(&self, other: &Self) -> bool {
-        self.build_id.eq(&other.build_id)
-    }
-}
-
-impl PartialOrd for CompileTaskHandler {
-    fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
-        self.build_id.partial_cmp(&other.build_id)
-    }
+    id: BuildId,
 }
 
 #[derive(Clone, Debug, Hash, Ord, PartialOrd, Eq, PartialEq)]
 pub struct CompletedTask {
-    pub build_id: Uuid,
+    pub build_id: BuildId,
     pub bson_bytes_snap: Vec<u8>,
     pub time_started: DateTime<Utc>,
     pub time_completed: DateTime<Utc>,
@@ -217,7 +169,7 @@ pub struct CompletedTask {
 
 #[derive(Clone, Debug, Hash, PartialOrd, PartialEq)]
 pub struct FailedTask {
-    pub build_id: Uuid,
+    pub build_id: BuildId,
     pub error: CompilerError,
     pub logs: String,
     pub time_started: DateTime<Utc>,
@@ -227,11 +179,8 @@ pub struct FailedTask {
 pub struct CompilerService {
     server_config: Arc<ServerCfg>,
     sandbox_config: SandboxConfiguration,
-    tasks: Arc<DashMap<CompileTaskHandler, CompileTask, RandomState>>,
-    task_sender: Sender<CompileTask>,
-    task_receiver_thread: Receiver<CompileTask>,
-    coconut_receiver: Receiver<Result<CompletedTask, FailedTask>>,
-    coconut_sender_thread: Sender<Result<CompletedTask, FailedTask>>,
+    id_counter: AtomicU64,
+    tasks: Arc,
 }
 
 impl CompilerService {}

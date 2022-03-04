@@ -1,6 +1,6 @@
 # The CoconutPak v0.1.0 Standard
 
-### 1. What is an coconut?
+### 1. What is an coconutpak?
 CoconutPaks are packages that allow users to add custom extensions to Capybafirmations. Things such as themes,
 custom text, and asset overrides.
 
@@ -13,7 +13,7 @@ A coconut is composed of the following:
 3. Assets inside the `src/`
 4. A file called `lib.json` that registers the files to the app.
 
-### 3. The Manifest
+### 3. The Manifest (Coconut.toml)
 A manifest consists of
 1. The Authors (e.g. "Boaty McBoatFace <xx_desTinyfan42069ipedojacketpeoplewhosavelivesandvictimblamerapevictims_xx@uwuvowshsohot.csis.gc.ca>")
     1. This is equivalent to the git config by default!
@@ -143,4 +143,7 @@ This is the equivalent of a `lib.rs` file. It contains everything to be linked i
 ### 6. Compiler
 The compiler traverses the `lib.json` and finds files it references recursively and links them to the final BSON file.
 
-The BSON file is a collection of all the previous 
+### 7. Transfer Format
+Since the registry must compile all coconutpaks itself, we must have a way to transfer files.
+This is done using a tarball compressed with gzip. The only things there should be the `src/` directory and `Coconut.toml` file,
+both at the root of the tarball.
