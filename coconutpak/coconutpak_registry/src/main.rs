@@ -1,5 +1,6 @@
 #![deny(clippy::pedantic)]
 #![warn(clippy::all)]
+#![feature(thread_is_running)]
 
 mod api;
 mod coconutpak_cleanup;

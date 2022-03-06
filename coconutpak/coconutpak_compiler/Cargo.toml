@@ -39,8 +39,8 @@ version = "0.6"
 [dependencies.coconutpak_core]
 path = "../coconutpak_core"
 
-[dependencies.capybafirmations_commons]
-path = "../../capybafirmations/capybafirmations_commons"
+[dependencies.kandkapybari_commons]
+path = "../../kindkapybari/kandkapybari_commons"
 default-features = false
 
 [profile.dev]

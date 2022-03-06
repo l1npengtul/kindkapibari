@@ -17,6 +17,7 @@ pub struct Model {
     manifest_bson_lz4: Vec<u8>,
     package_bson_snappy: Vec<u8>,
     release: DateTime<Utc>,
+    yanked: bool,
 }
 
 #[derive(Copy, Clone, Debug, EnumIter)]

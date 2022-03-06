@@ -17,7 +17,6 @@ color-eyre = "0.6"
 uuid = "0.8"
 flume = "0.10"
 rusty_pool = "0.6"
-tabox = "1.2"
 ahash = "0.7"
 dashmap = "5.1"
 tar = "0.4"
@@ -67,6 +66,9 @@ git = "https://github.com/l1npengtul/atomic_enum"
 [dependencies.bson]
 version = "2.1"
 features = ["chrono-0_4", "serde_with", "uuid-0_8"]
+
+[dependencies.tabox]
+git = "https://github.com/l1npengtul/tabox.git"
 
 [dependencies.coconutpak_compiler]
 path = "../coconutpak_compiler"

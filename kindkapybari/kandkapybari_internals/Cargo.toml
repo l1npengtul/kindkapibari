@@ -7,6 +7,6 @@ edition = "2021"
 
 [dependencies]
 
-[dependencies.capybafirmations_commons]
-path = "../../capybafirmations_commons"
+[dependencies.kandkapybari_commons]
+path = "../kandkapybari_commons"
 default-features = false

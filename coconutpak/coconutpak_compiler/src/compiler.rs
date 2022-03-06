@@ -20,7 +20,7 @@ use std::{
     str::FromStr,
 };
 
-static ALLOWED_TAGS: [&str; 16] = [
+const ALLOWED_TAGS: [&str; 16] = [
     "resp",
     "response",
     "message",
@@ -37,6 +37,13 @@ static ALLOWED_TAGS: [&str; 16] = [
     "wave",
     "shaky",
     "spoiler",
+];
+
+const ALLOWED_CHARS: &[char] = &[
+    'a', 'b', 'c', 'd', 'e', 'f', 'g', 'h', 'i', 'j', 'k', 'l', 'm', 'n', 'o', 'p', 'q', 'r', 's',
+    't', 'u', 'v', 'w', 'x', 'y', 'z', 'A', 'B', 'C', 'D', 'E', 'F', 'G', 'H', 'I', 'J', 'K', 'L',
+    'M', 'N', 'O', 'P', 'Q', 'R', 'S', 'T', 'U', 'V', 'W', 'X', 'Y', 'Z', '0', '1', '2', '3', '4',
+    '5', '6', '7', '8', '9', '_', '-',
 ];
 
 pub struct Compiler {
@@ -58,6 +65,38 @@ impl Compiler {
         let source_path = Path::new(&self.source_path);
         if !source_path.is_dir() {
             return Err(CompilerError::SourcePathInvalid);
+        }
+
+        // check manifest for bad characters
+        if !self.manifest.name.replace(ALLOWED_CHARS, "").is_empty() {
+            return Err(CompilerError::InvalidCharacters {
+                field: "name".to_string(),
+                bad_char: format!("Allowed Characters: {:?}", ALLOWED_CHARS),
+            });
+        }
+        if !self
+            .manifest
+            .tags
+            .join("")
+            .replace(ALLOWED_CHARS, "")
+            .is_empty()
+        {
+            return Err(CompilerError::InvalidCharacters {
+                field: "tags".to_string(),
+                bad_char: format!("Allowed Characters: {:?}", ALLOWED_CHARS),
+            });
+        }
+        if !self
+            .manifest
+            .categories
+            .join("")
+            .replace(ALLOWED_CHARS, "")
+            .is_empty()
+        {
+            return Err(CompilerError::InvalidCharacters {
+                field: "categories".to_string(),
+                bad_char: format!("Allowed Characters: {:?}", ALLOWED_CHARS),
+            });
         }
 
         // open libjson and see what's inside

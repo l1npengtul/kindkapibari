@@ -19,7 +19,8 @@ A manifest consists of
     1. This is equivalent to the git config by default!
     2. It is a list of strings(for multiple authors).
 2. Name
-    3. The name of the coconut
+    1.The name of the coconutpak
+    2. Can only contain A-Z, a-z, 0-9, -, _
 3. Version
     1. SemVer-2 REQUIRED!
     2. 0.1.0 by default
@@ -32,6 +33,7 @@ A manifest consists of
     1. A short description of what this is.
 7. Tags
     1. A maximum of 5 search words describing what this is
+    2. Can only contain A-Z, a-z, 0-9, -, _
 8. Documentation Link
     1. Optional
     2. Link to docs
@@ -39,6 +41,8 @@ A manifest consists of
    1. Optional
 10. Categories
     1. A list of categories this fits into.
+    2. Can only contain A-Z, a-z, 0-9, -, _
+
 11. README link
     1. By default, does not need to be specified as we use the README of the repository.
     2. If specified, the file pointed to is the new README.

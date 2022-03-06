@@ -7,7 +7,7 @@ extern crate serde;
 #[macro_use]
 extern crate sea_orm;
 
-pub mod affirmpak;
+pub mod coconutpak;
 pub mod languages;
 pub mod preferences;
 pub mod pronouns;

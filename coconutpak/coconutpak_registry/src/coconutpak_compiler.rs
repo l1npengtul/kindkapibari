@@ -2,11 +2,15 @@ use crate::config::ServerCfg;
 
 use chrono::{DateTime, Utc};
 use coconutpak_compiler::error::CompilerError;
-use bytes::
+use dashmap::DashMap;
+use oauth2::url::quirks::hash;
 use semver::Version;
 use serde::{Deserialize, Serialize};
-use sled::Db as SledDb;
+use sled::{Db as SledDb, Tree};
+use std::future::Future;
 use std::sync::atomic::AtomicU64;
+use std::thread::{sleep, JoinHandle};
+use std::time::Duration;
 use std::{
     cmp::Ordering,
     hash::{Hash, Hasher},
@@ -19,9 +23,19 @@ use std::{
     task::{Context, Poll},
 };
 use tabox::configuration::SandboxConfiguration;
+use tabox::result::SandboxExecutionResult;
+use tabox::{Sandbox, SandboxImplementation};
 use uuid::Uuid;
 
-pub type BuildId = u64;
+pub struct BuildId {
+    pub id: u64,
+}
+
+impl AsRef<[u8]> for BuildId {
+    fn as_ref(&self) -> &[u8] {
+        &self.id.to_ne_bytes()
+    }
+}
 
 #[derive(Copy, Clone, Hash, Ord, PartialOrd, Eq, PartialEq, Serialize, Deserialize)]
 #[repr(u8)]
@@ -141,8 +155,6 @@ impl PartialEq for PendingCompileTask {
     }
 }
 
-impl Eq for PendingCompileTask {}
-
 impl PartialOrd for PendingCompileTask {
     fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
         self.build_id.partial_cmp(&other.build_id)
@@ -155,8 +167,26 @@ impl Hash for PendingCompileTask {
     }
 }
 
+#[derive(Debug, PartialEq, Serialize, Deserialize)]
 pub struct CompileTaskHandler {
-    id: BuildId,
+    pub handle: SandboxImplementation,
+}
+
+impl Future for CompileTaskHandler {
+    type Output = tabox::Result<SandboxExecutionResult>;
+
+    fn poll(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Self::Output> {
+        if self.handle.child_thread.is_finished() {
+            Poll::Ready(self.handle.wait())
+        } else {
+            let waker = cx.waker().clone();
+            std::thread::spawn(|| {
+                sleep(Duration::new(1, 0));
+                waker.wake();
+            });
+            Poll::Pending
+        }
+    }
 }
 
 #[derive(Clone, Debug, Hash, Ord, PartialOrd, Eq, PartialEq)]
@@ -180,7 +210,11 @@ pub struct CompilerService {
     server_config: Arc<ServerCfg>,
     sandbox_config: SandboxConfiguration,
     id_counter: AtomicU64,
-    tasks: Arc,
+    task_metadata: Arc<DashMap<BuildId, CompileTaskMetadata>>,
+    task_status: Arc<DashMap<BuildId, AtomicCompileStatus>>,
+    // BuildId, Tarball with GZIP compression
+    tasks: Tree,
+    running_tasks: Arc<DashMap<BuildId, CompileTaskHandler>>,
 }
 
 impl CompilerService {}

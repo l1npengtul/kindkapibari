@@ -4,6 +4,9 @@ use toml::ser::Error;
 
 #[derive(Clone, Debug, Hash, PartialEq, PartialOrd, Error)]
 pub enum CompilerError {
+    #[error("Disallowed Character in {field}: {bad_char}")]
+    InvalidCharacters { field: String, bad_char: String },
+    #[error("Cannot Find or Open Source Path!")]
     #[error("Cannot Find or Open Source Path!")]
     SourcePathInvalid,
     #[error("Cannot find or open file {file}, {why}")]

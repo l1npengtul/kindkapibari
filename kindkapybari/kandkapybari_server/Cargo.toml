@@ -1,5 +1,5 @@
 [package]
-name = "capybafirmations_server"
+name = "kandkapybari_server"
 version = "0.1.0"
 edition = "2021"
 
@@ -20,8 +20,8 @@ once_cell = "1.9"
 version = "1.16"
 features = ["sync"]
 
-[dependencies.capybafirmations_commons]
-path = "../../capybafirmations_commons"
+[dependencies.kandkapybari_commons]
+path = "../kandkapybari_commons"
 features = ["server"]
 
 [dependencies.sea-orm]

@@ -5,8 +5,6 @@ edition = "2021"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
-
-
 [dependencies]
 thiserror = "1.0"
 serde_json = "1.0"
@@ -34,6 +32,6 @@ version = "0.6"
 version = "0.11"
 features = ["serde"]
 
-[dependencies.capybafirmations_commons]
-path = "../../capybafirmations/capybafirmations_commons"
+[dependencies.kandkapybari_commons]
+path = "../../kindkapybari/kandkapybari_commons"
 default-features = false
