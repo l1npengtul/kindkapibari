@@ -6,7 +6,7 @@ edition = "2021"
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [features]
-server = ["sea-orm", "sea-orm/macros"]
+server = ["sea-orm"]
 client = ["chrono/wasmbind"]
 
 [dependencies]
