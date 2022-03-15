@@ -1,3 +1,4 @@
+use crate::languages::Languages;
 use crate::license::SPDXLicense;
 use semver::Version;
 use serde::*;
@@ -26,6 +27,7 @@ pub struct CoconutPakManifest {
     pub homepage: Option<Url>,
     #[serde(default, skip_serializing_if = "StaticVec::is_empty")]
     pub categories: StaticVec<String, 5>,
+    pub supported_language: Languages,
 }
 
 impl Default for CoconutPakManifest {

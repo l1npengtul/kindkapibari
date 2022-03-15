@@ -6,6 +6,7 @@ edition = "2021"
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [features]
+default = []
 server = ["sea-orm", "sea-orm/macros"]
 
 [dependencies]
@@ -39,6 +40,6 @@ features = ["serde"]
 version = "0.6"
 optional = true
 
-[dependencies.kandkapybari_commons]
-path = "../../kindkapybari/kandkapybari_commons"
+[dependencies.kindkapybari_core]
+path = "../../kindkapybari/kindkapybari_core"
 default-features = false

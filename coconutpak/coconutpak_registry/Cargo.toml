@@ -75,3 +75,4 @@ path = "../coconutpak_compiler"
 
 [dependencies.coconutpak_core]
 path = "../coconutpak_core"
+features = ["server"]

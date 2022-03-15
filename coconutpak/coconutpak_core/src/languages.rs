@@ -1,6 +1,9 @@
+#[cfg(feature = "server")]
+use sea_orm::{ActiveEnum, ColumnDef, ColumnType, DbErr, EnumIter};
 use std::fmt::{Debug, Display, Formatter};
 
 #[derive(Clone, Hash, PartialOrd, PartialEq, Serialize, Deserialize)]
+#[cfg_attr(feature = "server", derive(EnumIter))]
 pub enum Languages {
     AllNone,
     En,
@@ -47,5 +50,26 @@ where
             "zh_cn" => Self::ZhCn,
             other => Self::Other(other.to_string()),
         }
+    }
+}
+
+#[cfg(feature = "server")]
+impl ActiveEnum for Languages {
+    type Value = String;
+
+    fn name() -> String {
+        "language".to_string()
+    }
+
+    fn to_value(&self) -> Self::Value {
+        format!("{}", self)
+    }
+
+    fn try_from_value(v: &Self::Value) -> Result<Self, DbErr> {
+        Ok(Self::from(v))
+    }
+
+    fn db_type() -> ColumnDef {
+        ColumnType::String(Some(1)).def()
     }
 }

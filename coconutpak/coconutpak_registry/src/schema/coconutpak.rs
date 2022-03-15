@@ -1,3 +1,4 @@
+use coconutpak_core::languages::Languages;
 use sea_orm::{
     prelude::{DeriveEntityModel, EntityTrait, PrimaryKeyTrait, Related, RelationTrait},
     ActiveModelBehavior, IdenStatic, RelationDef,

@@ -7,24 +7,24 @@ use oauth2::url::quirks::hash;
 use semver::Version;
 use serde::{Deserialize, Serialize};
 use sled::{Db as SledDb, Tree};
-use std::future::Future;
-use std::sync::atomic::AtomicU64;
-use std::thread::{sleep, JoinHandle};
-use std::time::Duration;
 use std::{
     cmp::Ordering,
+    future::Future,
     hash::{Hash, Hasher},
     ops::{Deref, DerefMut},
     pin::Pin,
     sync::{
-        atomic::{AtomicU8, Ordering as AtomicOrdering},
+        atomic::{AtomicU64, AtomicU8, Ordering as AtomicOrdering},
         Arc,
     },
     task::{Context, Poll},
+    thread::{sleep, JoinHandle},
+    time::Duration,
 };
-use tabox::configuration::SandboxConfiguration;
-use tabox::result::SandboxExecutionResult;
-use tabox::{Sandbox, SandboxImplementation};
+use tabox::{
+    configuration::SandboxConfiguration, result::SandboxExecutionResult, Sandbox,
+    SandboxImplementation,
+};
 use uuid::Uuid;
 
 pub struct BuildId {
@@ -217,4 +217,19 @@ pub struct CompilerService {
     running_tasks: Arc<DashMap<BuildId, CompileTaskHandler>>,
 }
 
-impl CompilerService {}
+impl CompilerService {
+    pub fn new(server_config: Arc<ServerCfg>) -> Self {
+        let sandbox = SandboxConfiguration::default()
+            .
+
+        CompilerService {
+            server_config,
+            sandbox_config: ,
+            id_counter: Default::default(),
+            task_metadata: Arc::new(()),
+            task_status: Arc::new(()),
+            tasks: (),
+            running_tasks: Arc::new(())
+        }
+    }
+}

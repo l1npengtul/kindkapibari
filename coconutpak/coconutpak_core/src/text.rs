@@ -1,4 +1,5 @@
-use kandkapybari_commons::{languages::Languages, responses::Response};
+use crate::languages::Languages;
+use kindkapybari_core::responses::Response;
 
 #[derive(Clone, Debug, PartialOrd, PartialEq, Serialize, Deserialize)]
 pub struct TextContainer {

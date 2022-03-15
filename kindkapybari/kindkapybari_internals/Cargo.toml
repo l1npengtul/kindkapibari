@@ -7,6 +7,6 @@ edition = "2021"
 
 [dependencies]
 
-[dependencies.kandkapybari_commons]
-path = "../kandkapybari_commons"
+[dependencies.kindkapybari_core]
+path = "../kindkapybari_core"
 default-features = false
