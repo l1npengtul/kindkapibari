@@ -10,7 +10,6 @@
       <sourceFolder url="file://$MODULE_DIR$/affirmpak/affirmpak_registry/src" isTestSource="false" />
       <sourceFolder url="file://$MODULE_DIR$/coconutpak/coconutpak_compiler/src" isTestSource="false" />
       <sourceFolder url="file://$MODULE_DIR$/coconutpak/coconutpak_core/src" isTestSource="false" />
-      <sourceFolder url="file://$MODULE_DIR$/coconutpak/coconutpak_registry/src" isTestSource="false" />
       <sourceFolder url="file://$MODULE_DIR$/misc/streaming_threadpool/src" isTestSource="false" />
       <sourceFolder url="file://$MODULE_DIR$/coconutpak/coconutpak/src" isTestSource="false" />
       <sourceFolder url="file://$MODULE_DIR$/kindkapybari/affirmpak_registry/src" isTestSource="false" />
@@ -18,6 +17,7 @@
       <sourceFolder url="file://$MODULE_DIR$/kindkapybari/kindkapybari_server/src" isTestSource="false" />
       <sourceFolder url="file://$MODULE_DIR$/kindkapybari/kindkapybari_core/src" isTestSource="false" />
       <sourceFolder url="file://$MODULE_DIR$/kindkapybari/kindkapybari_internals/src" isTestSource="false" />
+      <sourceFolder url="file://$MODULE_DIR$/coconutpak/coconutpak_island/src" isTestSource="false" />
       <excludeFolder url="file://$MODULE_DIR$/capybafirmations_internals/target" />
       <excludeFolder url="file://$MODULE_DIR$/affirmpak/target" />
       <excludeFolder url="file://$MODULE_DIR$/affirmpak/affirmpak_core/target" />
@@ -28,7 +28,6 @@
       <excludeFolder url="file://$MODULE_DIR$/backend/capybafirmations_server/target" />
       <excludeFolder url="file://$MODULE_DIR$/frontend/internals/target" />
       <excludeFolder url="file://$MODULE_DIR$/coconutpak/coconutpak_compiler/target" />
-      <excludeFolder url="file://$MODULE_DIR$/coconutpak/coconutpak_registry/target" />
       <excludeFolder url="file://$MODULE_DIR$/coconutpak/coconutpak_core/target" />
       <excludeFolder url="file://$MODULE_DIR$/misc/streaming_threadpool/target" />
       <excludeFolder url="file://$MODULE_DIR$/coconut/coconut_registry/target" />
@@ -38,6 +37,7 @@
       <excludeFolder url="file://$MODULE_DIR$/kindkapybari/kindkapybari_server/target" />
       <excludeFolder url="file://$MODULE_DIR$/kindkapybari/kindkapybari_internals/target" />
       <excludeFolder url="file://$MODULE_DIR$/kindkapybari/kindkapybari_core/target" />
+      <excludeFolder url="file://$MODULE_DIR$/coconutpak/coconutpak_island/target" />
     </content>
     <orderEntry type="inheritedJdk" />
     <orderEntry type="sourceFolder" forTests="false" />
