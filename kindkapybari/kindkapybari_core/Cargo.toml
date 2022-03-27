@@ -6,12 +6,13 @@ edition = "2021"
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [features]
-server = ["sea-orm", "sea-orm/macros"]
-client = ["chrono/wasmbind"]
+default = []
+client = ["chrono/wasmbind", "wasm-bindgen"]
+server = ["pot", "sea-orm", "sea-orm/macros", "sea-orm/chrono", "sea-orm/runtime-tokio-rustls", "sea-orm/with-json", "sea-orm/with-uuid", "sea-orm/sqlx-postgres"]
 
 [dependencies]
 serde_json = "^1.0"
-ahash = "^0.7"
+thiserror = "1.0"
 
 [dependencies.serde]
 version = "1.0"
@@ -29,15 +30,30 @@ features = ["serde"]
 version = "^2.2"
 features = ["serde"]
 
-[dependencies.quick-xml]
-version = "^0.22"
-features = ["serialize"]
+[dependencies.tera]
+version = "1.15"
 
-[dependencies.sea-orm]
-version = "0.6"
-features = ["runtime-tokio-rustls", "sqlx-postgres", "macros"]
-optional = true
+[dependencies.staticvec]
+version = "0.11"
+features = ["serde"]
+
+[dependencies.language-tags]
+version = "0.3"
+features = ["serde"]
 
 [dependencies.chrono]
 version = "^0.4"
-features = ["serde"]
+features = ["serde", "unstable-locales"]
+
+[dependencies.pot]
+version = "1.0"
+optional = true
+
+[dependencies.sea-orm]
+version = "0.7"
+optional = true
+
+[dependencies.wasm-bindgen]
+version = "0.2"
+optional = true
+

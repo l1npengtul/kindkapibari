@@ -50,14 +50,14 @@ version = "0.9"
 
 [dependencies.poem]
 version = "1.3"
-features = ["csrf", "session", "static-files"]
+features = ["csrf", "session", "static-files", "multipart"]
 
 [dependencies.poem-openapi]
 version = "1.3"
 features = ["url", "bson", "chrono", "email", "static-files", "rapidoc"]
 
 [dependencies.sea-orm]
-version = "0.6"
+version = "0.7"
 features = ["runtime-tokio-rustls", "sqlx-postgres", "macros"]
 
 [dependencies.atomic_enum]
@@ -73,6 +73,6 @@ git = "https://github.com/l1npengtul/tabox.git"
 [dependencies.coconutpak_compiler]
 path = "../coconutpak_compiler"
 
-[dependencies.coconutpak_core]
-path = "../coconutpak_core"
+[dependencies.kindkapybari_core]
+path = "../../kindkapybari/kindkapybari_core"
 features = ["server"]

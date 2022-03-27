@@ -3,12 +3,21 @@
 
 #[macro_use]
 extern crate serde;
-#[cfg(feature = "server")]
-#[macro_use]
-extern crate sea_orm;
 
+#[cfg(feature = "server")]
+pub mod dbarray;
+#[cfg(feature = "server")]
+pub mod dbvec;
+pub mod error;
+pub mod gender;
+pub mod language;
+pub mod license;
+pub mod manifest;
+pub mod output;
 pub mod preferences;
 pub mod pronouns;
 pub mod responses;
-pub mod user;
-mod version;
+pub mod templater;
+pub mod text;
+pub mod user_data;
+pub mod version;

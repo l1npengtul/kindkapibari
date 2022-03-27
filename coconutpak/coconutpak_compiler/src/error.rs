@@ -6,15 +6,14 @@ use toml::ser::Error;
 pub enum CompilerError {
     #[error("Disallowed Character in {field}: {bad_char}")]
     InvalidCharacters { field: String, bad_char: String },
-    #[error("Cannot Find or Open Source Path!")]
+    #[error("Bad {field}: {why}")]
+    BadField { field: String, why: String },
     #[error("Cannot Find or Open Source Path!")]
     SourcePathInvalid,
     #[error("Cannot find or open file {file}, {why}")]
     FileError { file: String, why: String },
-    #[error("Invalid lib.json!")]
-    BadLibJson,
-    #[error("Invalid Manifest!")]
-    BadManifest,
+    #[error("Invalid Manifest: {}")]
+    BadManifest(String),
     #[error("Invalid Text File {file}: {why}")]
     BadText { file: String, why: String },
     #[error("Invalid Attribute: attribute {attribute} of value {value}, Error: {why}")]

@@ -14,7 +14,7 @@ pub struct Model {
     pub prefix: String,
     #[sea_orm(column_type = "Text")]
     pub salty: String,
-    #[sea_orm(unique, indexed, column_type = "Text")]
+    #[sea_orm(unique, column_type = "Text")]
     pub key: String,
 }
 

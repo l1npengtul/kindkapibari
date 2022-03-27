@@ -3,7 +3,6 @@ use crate::config::ServerCfg;
 use chrono::{DateTime, Utc};
 use coconutpak_compiler::error::CompilerError;
 use dashmap::DashMap;
-use oauth2::url::quirks::hash;
 use semver::Version;
 use serde::{Deserialize, Serialize};
 use sled::{Db as SledDb, Tree};
@@ -219,8 +218,9 @@ pub struct CompilerService {
 
 impl CompilerService {
     pub fn new(server_config: Arc<ServerCfg>) -> Self {
-        let sandbox = SandboxConfiguration::default()
-            .
+        let mut sandbox = SandboxConfiguration::default();
+        sandbox.time_limit(300);
+        sandbox
 
         CompilerService {
             server_config,
