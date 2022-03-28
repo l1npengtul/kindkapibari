@@ -11,11 +11,10 @@ pub struct Model {
     pub name: String,
     pub owner: Uuid,
     #[sea_orm(column_type = "Text")]
-    pub prefix: String,
-    #[sea_orm(column_type = "Text")]
     pub salty: String,
     #[sea_orm(unique, column_type = "Text")]
-    pub key: String,
+    pub key_hashed_argon2: String,
+    pub basic_key: bool,
 }
 
 #[derive(Copy, Clone, Debug, EnumIter)]

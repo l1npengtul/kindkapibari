@@ -46,6 +46,8 @@ pub struct Database {
     pub postgres_url: String,
     #[serde(default = "default_sled_store_path")]
     pub sled_store_path: String,
+    pub meilisearch_url: String,
+    pub meilisearch_passwd: String,
 }
 
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]

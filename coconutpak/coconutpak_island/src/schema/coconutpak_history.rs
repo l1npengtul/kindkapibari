@@ -2,11 +2,16 @@ use kindkapybari_core::{
     dbarray::DBArray, dbvec::DBVec, manifest::CoconutPakManifest, version::Version,
 };
 use oauth2::url::Url;
+use poem_openapi::registry::{MetaSchema, MetaSchemaRef};
+use poem_openapi::types::{ToJSON, Type};
+use sea_orm::strum::IntoEnumIterator;
 use sea_orm::{
     prelude::{DeriveEntityModel, EntityTrait, PrimaryKeyTrait, Related, RelationTrait},
     ActiveModelBehavior, IdenStatic, RelationDef,
 };
 use serde::{Deserialize, Serialize};
+use serde_json::Value;
+use std::borrow::Cow;
 use uuid::Uuid;
 
 #[derive(Clone, Debug, Hash, PartialOrd, PartialEq, Serialize, Deserialize, DeriveEntityModel)]
@@ -87,5 +92,35 @@ impl From<Model> for CoconutPakManifest {
             homepage: m.homepage.map(|x| Url::parse(&x).unwrap_or_default()),
             categories: m.categories.into(),
         }
+    }
+}
+
+impl Type for Model {
+    const IS_REQUIRED: bool = false;
+    type RawValueType = Self;
+    type RawElementValueType = Self;
+
+    fn name() -> Cow<'static, str> {
+        Cow::Borrowed("CoconutPakHistory")
+    }
+
+    fn schema_ref() -> MetaSchemaRef {
+        MetaSchemaRef::Inline(Box::new(MetaSchema::new("string")))
+    }
+
+    fn as_raw_value(&self) -> Option<&Self::RawValueType> {
+        Some(Self)
+    }
+
+    fn raw_element_iter<'a>(
+        &'a self,
+    ) -> Box<dyn Iterator<Item = &'a Self::RawElementValueType> + 'a> {
+        Box::new(self.as_raw_value().into_iter())
+    }
+}
+
+impl ToJSON for Model {
+    fn to_json(&self) -> Option<Value> {
+        serde_json::to_value(self).ok()
     }
 }
