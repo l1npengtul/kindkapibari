@@ -1,2 +1,1 @@
-# capybafirmations
-Capybara Affirmations
+# KindKapiBari - Affirmations for the Silenced

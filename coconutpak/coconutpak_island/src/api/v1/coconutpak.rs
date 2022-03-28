@@ -1,9 +1,19 @@
-use poem_openapi::auth::ApiKey;
+use poem_openapi::{
+    auth::ApiKey,
+    param::Query,
+    payload::Json,
+    Multipart,
+    OpenApi
+};
+use poem::Result;
 use crate::schema::*;
-use poem_openapi::param::Query;
-use poem_openapi::payload::Json;
-use poem_openapi::OpenApi;
 use uuid::Uuid;
+
+#[derive(Debug, Multipart)]
+struct FileUpload {
+    name: String,
+    data: Vec<u8>
+}
 
 struct CoconutPakApi;
 
@@ -15,13 +25,13 @@ impl CoconutPakApi {
     }
 
     #[oai(path = "/pack/data_name/:name", method = "get")]
-    async fn pack_data_name(&self, name: Path<String>) -> Json<Option<coconutpak::Model>> {}
+    async fn pack_data_name(&self, name: Path<String>) -> Result<Json<coconutpak::Model>> {}
 
     #[oai(path = "/pack/data/:id", method = "get")]
-    async fn pack_data_id(&self, id: Path<Uuid>) -> Json<Option<coconutpak::Model>> {}
+    async fn pack_data_id(&self, id: Path<Uuid>) -> Result<Json<coconutpak::Model>> {}
 
-    async fn pack_versions(&self, id: Path<Uuid>) -> Json<Vec<coconutpak_history::Model>> {}
+    async fn pack_versions(&self, id: Path<Uuid>) -> Result<Json<Vec<coconutpak_history::Model>>> {}
 
     #[oai(path = "/upload", method = "post")]
-    async fn upload(&self, auth: ApiKey, data: )
+    async fn upload(&self, auth: ApiKey, data: FileUpload) -> Result<>
 }
