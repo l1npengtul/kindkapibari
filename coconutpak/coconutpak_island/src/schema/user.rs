@@ -32,4 +32,14 @@ impl Related<super::api_key::Entity> for Entity {
     }
 }
 
+impl Related<super::coconutpak::Entity> for Entity {
+    fn to() -> RelationDef {
+        super::subscribers::Relation::CoconutPak.def()
+    }
+
+    fn via() -> Option<RelationDef> {
+        Some(super::subscribers::Relation::User.def().rev())
+    }
+}
+
 impl ActiveModelBehavior for ActiveModel {}

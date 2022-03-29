@@ -10,6 +10,8 @@ pub struct ServerCfg {
     pub compiler: Compiler,
     pub database: Database,
     pub github: GithubLogin,
+    #[serde(default = "default_kkb_login")]
+    pub support_official_kkb_login: bool,
 }
 
 impl ServerCfg {
@@ -68,6 +70,10 @@ pub struct Compiler {
 
 const fn default_port() -> u16 {
     8000
+}
+
+const fn default_kkb_login() -> bool {
+    false
 }
 
 fn default_static_serve_location() -> String {

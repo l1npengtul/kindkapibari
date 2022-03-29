@@ -8,7 +8,7 @@ edition = "2021"
 [features]
 default = []
 client = ["chrono/wasmbind", "wasm-bindgen"]
-server = ["pot", "sea-orm", "sea-orm/macros", "sea-orm/chrono", "sea-orm/runtime-tokio-rustls", "sea-orm/with-json", "sea-orm/with-uuid", "sea-orm/sqlx-postgres"]
+server = ["pot", "sea-orm", "sea-orm/macros", "sea-orm/chrono", "sea-orm/runtime-tokio-rustls", "sea-orm/with-json", "sea-orm/with-uuid", "sea-orm/sqlx-postgres", "redis", "redis/cluster", "redis/tokio-comp", "redis/tls"]
 
 [dependencies]
 serde_json = "^1.0"
@@ -44,6 +44,10 @@ features = ["serde"]
 [dependencies.chrono]
 version = "^0.4"
 features = ["serde", "unstable-locales"]
+
+[dependencies.redis]
+version = "0.21"
+optional = true
 
 [dependencies.pot]
 version = "1.0"

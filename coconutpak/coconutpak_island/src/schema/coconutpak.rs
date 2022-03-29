@@ -15,6 +15,7 @@ use uuid::Uuid;
 pub struct Model {
     #[sea_orm(primary_key)]
     pub id: Uuid,
+    #[sea_orm(unique, indexed)]
     pub name: String,
     pub subscribers: u32,
     pub last_published: DateTime<Utc>,
@@ -39,6 +40,16 @@ impl RelationTrait for Relation {
 impl Related<super::coconutpak_history::Entity> for Entity {
     fn to() -> RelationDef {
         Relation::CoconutPakHistory.def()
+    }
+}
+
+impl Related<super::user::Entity> for Entity {
+    fn to() -> RelationDef {
+        super::subscribers::Relation::User.def()
+    }
+
+    fn via() -> Option<RelationDef> {
+        Some(super::subscribers::Relation::CoconutPak.def().rev())
     }
 }
 

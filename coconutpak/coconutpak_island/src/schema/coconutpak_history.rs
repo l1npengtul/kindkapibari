@@ -42,6 +42,7 @@ pub struct Model {
     pub homepage: Option<String>,
     #[sea_orm(nullable)]
     pub categories: DBArray<String, 5>,
+    pub yanked: bool,
 }
 
 #[derive(Copy, Clone, Debug, EnumIter)]
