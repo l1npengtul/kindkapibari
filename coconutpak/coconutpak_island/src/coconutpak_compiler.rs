@@ -1,4 +1,4 @@
-use crate::config::ServerCfg;
+use crate::config::Config;
 
 use chrono::{DateTime, Utc};
 use coconutpak_compiler::error::CompilerError;
@@ -206,7 +206,7 @@ pub struct FailedTask {
 }
 
 pub struct CompilerService {
-    server_config: Arc<ServerCfg>,
+    server_config: Arc<Config>,
     sandbox_config: SandboxConfiguration,
     id_counter: AtomicU64,
     task_metadata: Arc<DashMap<BuildId, CompileTaskMetadata>>,
@@ -217,7 +217,7 @@ pub struct CompilerService {
 }
 
 impl CompilerService {
-    pub fn new(server_config: Arc<ServerCfg>) -> Self {
+    pub fn new(server_config: Arc<Config>) -> Self {
         let mut sandbox = SandboxConfiguration::default();
         sandbox.time_limit(300);
         sandbox

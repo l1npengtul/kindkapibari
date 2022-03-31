@@ -23,6 +23,9 @@ tar = "0.4"
 flate2 = "1.0"
 bincode = "1.3"
 argon2 = "0.4"
+once_cell = "1.10"
+rand = "0.8"
+wasmtime = "0.35"
 
 [dependencies.tokio]
 version = "1.17"
@@ -60,6 +63,10 @@ features = ["url", "bson", "chrono", "email", "static-files", "rapidoc"]
 [dependencies.sea-orm]
 version = "0.7"
 features = ["runtime-tokio-rustls", "sqlx-postgres", "macros"]
+
+[dependencies.redis]
+version = "0.21"
+features = ["aio", "tokio-comp", "r2d2", "cluster", "connection-manager"]
 
 [dependencies.atomic_enum]
 git = "https://github.com/l1npengtul/atomic_enum"

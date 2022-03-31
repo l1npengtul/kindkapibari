@@ -4,7 +4,7 @@ use std::fs::File;
 use std::io::{Read, Write};
 
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
-pub struct ServerCfg {
+pub struct Config {
     #[serde(default = "default_port")]
     pub port: u16,
     pub compiler: Compiler,
@@ -14,7 +14,7 @@ pub struct ServerCfg {
     pub support_official_kkb_login: bool,
 }
 
-impl ServerCfg {
+impl Config {
     pub fn save(&self) -> Result<()> {
         let mut config_file = File::create("Config.toml")?;
         config_file.set_len(0)?;
@@ -50,6 +50,7 @@ pub struct Database {
     pub sled_store_path: String,
     pub meilisearch_url: String,
     pub meilisearch_passwd: String,
+    pub redis_url: String,
 }
 
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]

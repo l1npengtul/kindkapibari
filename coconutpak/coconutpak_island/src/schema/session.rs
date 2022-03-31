@@ -1,15 +1,22 @@
-use sea_orm::prelude::*;
+use bson::Uuid;
+use sea_orm::{
+    ActiveModelBehavior, DeriveEntityModel, EntityTrait, EnumIter, Related, RelationDef,
+    RelationTrait,
+};
 use serde::{Deserialize, Serialize};
-use uuid::Uuid;
 
 #[derive(Clone, Debug, Hash, PartialOrd, PartialEq, Serialize, Deserialize, DeriveEntityModel)]
-#[sea_orm(table_name = "api_keys")]
+#[sea_orm(table_name = "sessions")]
 pub struct Model {
     #[sea_orm(primary_key)]
     pub id: u64,
     pub owner: Uuid,
+    #[sea_orm(column_type = "Text")]
+    pub ip_address: String,
+    #[sea_orm(column_type = "Text")]
+    pub hostname: String,
     #[sea_orm(unique, column_type = "Text")]
-    pub key_hashed_argon2: String,
+    pub session_hashed_argon2: String,
 }
 
 #[derive(Copy, Clone, Debug, EnumIter)]

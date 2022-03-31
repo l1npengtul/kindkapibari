@@ -4,7 +4,6 @@ use kindkapybari_core::{
 use oauth2::url::Url;
 use poem_openapi::registry::{MetaSchema, MetaSchemaRef};
 use poem_openapi::types::{ToJSON, Type};
-use sea_orm::strum::IntoEnumIterator;
 use sea_orm::{
     prelude::{DeriveEntityModel, EntityTrait, PrimaryKeyTrait, Related, RelationTrait},
     ActiveModelBehavior, IdenStatic, RelationDef,

@@ -3,5 +3,7 @@ pub mod bans;
 pub mod coconutpak;
 pub mod coconutpak_data;
 pub mod coconutpak_history;
-pub mod user;
+pub mod session;
 pub mod subscribers;
+pub mod user;
+pub mod reports;

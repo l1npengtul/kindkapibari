@@ -1,6 +1,6 @@
 use sea_orm::{
     prelude::{DeriveEntityModel, EntityTrait, PrimaryKeyTrait, Related, RelationTrait},
-    ActiveModelBehavior, IdenStatic, RelationDef,
+    ActiveModelBehavior, EnumIter, IdenStatic, RelationDef,
 };
 use serde::{Deserialize, Serialize};
 use uuid::Uuid;
@@ -16,12 +16,14 @@ pub struct Model {
 #[derive(Copy, Clone, Debug, EnumIter)]
 pub enum Relation {
     ApiKey,
+    Session,
 }
 
 impl RelationTrait for Relation {
     fn def(&self) -> RelationDef {
         match self {
             Relation::ApiKey => Entity::has_many(super::api_key::Entity).into(),
+            Relation::Session => Entity::has_many(super::session::Entity).into(),
         }
     }
 }

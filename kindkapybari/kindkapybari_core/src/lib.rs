@@ -17,8 +17,6 @@ pub mod output;
 pub mod preferences;
 pub mod pronouns;
 pub mod responses;
-#[cfg(feature = "server")]
-pub mod servercache;
 pub mod templater;
 pub mod text;
 pub mod user_data;
