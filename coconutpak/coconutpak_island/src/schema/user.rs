@@ -10,7 +10,10 @@ use uuid::Uuid;
 pub struct Model {
     #[sea_orm(primary_key)]
     pub uuid: Uuid,
-    pub kindkapybari_id: Uuid,
+    pub kindkapibari_id: Uuid,
+    pub restricted_account: bool,
+    #[sea_orm(column_type = "Text", nullable)]
+    pub email: Option<String>,
 }
 
 #[derive(Copy, Clone, Debug, EnumIter)]
@@ -34,6 +37,12 @@ impl Related<super::api_key::Entity> for Entity {
     }
 }
 
+impl Related<super::session::Entity> for Entity {
+    fn to() -> RelationDef {
+        super::session::Relation::User.def()
+    }
+}
+
 impl Related<super::coconutpak::Entity> for Entity {
     fn to() -> RelationDef {
         super::subscribers::Relation::CoconutPak.def()
@@ -41,6 +50,16 @@ impl Related<super::coconutpak::Entity> for Entity {
 
     fn via() -> Option<RelationDef> {
         Some(super::subscribers::Relation::User.def().rev())
+    }
+}
+
+impl Related<super::reports::Entity> for Entity {
+    fn to() -> RelationDef {
+        super::reports::Relation::CoconutPak.def()
+    }
+
+    fn via() -> Option<RelationDef> {
+        Some(super::reports::Relation::User.def().rev())
     }
 }
 

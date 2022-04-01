@@ -23,6 +23,7 @@ mod coconutpak_cleanup;
 mod coconutpak_compiler;
 mod config;
 mod schema;
+mod login;
 
 #[tokio::main]
 async fn main() {

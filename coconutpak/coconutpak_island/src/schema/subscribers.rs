@@ -7,7 +7,7 @@ use poem_openapi::types::{ToJSON, Type};
 use sea_orm::strum::IntoEnumIterator;
 use sea_orm::{
     prelude::{DeriveEntityModel, EntityTrait, PrimaryKeyTrait, Related, RelationTrait},
-    ActiveModelBehavior, IdenStatic, RelationDef,
+    ActiveModelBehavior, EnumIter, IdenStatic, RelationDef,
 };
 use serde::{Deserialize, Serialize};
 use serde_json::Value;

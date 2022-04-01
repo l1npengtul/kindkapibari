@@ -1,9 +1,9 @@
-use bson::Uuid;
 use sea_orm::{
     ActiveModelBehavior, DeriveEntityModel, EntityTrait, EnumIter, Related, RelationDef,
     RelationTrait,
 };
 use serde::{Deserialize, Serialize};
+use uuid::Uuid;
 
 #[derive(Clone, Debug, Hash, PartialOrd, PartialEq, Serialize, Deserialize, DeriveEntityModel)]
 #[sea_orm(table_name = "sessions")]
@@ -22,6 +22,7 @@ pub struct Model {
 #[derive(Copy, Clone, Debug, EnumIter)]
 pub enum Relation {
     User,
+    SessionLog,
 }
 
 impl RelationTrait for Relation {
@@ -31,6 +32,8 @@ impl RelationTrait for Relation {
                 .from(Column::Owner)
                 .to(super::user::Column::Uuid)
                 .into(),
+            Relation::SessionLog => Entity::has_many(super::session_log::Entity).into(),
+            
         }
     }
 }
@@ -38,6 +41,12 @@ impl RelationTrait for Relation {
 impl Related<super::user::Entity> for Entity {
     fn to() -> RelationDef {
         Relation::User.def()
+    }
+}
+
+impl Related<super::session_log::Entity> for Entity {
+    fn to() -> RelationDef {
+        Relation::SessionLog.def()
     }
 }
 

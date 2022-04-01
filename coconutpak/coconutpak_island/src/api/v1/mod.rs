@@ -10,7 +10,7 @@ pub mod coconutpak;
 pub mod login;
 pub mod user;
 
-const AUTH_REDIS_KEY_START: &'static [u8] = b"coconutpak:auth:";
+const AUTH_REDIS_KEY_START: [u8; 16] = *b"coconutpak:auth:";
 
 #[derive(SecurityScheme)]
 #[oai(
@@ -31,7 +31,7 @@ async fn coconutpak_session_apikey_checker(request: &Request, key: ApiKey) -> Op
         &key.key
     }).into_bytes();
     let argon2 = Argon2::new(Algorithm::Argon2id, Version::default(), Params::default());
-    argon2.hash_password_into(&prehash, &Vec::new(), &mut hashed_key);
+    argon2.hash_password_into(&prehash, b"", &mut hashed_key);
     let from_redis = Cmd::get()
 }
 

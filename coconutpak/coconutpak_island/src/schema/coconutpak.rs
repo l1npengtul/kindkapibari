@@ -1,9 +1,10 @@
 use chrono::{DateTime, Utc};
+use color_eyre::owo_colors::OwoColorize;
 use poem_openapi::registry::{MetaSchema, MetaSchemaRef};
 use poem_openapi::types::{ToJSON, Type};
 use sea_orm::{
     prelude::{DeriveEntityModel, EntityTrait, PrimaryKeyTrait, Related, RelationTrait},
-    ActiveModelBehavior, IdenStatic, RelationDef,
+    ActiveModelBehavior, EnumIter, IdenStatic, RelationDef,
 };
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
@@ -40,6 +41,16 @@ impl RelationTrait for Relation {
 impl Related<super::coconutpak_history::Entity> for Entity {
     fn to() -> RelationDef {
         Relation::CoconutPakHistory.def()
+    }
+}
+
+impl Related<super::reports::Entity> for Entity {
+    fn to() -> RelationDef {
+        super::reports::Relation::User.def()
+    }
+
+    fn via() -> Option<RelationDef> {
+        Some(super::reports::Relation::CoconutPak.def().rev())
     }
 }
 

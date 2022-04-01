@@ -1,9 +1,11 @@
 pub mod api_key;
+pub mod api_key_log;
 pub mod bans;
 pub mod coconutpak;
 pub mod coconutpak_data;
 pub mod coconutpak_history;
+pub mod reports;
 pub mod session;
+pub mod session_log;
 pub mod subscribers;
 pub mod user;
-pub mod reports;
