@@ -32,8 +32,8 @@ features = ["compression", "cookie", "csrf", "prometheus", "redis-session", "rus
 version = "1.3"
 features = ["chrono", "rapidoc", "email", "hostname", "uuid", "url", "bson", "static-files"]
 
-[dependencies.kindkapybari_core]
-path = "../kindkapybari_core"
+[dependencies.kindkapibari_core]
+path = "../kindkapibari_core"
 features = ["server"]
 
 [dependencies.sea-orm]

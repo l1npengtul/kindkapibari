@@ -4,7 +4,7 @@ members = [
     "coconutpak/coconutpak_compiler",
     "coconutpak/coconutpak_island",
     "coconutpak/coconutpak_raft_cli",
-    "kindkapybari/kindkapybari_core",
-    "kindkapybari/kindkapybari_server",
-    "kindkapybari/kindkapybari_client",
+    "kindkapibari/kindkapibari_core",
+    "kindkapibari/kindkapibari_server",
+    "kindkapibari/kindkapibari_client",
 ]

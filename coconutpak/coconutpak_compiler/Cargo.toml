@@ -37,6 +37,6 @@ version = "2.1"
 [dependencies.html_parser]
 version = "0.6"
 
-[dependencies.kindkapybari_core]
-path = "../../kindkapybari/kindkapybari_core"
+[dependencies.kindkapibari_core]
+path = "../../kindkapibari/kindkapibari_core"
 default-features = false

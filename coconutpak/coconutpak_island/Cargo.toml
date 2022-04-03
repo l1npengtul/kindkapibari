@@ -25,6 +25,7 @@ bincode = "1.3"
 argon2 = "0.4"
 once_cell = "1.10"
 wasmtime = "0.35"
+base64 = "0.13"
 
 [dependencies.tokio]
 version = "1.17"
@@ -84,6 +85,6 @@ git = "https://github.com/l1npengtul/tabox.git"
 [dependencies.coconutpak_compiler]
 path = "../coconutpak_compiler"
 
-[dependencies.kindkapybari_core]
-path = "../../kindkapybari/kindkapybari_core"
+[dependencies.kindkapibari_core]
+path = "../../kindkapibari/kindkapibari_core"
 features = ["server"]
