@@ -11,7 +11,7 @@ pub struct Model {
     #[sea_orm(column_type = "Text")]
     pub name: String,
     pub owner: Uuid,
-    pub key_hashed_argon2: Vec<u8>,
+    pub key_hashed_sha512: Vec<u8>,
 }
 
 #[derive(Copy, Clone, Debug, EnumIter)]

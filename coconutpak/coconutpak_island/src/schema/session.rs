@@ -16,7 +16,7 @@ pub struct Model {
     #[sea_orm(column_type = "Text")]
     pub hostname: String,
     #[sea_orm(unique, column_type = "Text")]
-    pub session_hashed_argon2: String,
+    pub session_hashed_sha512: Vec<u8>,
 }
 
 #[derive(Copy, Clone, Debug, EnumIter)]
@@ -33,7 +33,6 @@ impl RelationTrait for Relation {
                 .to(super::user::Column::Uuid)
                 .into(),
             Relation::SessionLog => Entity::has_many(super::session_log::Entity).into(),
-            
         }
     }
 }
