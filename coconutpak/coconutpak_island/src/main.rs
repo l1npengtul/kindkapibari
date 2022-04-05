@@ -4,6 +4,7 @@
 
 use crate::config::Config;
 use argon2::{Algorithm, Argon2, Params, Version};
+use color_eyre::eyre;
 use kindkapibari_core::reseedingrng::AutoReseedingRng;
 use once_cell::sync::Lazy;
 use redis::aio::ConnectionManager;
@@ -21,6 +22,8 @@ struct AppData {
     redis: ConnectionManager,
     database: DatabaseConnection,
 }
+
+pub type SResult<T> = eyre::Result<T>;
 
 mod api;
 mod coconutpak_cleanup;

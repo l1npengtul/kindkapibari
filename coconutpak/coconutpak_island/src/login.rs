@@ -1,6 +1,7 @@
 use crate::schema::api_key::{Entity, Model};
 use crate::schema::{api_key, user};
-use crate::AppData;
+use crate::{AppData, SResult};
+use argon2::{Algorithm, Argon2, Params, PasswordHasher, Version};
 use kindkapibari_core::reseedingrng::AutoReseedingRng;
 use once_cell::sync::Lazy;
 use poem::Request;
@@ -15,8 +16,8 @@ use uuid::Uuid;
 
 const AUTH_REDIS_KEY_START_APIKEY: [u8; 22] = *b"coconutpak:auth:apikey";
 const AUTH_REDIS_KEY_START_SESSION: [u8; 23] = *b"coconutpak:auth:session";
-const AUTH_SESSION_BYTE_START: &'static str = "SESSION-";
-const AUTH_APIKEY_BYTE_START: &'static str = "API-KEY-";
+const AUTH_SESSION_BYTE_START: &'static str = "COCONUTPAK_SESSION_TOKEN.";
+const AUTH_APIKEY_BYTE_START: &'static str = "COCONUTPAK_APIKEY_TOKEN.";
 
 // i love r/196! (turn the bytes to KiB)
 static AUTO_RESEEDING_APIKEY_RNG: Lazy<Arc<Mutex<AutoReseedingRng<200704>>>> =
@@ -27,60 +28,77 @@ static AUTO_RESEEDING_UUID_RNG: Lazy<Arc<Mutex<AutoReseedingRng<200704>>>> =
     Lazy::new(|| Arc::new(Mutex::new(AutoReseedingRng::new())));
 
 pub struct Generated {
-    base64_with_hash_and_append: String,
-    raw_base64_with_append: String,
+    hashed_base64: String,
     hashed_bytes: Vec<u8>,
 }
 
 const fn uuid_to_byte_array(uuid: Uuid) -> [u8; 16] {
     let u128 = uuid.as_u128();
-    u128.to_ne_bytes()
+    u128.to_le_bytes()
 }
 // A0 A1 A2 B0
-pub async fn generate_apikey(user_uuid: Uuid) -> Generated {
-    let uuid_as_bytes = uuid_to_byte_array(user_uuid);
-    let mut apikey_base = AUTO_RESEEDING_APIKEY_RNG
+pub async fn generate_apikey(user_uuid: Uuid) -> SResult<Generated> {
+    let apikey_base = AUTO_RESEEDING_APIKEY_RNG
         .lock()
         .await
-        .generate_bytes::<48>()
+        .generate_bytes::<64>()
         .to_vec();
-    apikey_base.insert_str(0, &uuid_as_bytes);
-    let mut hasher = Sha512::new();
-    hasher.update(&apikey_base);
-    let hashed_key = &(hasher.finalize()[..]);
-    let mut encoded = base64::encode(hashed_key);
-    let mut encoded_raw = base64::encode(apikey_base);
-    encoded.insert_str(0, AUTH_APIKEY_BYTE_START);
-    encoded_raw.insert_str(0, AUTH_APIKEY_BYTE_START);
-    let bytes = Vec::from(hashed_key);
-    Generated {
-        base64_with_hash_and_append: encoded,
-        raw_base64_with_append: encoded_raw,
-        hashed_bytes: bytes,
-    }
+    let argon2 = Argon2::new(
+        Algorithm::Argon2id,
+        Version::default(),
+        Params::new(
+            Params::DEFAULT_M_COST,
+            Params::DEFAULT_T_COST,
+            Params::DEFAULT_P_COST,
+            Some(64),
+        )?,
+    );
+
+    let salt = [
+        AUTH_APIKEY_BYTE_START.as_bytes(),
+        uuid_to_byte_array(user_uuid).as_slice(),
+    ]
+    .concat();
+    let mut hash = Vec::with_capacity(64);
+    argon2.hash_password_into(&apikey_base, &salt, &mut hash)?;
+
+    let encoded = base64::encode(&hash);
+    Ok(Generated {
+        hashed_base64: encoded,
+        hashed_bytes: hash,
+    })
 }
 
-pub async fn generate_session(user_uuid: Uuid) -> Generated {
-    let uuid_as_bytes = uuid_to_byte_array(user_uuid);
-    let mut session_base = AUTO_RESEEDING_APIKEY_RNG
+pub async fn generate_session(user_uuid: Uuid) -> SResult<Generated> {
+    let apikey_base = AUTO_RESEEDING_APIKEY_RNG
         .lock()
         .await
-        .generate_bytes::<48>()
+        .generate_bytes::<64>()
         .to_vec();
-    session_base.insert_str(0, &uuid_as_bytes);
-    let mut hasher = Sha512::new();
-    hasher.update(&session_base);
-    let hashed_key = &(hasher.finalize()[..]);
-    let mut encoded = base64::encode(hashed_key);
-    let mut encoded_raw = base64::encode(apikey_base);
-    encoded.insert_str(0, AUTH_SESSION_BYTE_START);
-    encoded_raw.insert_str(0, AUTH_APIKEY_BYTE_START);
-    let bytes = Vec::from(hashed_key);
-    Generated {
-        base64_with_hash_and_append: encoded,
-        raw_base64_with_append: encoded_raw,
-        hashed_bytes: bytes,
-    }
+    let argon2 = Argon2::new(
+        Algorithm::Argon2id,
+        Version::default(),
+        Params::new(
+            Params::DEFAULT_M_COST,
+            Params::DEFAULT_T_COST,
+            Params::DEFAULT_P_COST,
+            Some(64),
+        )?,
+    );
+
+    let salt = [
+        AUTH_SESSION_BYTE_START.as_bytes(),
+        uuid_to_byte_array(user_uuid).as_slice(),
+    ]
+    .concat();
+    let mut hash = Vec::with_capacity(64);
+    argon2.hash_password_into(&apikey_base, &salt, &mut hash)?;
+
+    let encoded = base64::encode(&hash);
+    Ok(Generated {
+        hashed_base64: encoded,
+        hashed_bytes: hash,
+    })
 }
 
 pub async fn generate_uuid() -> Uuid {
