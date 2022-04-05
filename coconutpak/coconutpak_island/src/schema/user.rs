@@ -1,3 +1,4 @@
+use redis::{ErrorKind, FromRedisValue, RedisError, RedisResult, RedisWrite, ToRedisArgs, Value};
 use sea_orm::{
     prelude::{DeriveEntityModel, EntityTrait, PrimaryKeyTrait, Related, RelationTrait},
     ActiveModelBehavior, EnumIter, IdenStatic, RelationDef,
@@ -60,6 +61,28 @@ impl Related<super::reports::Entity> for Entity {
 
     fn via() -> Option<RelationDef> {
         Some(super::reports::Relation::User.def().rev())
+    }
+}
+
+impl ToRedisArgs for Model {
+    fn write_redis_args<W>(&self, out: &mut W)
+    where
+        W: ?Sized + RedisWrite,
+    {
+        out.write_arg(&pot::to_vec(&self).unwrap_or_default())
+    }
+}
+
+impl FromRedisValue for Model {
+    fn from_redis_value(v: &Value) -> RedisResult<Self> {
+        return if let Value::Data(bytes) = v {
+            pot::from_slice::<Self>(bytes).map_err(|x| RedisError::from(x))
+        } else {
+            RedisResult::Err(RedisError::from(
+                ErrorKind::TypeError,
+                "Expected Byte Value",
+            ))
+        };
     }
 }
 

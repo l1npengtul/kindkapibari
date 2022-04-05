@@ -22,7 +22,7 @@ impl CoconutPakApi {
     }
 
     #[oai(path = "/pakid2name", method = "get")]
-    async fn pack_name_from_id(&self, id: Query<Uuid>) -> Result<Json<String>> {}
+    async fn pack_name_from_id(&self, id: Query<u64>) -> Result<Json<String>> {}
 
     #[oai(path = "/pak/:name/data", method = "get")]
     async fn pack_data_id(&self, name: Path<String>) -> Result<Json<coconutpak::Model>> {}

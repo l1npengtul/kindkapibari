@@ -15,7 +15,7 @@ pub struct Model {
     pub ip_address: String,
     #[sea_orm(column_type = "Text")]
     pub hostname: String,
-    #[sea_orm(unique, column_type = "Text")]
+    #[sea_orm(unique, indexed)]
     pub session_hashed_sha512: Vec<u8>,
 }
 

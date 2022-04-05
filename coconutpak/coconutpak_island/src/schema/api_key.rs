@@ -11,6 +11,7 @@ pub struct Model {
     #[sea_orm(column_type = "Text")]
     pub name: String,
     pub owner: Uuid,
+    #[sea_orm(unique, indexed)]
     pub key_hashed_sha512: Vec<u8>,
 }
 

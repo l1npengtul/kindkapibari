@@ -8,6 +8,7 @@ use kindkapibari_core::reseedingrng::AutoReseedingRng;
 use once_cell::sync::Lazy;
 use redis::aio::ConnectionManager;
 use redis::Client;
+use sea_orm::DatabaseConnection;
 use std::sync::Arc;
 use tokio::sync::Mutex;
 
@@ -15,10 +16,11 @@ static CONFIG: Lazy<Arc<Config>> = Lazy::new(|| {
     let config = Config::load().unwrap_or_default();
     Arc::new(config)
 });
-static REDIS: Lazy<Arc<ConnectionManager>> = Lazy::new(|| {
-    let client = Client::open(CONFIG.database.redis_url).unwrap();
-    Arc::new(ConnectionManager::new(client).unwrap())
-});
+
+struct AppData {
+    redis: ConnectionManager,
+    database: DatabaseConnection,
+}
 
 mod api;
 mod coconutpak_cleanup;
