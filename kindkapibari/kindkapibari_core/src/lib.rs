@@ -22,3 +22,4 @@ pub mod templater;
 pub mod text;
 pub mod user_data;
 pub mod version;
+pub mod motd;

@@ -13,6 +13,7 @@ pub struct Model {
     pub uuid: Uuid,
     pub kindkapibari_id: Uuid,
     pub restricted_account: bool,
+    pub administrator_account: bool,
     #[sea_orm(column_type = "Text", nullable)]
     pub email: Option<String>,
 }
