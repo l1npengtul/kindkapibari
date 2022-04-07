@@ -16,12 +16,13 @@ use serde::{Deserialize, Serialize};
 use serde_json::Value;
 use std::borrow::Cow;
 use uuid::Uuid;
+use kindkapibari_core::manifest::CoconutPakManifest;
 
 #[derive(Clone, Debug, Hash, PartialOrd, PartialEq, Serialize, Deserialize, DeriveEntityModel)]
 #[sea_orm(table_name = "coconutpak_history")]
 pub struct Model {
     #[sea_orm(primary_key)]
-    pub id: Uuid,
+    pub id: u64,
     pub coconutpak: Uuid,
     // manifest
     pub author: DBVec<String>,

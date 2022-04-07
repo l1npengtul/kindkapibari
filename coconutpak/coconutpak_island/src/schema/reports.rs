@@ -1,5 +1,8 @@
 use chrono::{DateTime, Utc};
-use sea_orm::{DeriveEntityModel, EntityTrait, EnumIter, Related, RelationDef, RelationTrait};
+use sea_orm::{
+    ActiveModelBehavior, DeriveEntityModel, EntityTrait, EnumIter, Related, RelationDef,
+    RelationTrait,
+};
 use serde::{Deserialize, Serialize};
 use uuid::Uuid;
 
@@ -13,6 +16,8 @@ pub struct Model {
     pub date: DateTime<Utc>,
     #[sea_orm(column_type = "Text")]
     pub reason: String,
+    #[sea_orm(column_type = "Text")]
+    pub version: String,
 }
 
 #[derive(Copy, Clone, Debug, EnumIter)]

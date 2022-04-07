@@ -24,6 +24,7 @@ mod coconutpak_cleanup;
 mod coconutpak_compiler;
 mod config;
 mod login;
+mod report;
 mod schema;
 
 #[tokio::main]
