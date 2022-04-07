@@ -29,6 +29,7 @@ base64 = "0.13"
 sha2 = "0.10"
 rs-snowflake = "0.6"
 pot = "1.0"
+meilisearch-sdk = "0.15"
 
 [dependencies.tokio]
 version = "1.17"

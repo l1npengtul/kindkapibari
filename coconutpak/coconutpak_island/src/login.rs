@@ -133,6 +133,10 @@ pub async fn verify_apikey(database: Arc<AppData>, api_key: String) -> Option<us
                 .redis
                 .set([&AUTH_REDIS_KEY_START_APIKEY, &rehashed_key], &user_model)
                 .await;
+            database
+                .redis
+                .expire([&AUTH_REDIS_KEY_START_APIKEY, &rehashed_key], 3600)
+                .await;
             user_model
         }
         None => None,
@@ -152,7 +156,7 @@ pub async fn verify_session(database: Arc<AppData>, session: String) -> Option<u
     );
 
     let rehashed_key = base64::decode(session)
-        .map(|mut bytes| {
+        .map(|bytes| {
             let mut hash = Vec::with_capacity(64);
             argon2
                 .hash_password_into(&bytes, &salt, &mut hash)
@@ -187,6 +191,10 @@ pub async fn verify_session(database: Arc<AppData>, session: String) -> Option<u
             let _result = database
                 .redis
                 .set([&AUTH_REDIS_KEY_START_SESSION, &rehashed_key], &user_model)
+                .await;
+            database
+                .redis
+                .expire([&AUTH_REDIS_KEY_START_SESSION, &rehashed_key], 3600)
                 .await;
             user_model
         }

@@ -15,8 +15,6 @@ pub mod coconutpak;
 pub mod login;
 pub mod user;
 
-const AUTH_REDIS_KEY_START: [u8; 16] = *b"coconutpak:auth:";
-
 #[derive(SecurityScheme)]
 #[oai(
     type = "api_key",
@@ -47,6 +45,17 @@ struct Api;
 
 #[OpenApi(prefix_path = "/v1", tag = "super::VersionTags::V1")]
 impl Api {
-    #[oai(path = "motd", method = "get")]
-    async fn motd(&self) -> Json<MessageOfTheDay> {}
+    #[oai(path = "/motd", method = "get")]
+    async fn motd(&self) -> Json<MessageOfTheDay> {
+        Json(MessageOfTheDay {
+            color: "red".to_string(),
+            text: "hi".to_string(),
+            button_link: None,
+        })
+    }
+
+    #[oai(path = "/readonly", method = "get")]
+    async fn read_only(&self) -> boolean {
+        false
+    }
 }

@@ -2,9 +2,6 @@ use crate::error::CompilerError;
 use escaper::encode_minimal;
 use html_parser::{Dom, Node};
 use itertools::Itertools;
-use kindkapybari_core::manifest::CoconutPakManifest;
-use kindkapybari_core::output::CoconutPakOutput;
-use kindkapybari_core::text::TextContainer;
 use log::warn;
 use std::io::Read;
 use std::path::PathBuf;
@@ -16,6 +13,8 @@ use std::{
     path::Path,
     str::FromStr,
 };
+use kindkapibari_core::output::CoconutPakOutput;
+use kindkapibari_core::text::TextContainer;
 
 const ALLOWED_TAGS: [&str; 20] = [
     "CoconutPakAsset",
@@ -90,7 +89,8 @@ impl Compiler {
             });
         }
 
-        let mut manifest = match toml::from_str::<CoconutPakManifest>(&read_string_manifest) {
+        let mut manifest = match toml::from_str::<CoconutPakM
+            anifest>(&read_string_manifest) {
             Ok(m) => m,
             Err(why) => return Err(CompilerError::BadManifest(why.to_string())),
         };
@@ -210,6 +210,8 @@ impl Compiler {
                 })
             }
         };
+
+
 
         // match File::open(file) {
         //     Ok(f) => match Document::from_reader(f) {

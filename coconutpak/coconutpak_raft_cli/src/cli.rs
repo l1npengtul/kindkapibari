@@ -7,6 +7,11 @@ enum CoconutPak {
     Version(Version),
     Init(Init),
     New(New),
+    Clean(Clean),
+    Build(Build),
+    Login(Login),
+    Publish(Publish),
+    Yank(Yank),
 }
 
 #[derive(clap::Args)]

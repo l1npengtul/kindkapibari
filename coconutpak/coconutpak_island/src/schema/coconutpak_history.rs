@@ -1,12 +1,16 @@
+use kindkapibari_core::dbarray::DBArray;
+use kindkapibari_core::dbvec::DBVec;
+use kindkapibari_core::version::Version;
 use kindkapybari_core::{
     dbarray::DBArray, dbvec::DBVec, manifest::CoconutPakManifest, version::Version,
 };
 use oauth2::url::Url;
 use poem_openapi::registry::{MetaSchema, MetaSchemaRef};
 use poem_openapi::types::{ToJSON, Type};
+use redis::{ErrorKind, FromRedisValue, RedisError, RedisResult, RedisWrite, ToRedisArgs};
 use sea_orm::{
     prelude::{DeriveEntityModel, EntityTrait, PrimaryKeyTrait, Related, RelationTrait},
-    ActiveModelBehavior, IdenStatic, RelationDef,
+    ActiveModelBehavior, EnumIter, IdenStatic, RelationDef,
 };
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
@@ -33,13 +37,11 @@ pub struct Model {
     pub description: String,
     #[sea_orm(column_type = "Text")]
     pub readme: String,
-    #[sea_orm(nullable)]
     pub tags: DBArray<String, 5>,
     #[sea_orm(column_type = "Text", nullable)]
     pub docs: Option<String>,
     #[sea_orm(column_type = "Text", nullable)]
     pub homepage: Option<String>,
-    #[sea_orm(nullable)]
     pub categories: DBArray<String, 5>,
     pub yanked: bool,
 }
@@ -122,5 +124,28 @@ impl Type for Model {
 impl ToJSON for Model {
     fn to_json(&self) -> Option<Value> {
         serde_json::to_value(self).ok()
+    }
+}
+
+impl ToRedisArgs for Model {
+    fn write_redis_args<W>(&self, out: &mut W)
+    where
+        W: ?Sized + RedisWrite,
+    {
+        out.write_arg(&pot::to_vec(self).unwrap_or_default())
+    }
+}
+
+impl FromRedisValue for Model {
+    fn from_redis_value(v: &redis::Value) -> RedisResult<Self> {
+        if let redis::Value::Data(bytes) = v {
+            return pot::from_slice(bytes)
+                .map_err(|x| RedisError::from(ErrorKind::TypeError, "Bad Bytes"))?;
+        }
+        let result = RedisResult::Err(RedisError::from(
+            ErrorKind::TypeError,
+            "Expected Byte Value",
+        ));
+        result
     }
 }

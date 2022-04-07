@@ -3,24 +3,18 @@
 #![feature(thread_is_running)]
 
 use crate::config::Config;
-use argon2::{Algorithm, Argon2, Params, Version};
 use color_eyre::eyre;
-use kindkapibari_core::reseedingrng::AutoReseedingRng;
-use once_cell::sync::Lazy;
+use meilisearch_sdk::client::Client;
 use redis::aio::ConnectionManager;
-use redis::Client;
 use sea_orm::DatabaseConnection;
 use std::sync::Arc;
 use tokio::sync::Mutex;
 
-static CONFIG: Lazy<Arc<Config>> = Lazy::new(|| {
-    let config = Config::load().unwrap_or_default();
-    Arc::new(config)
-});
-
 struct AppData {
     redis: ConnectionManager,
     database: DatabaseConnection,
+    meilisearch: Client,
+    config: Config,
 }
 
 pub type SResult<T> = eyre::Result<T>;

@@ -2,6 +2,7 @@ use chrono::{DateTime, Utc};
 use color_eyre::owo_colors::OwoColorize;
 use poem_openapi::registry::{MetaSchema, MetaSchemaRef};
 use poem_openapi::types::{ToJSON, Type};
+use redis::{ErrorKind, FromRedisValue, RedisError, RedisResult, RedisWrite, ToRedisArgs};
 use sea_orm::{
     prelude::{DeriveEntityModel, EntityTrait, PrimaryKeyTrait, Related, RelationTrait},
     ActiveModelBehavior, EnumIter, IdenStatic, RelationDef,
@@ -94,4 +95,37 @@ impl ToJSON for Model {
     fn to_json(&self) -> Option<Value> {
         serde_json::to_value(self).ok()
     }
+}
+
+impl ToRedisArgs for Model {
+    fn write_redis_args<W>(&self, out: &mut W)
+    where
+        W: ?Sized + RedisWrite,
+    {
+        out.write_arg(&pot::to_vec(self).unwrap_or_default())
+    }
+}
+
+impl FromRedisValue for Model {
+    fn from_redis_value(v: &redis::Value) -> RedisResult<Self> {
+        if let redis::Value::Data(bytes) = v {
+            return pot::from_slice(bytes)
+                .map_err(|x| RedisError::from(ErrorKind::TypeError, "Bad Bytes"))?;
+        }
+        RedisResult::Err(RedisError::from(
+            ErrorKind::TypeError,
+            "Expected Byte Value",
+        ))
+    }
+}
+
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+pub struct SearchableCoconutPak {
+    pub id: Uuid,
+    pub name: String,
+    pub subscribers: u32,
+    pub last_published: DateTime<Utc>,
+    pub verified: bool,
+    pub tags: StaticVec<String, 5>,
+    pub categories: StaticVec<String, 5>,
 }
