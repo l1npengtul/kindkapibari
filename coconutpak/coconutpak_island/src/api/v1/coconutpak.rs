@@ -193,10 +193,6 @@ impl CoconutPakApi {
                     .data
                     .redis
                     .set(concat!("coconutpak:paks:", name), &pak)
-                    .await;
-                let _redisresult = self
-                    .data
-                    .redis
                     .expire(concat!("coconutpak:paks:", name), 3600)
                     .await;
                 Ok(pak)
