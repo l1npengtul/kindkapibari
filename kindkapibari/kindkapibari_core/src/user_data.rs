@@ -1,5 +1,7 @@
+use crate::language::Language;
 use crate::{gender::Gender, pronouns::Pronouns};
 use chrono::{DateTime, Utc};
+use language_tags::LanguageTag;
 #[cfg(feature = "server")]
 use sea_orm::{DbErr, QueryResult, TryGetError, TryGetable};
 
@@ -11,6 +13,7 @@ pub struct UserData {
     pub pronouns: Pronouns,
     pub birthday: Option<DateTime<Utc>>,
     pub registered_date: DateTime<Utc>,
+    pub language: LanguageTag,
 }
 
 #[cfg(feature = "server")]

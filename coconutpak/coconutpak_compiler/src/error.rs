@@ -24,8 +24,8 @@ pub enum CompilerError {
     },
     #[error("No Attribute: {attribute}")]
     NoAttr { attribute: String },
-    #[error("Failed to generate XML for {file}: {why}")]
-    XmlError { file: String, why: String },
+    #[error("Failed to generate XML: {why}")]
+    XmlError { why: String },
     #[error("Error: {0}")]
     CompileError(String),
 }

@@ -17,7 +17,6 @@ struct TemplateUserData {
     birthday: DateTime<Utc>, // WHAT THE FUCK WHYYYYYY WHY DOES NOT `Date<Utc>` IMPLEMENT SERIALIZE AND DESERIALIZE???????????
     registerdate: DateTime<Utc>, // WHAT THE FUCK IS WRONG WITH CHRONO?????? WHAHTWAHT(*WAHTUIOWAHOTIWAIOTJOIPWA
     langtag: LanguageTag,
-    lang: String,
 }
 
 impl From<UserData> for TemplateUserData {
@@ -29,8 +28,7 @@ impl From<UserData> for TemplateUserData {
             username: ud.username,
             birthday: ud.birthday.unwrap_or(MIN_DATETIME),
             registerdate: ud.registered_date,
-            langtag: ud.preferred_language,
-            lang: ud.preferred_language.primary_language().to_string(),
+            langtag: ud.language,
         }
     }
 }
@@ -46,11 +44,11 @@ impl From<&UserData> for TemplateUserData {
             birthday: ud.birthday.unwrap_or(MIN_DATETIME),
             registerdate: ud.registered_date,
             langtag: ud.preferred_language,
-            lang: ud.preferred_language.primary_language().to_string(),
         }
     }
 }
 
+#[derive(Clone, Debug)]
 pub struct Templater {
     tera: Tera,
     context: Context,
@@ -61,6 +59,7 @@ impl Templater {
         let tera = Tera::default();
         let context = Context::from_value(
             serde_json::to_value(TemplateUserData::from(user_data)).unwrap_or_default(),
-        );
+        )?;
+        Ok(Templater { tera, context })
     }
 }

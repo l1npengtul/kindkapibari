@@ -1,10 +1,10 @@
 # The CoconutPak v0.1.0 Standard
 
 ### 1. What is an coconutpak?
-CoconutPaks are packages that allow users to add custom extensions to Capybafirmations. Things such as themes,
+CoconutPaks are packages that allow users to add custom extensions to KindKapiBari. Things such as themes,
 custom text, and asset overrides.
 
-Everything is UTF-8. No "but"s. Fvck your non-compliant wincringe 10 installation.
+Everything is UTF-8. No "but"s. I don't care your 10 year old bullshit machine can't handle Unicode and can only do 7-bit signed ASCII.
 
 ### 2. The File Format
 A coconut is composed of the following:
@@ -44,7 +44,6 @@ A manifest consists of
 11. Categories
     1. A list of categories this fits into.
     2. Can only contain A-Z, a-z, 0-9, -, _
-
 12. README link
     1. By default, does not need to be specified as we use the README of the repository.
     2. If specified, the file pointed to is the new README.
@@ -65,10 +64,12 @@ The text definition HTML must only contain:
 - `<description>`: [STRING] A tag containing a short text description.
 - `<responses>`: A tag based markup similar to HTML/XML that defines each response
 
-Text themselves is defined in a HTML-like custom markup language (that gets compiled to HTML).
+Text themselves is defined in an HTML-like custom markup language (that gets compiled to HTML).
 
 Each response is rolled into a pool, and once a response is chosen it is rolled again to its individual probability. Both must succeed for 
 a given message to appear. 
+
+The files should end in `.copt` (**CO**conut**P**ak**T**ext) 
 
 Note: The max time for responses are 5000 milliseconds of wait.
 

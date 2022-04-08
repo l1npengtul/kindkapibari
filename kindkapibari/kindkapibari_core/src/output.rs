@@ -1,6 +1,6 @@
-use kindkapybari_core::manifest::CoconutPakManifest;
-use kindkapybari_core::text::TextContainer;
-use semver::Version;
+use crate::manifest::CoconutPakManifest;
+use crate::text::TextContainer;
+use crate::version::Version;
 
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 pub struct CoconutPakOutput {

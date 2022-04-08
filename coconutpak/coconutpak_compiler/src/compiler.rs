@@ -2,7 +2,11 @@ use crate::error::CompilerError;
 use escaper::encode_minimal;
 use html_parser::{Dom, Node};
 use itertools::Itertools;
-use log::warn;
+use kindkapibari_core::manifest::CoconutPakManifest;
+use kindkapibari_core::output::CoconutPakOutput;
+use kindkapibari_core::text::TextContainer;
+use log::{error, warn};
+use std::collections::HashMap;
 use std::io::Read;
 use std::path::PathBuf;
 use std::{
@@ -13,8 +17,7 @@ use std::{
     path::Path,
     str::FromStr,
 };
-use kindkapibari_core::output::CoconutPakOutput;
-use kindkapibari_core::text::TextContainer;
+use walkdir::WalkDir;
 
 const ALLOWED_TAGS: [&str; 20] = [
     "CoconutPakAsset",
@@ -89,8 +92,7 @@ impl Compiler {
             });
         }
 
-        let mut manifest = match toml::from_str::<CoconutPakM
-            anifest>(&read_string_manifest) {
+        let mut manifest = match toml::from_str::<CoconutPakManifest>(&read_string_manifest) {
             Ok(m) => m,
             Err(why) => return Err(CompilerError::BadManifest(why.to_string())),
         };
@@ -157,18 +159,55 @@ impl Compiler {
         }
         // see whats inside src
 
-        // open libjson and see what's inside
-        let mut texts = vec![];
-        for text_to_compile in self.lib.texts() {
-            let text_path = Path::new(text_to_compile);
-            let total_path = source_path.join(text_path);
-            let file_path = total_path.as_os_str().to_string_lossy().to_string();
-            texts.push(container);
+        let mut files_inside_src_texts: HashMap<String, String> = HashMap::new();
+        // let files_inside_src_texts = vec![];
+        // let files_inside_src_texts = vec![];
+        // TODO: Different Types (themes, animals, etc)
+
+        for maybe_entry in WalkDir::new(self.source_path).into_iter() {
+            let entry = match maybe_entry {
+                Ok(e) => e,
+                Err(why) => {
+                    warn!("Skipping file due to {why}")
+                }
+            };
+
+            if entry.metadata().unwrap().is_file() && !entry.path_is_symlink() {
+                if entry
+                    .file_name()
+                    .to_string_lossy()
+                    .to_lowercase()
+                    .ends_with(".copt")
+                {
+                    // read file to string and store
+                    let mut file = File::open(entry.path())?;
+                    let mut read_to = String::new();
+                    file.read_to_string(&mut read_to)?;
+                    files_inside_src_texts
+                        .insert(entry.path().to_string_lossy().to_string(), read_to);
+                }
+                // add others as well later
+            }
+        }
+
+        let mut error_out = false;
+
+        let texts = vec![];
+        for text_to_compile in files_inside_src_texts {
+            let text = match self.compile_text(text_to_compile.1) {
+                Ok(t) => t,
+                Err(why) => {
+                    let filename = text_to_compile.0;
+                    error_out = true;
+                    error!("Failed to compile {filename}: {why}");
+                    continue;
+                }
+            };
         }
 
         Ok(CoconutPakOutput {
-            edition: self.manifest.version.clone(),
-            manifest: self.manifest,
+            edition: self.manifest.clone().version,
+            manifest: self.manifest.clone(),
             register_text_containers: {
                 if !texts.is_empty() {
                     Some(texts)
@@ -179,39 +218,8 @@ impl Compiler {
         })
     }
 
-    fn compile_text(&self, file: std::path::PathBuf) -> Result<TextContainer, CompilerError> {
-        let file_path = file.clone().to_string_lossy().to_string();
-
+    fn compile_text(&self, file: String) -> Result<TextContainer, CompilerError> {
         // lint
-
-        let dom = match File::open(file) {
-            Ok(mut f) => {
-                let mut file_str = String::new();
-                if let Err(why) = f.read_to_string(&mut file_str) {
-                    return Err(CompilerError::FileError {
-                        file: file_path.to_string(),
-                        why: why.to_string(),
-                    });
-                }
-                match Dom::parse(&file_str) {
-                    Ok(d) => d,
-                    Err(why) => {
-                        return Err(CompilerError::BadText {
-                            file: file_str.to_string(),
-                            why: why.to_string(),
-                        })
-                    }
-                }
-            }
-            Err(why) => {
-                return Err(CompilerError::FileError {
-                    file: file_path.to_string(),
-                    why: why.to_string(),
-                })
-            }
-        };
-
-
 
         // match File::open(file) {
         //     Ok(f) => match Document::from_reader(f) {
