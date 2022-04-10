@@ -14,8 +14,8 @@ pub enum CompilerError {
     FileError { file: String, why: String },
     #[error("Invalid Manifest: {}")]
     BadManifest(String),
-    #[error("Invalid Text File {file}: {why}")]
-    BadText { file: String, why: String },
+    #[error("Invalid Text: {why}")]
+    BadText { why: String },
     #[error("Invalid Attribute: attribute {attribute} of value {value}, Error: {why}")]
     BadAttr {
         attribute: String,

@@ -19,6 +19,7 @@ pub mod preferences;
 pub mod pronouns;
 pub mod reseedingrng;
 pub mod responses;
+pub mod tags;
 pub mod templater;
 pub mod text;
 #[cfg(feature = "server")]

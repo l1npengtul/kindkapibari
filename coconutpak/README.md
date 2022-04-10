@@ -58,6 +58,7 @@ The text definition HTML must only contain:
     - Can be UTF-8
     - Can not contain " " or any other special character except for "_" and "-"
     - Can not start with a number or any other special character.
+- `<tag>`: [STRING] The category of this subnamespace text extension. Something general, such as "voice"(if this is about voice) will suffice.
 - `<langcode>`: [STRING] A tag containing a language code at the end. If omitted, it is assumed to be `en`(english).
   - ISO language codes. Check ISO-639 for more.
 - `<description>`: [STRING] A tag containing a short text description.
@@ -72,25 +73,21 @@ a given message to appear.
 The files should end in `.copt` (**CO**conut**P**ak**T**ext) 
 
 Note: The max time for responses are 5000 milliseconds of wait.
+Note: Use markdown for basic text formatting. We follow the CommomMark standard, with strikethrough and tables enabled. 
 
 Tags: 
 - `<response>`: An individual response. There may be multiple.
   - `name`: This response's name. This is more lax
-  - `probability`: A float from 0.0 to 1.0 saying the other roll chance of saying this message. (default to 0.1) 
+  - `probability`: A float from 0.0 to 1.0 saying the other roll chance of saying this message. (default to 1.0) 
   - `welcome`:A boolean indicating that this response should be in the startup message pool. (default false)
 - `<message>`: An individual chat bubble to be spoken.
     - `wait`: Time to await in milliseconds before the next message. (default 500)
-- `<i>`: Italics
-- `<b>`: Bold
 - `<color>`: Color of Text
     - `color`: Color of text, either a standard HTML color (e.g. red) or  hex code (must start with #)
-- `<strike>`: StrikeThrough
-- `<under>`: Underline
-- `<inline>`: Inline Code
+- `<u>`: Underline
 - `<super>`: Superscript
 - `<sub>`: Subscript
 - `<highlight>`: Highlight Text
-- `<quote>`: Quote
 - `<wave>`: Wavy Text
 - `<shaky>`: Shaky Text
 - `<br>`: Newline
@@ -160,11 +157,12 @@ Using formatters
 ```xml
 <CoconutPakText>
     <subnamespace>turtle거북이</subnamespace>
+    <tag>Pets(Turtle)</tag>
     <langcode>en</langcode>
     <description>Response about turtles.</description>
     <responses>
         <response name="i_love_your_turtle" probability="0.12">
-            <message>I <i>love</i> your turtle!</message>
+            <message>I *love* your turtle!</message>
             <message wait="5000">They're <color color="#FF0000"><wave>just</wave></color> so <shaky>pretty!</shaky></message>
         </response>
         <response name="hi_username" welcome="true">

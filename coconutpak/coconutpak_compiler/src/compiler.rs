@@ -1,13 +1,16 @@
 use crate::error::CompilerError;
 use escaper::encode_minimal;
-use html_parser::{Dom, Node};
+use html_parser::{Dom, Element, Node};
 use itertools::Itertools;
 use kindkapibari_core::language::Language;
 use kindkapibari_core::manifest::CoconutPakManifest;
 use kindkapibari_core::output::CoconutPakOutput;
+use kindkapibari_core::responses::Response;
+use kindkapibari_core::tags::Tags;
 use kindkapibari_core::text::TextContainer;
 use language_tags::LanguageTag;
 use log::{error, warn};
+use pulldown_cmark::Options;
 use std::collections::HashMap;
 use std::io::Read;
 use std::path::PathBuf;
@@ -20,10 +23,13 @@ use std::{
     str::FromStr,
 };
 use walkdir::WalkDir;
+use xml::name::OwnedName;
+use xml::namespace::Namespace;
+use xml::reader::XmlEvent;
 use xml::EventReader;
 
 const ALLOWED_TAGS: [&str; 20] = [
-    "CoconutPakAsset",
+    "CoconutPakText",
     "subnamespace",
     "langcode",
     "description",
@@ -222,313 +228,278 @@ impl Compiler {
     }
 
     fn compile_text(&self, text: String) -> Result<TextContainer, CompilerError> {
-        let dom = Dom::parse(&text).map_err(|x| CompilerError::XmlError { why: x.to_string() })?;
-        if dom.children.len() == 1 {
-            return Err(CompilerError::XmlError {
-                why: "There can only be one root child.".to_string(),
-            });
-        }
+        let mut text = text;
 
-        let mut root_children = Vec::new();
+        let mut xml = EventReader::from_str(&text);
 
-        if let Node::Element(e) = &dom.children[0] {
-            if e.name != "CoconutPakText" {
-                return Err(CompilerError::XmlError {
-                    why: "First root child must be CoconutPakText for Text.".to_string(),
-                });
-            }
-            root_children = e.children.clone();
-        } else {
-            return Err(CompilerError::XmlError {
-                why: "First root child must be element.".to_string(),
-            });
-        }
-
-        let subnamespace = if let Node::Element(e) = &root_children[0] {
-            if e.name != "subnamespace" {
-                return Err(CompilerError::XmlError {
-                    why: "First child must be subnamespace".to_string(),
-                });
-            }
-            if let Node::Text(t) = &e.children[0] {
-                t.to_string()
-            } else {
-                return Err(CompilerError::XmlError {
-                    why: "Subnamespace must be string.".to_string(),
-                });
-            }
-        } else {
-            return Err(CompilerError::XmlError {
-                why: "No Element".to_string(),
-            });
-        };
-
-        let langcode = if let Node::Element(e) = &root_children[1] {
-            if e.name != "langcode" {
-                return Err(CompilerError::XmlError {
-                    why: "Second child must be langcode".to_string(),
-                });
-            }
-            if let Node::Text(t) = &e.children[0] {
-                LanguageTag::parse(t)
-            } else {
-                return Err(CompilerError::XmlError {
-                    why: "langcode must be string.".to_string(),
-                });
-            }
-        } else {
-            return Err(CompilerError::XmlError {
-                why: "No Element".to_string(),
-            });
-        }
-        .map_err(|why| CompilerError::BadAttr {
-            attribute: "langcode".to_string(),
-            value: "".to_string(),
+        // check if its CoconutPakText
+        match xml.next().map_err(|why| CompilerError::XmlError {
             why: why.to_string(),
-        })?;
-
-        let description = if let Node::Element(e) = &root_children[2] {
-            if e.name != "description" {
-                return Err(CompilerError::XmlError {
-                    why: "Third child must be description".to_string(),
-                });
-            }
-            if let Node::Text(t) = &e.children[0] {
-                t.to_string()
-            } else {
-                return Err(CompilerError::XmlError {
-                    why: "description must be string.".to_string(),
-                });
-            }
-        } else {
-            return Err(CompilerError::XmlError {
-                why: "No Element".to_string(),
-            });
-        };
-
-        let mut texts = vec![];
-
-        if let Some(Node::Element(e)) = root_children.get(3) {
-            for response in e.children {
-                if let Node::Element(e) = response {
-                } else {
-                    return Err(CompilerError::XmlError {
-                        why: "Found other nodes where there shouldn't be.".to_string(),
+        })? {
+            XmlEvent::StartElement { name, .. } => {
+                if name != "CoconutPakText" {
+                    return Err(CompilerError::BadText {
+                        why: "Expected CoconutPakText".to_string(),
                     });
                 }
             }
+            _ => {}
         }
 
-        // lint
+        // subnamespace, tag, langcode, description
 
-        // match File::open(file) {
-        //     Ok(f) => match Document::from_reader(f) {
-        //         Ok(doc) => {
-        //             let sub_namespace = match doc.get_str("subnamespace") {
-        //                 Ok(sns) => sns.to_owned(),
-        //                 Err(why) => {
-        //                     return Err(CompilerError::BadText {
-        //                         file: file_path,
-        //                         why: why.to_string(),
-        //                     })
-        //                 }
-        //             };
-        //             let language_code = match doc.get_str("langcode") {
-        //                 Ok(lang_str) => match LanguageTag::parse(lang_str) {
-        //                     Ok(lc) => lc,
-        //                     Err(why) => {
-        //                         return Err(CompilerError::BadText {
-        //                             file: file_path,
-        //                             why: why.to_string(),
-        //                         })
-        //                     }
-        //                 },
-        //                 Err(why) => {
-        //                     return Err(CompilerError::BadText {
-        //                         file: file_path,
-        //                         why: why.to_string(),
-        //                     })
-        //                 }
-        //             };
-        //             let description = match doc.get_str("description") {
-        //                 Ok(desc) => desc.to_owned(),
-        //                 Err(why) => {
-        //                     return Err(CompilerError::BadText {
-        //                         file: file_path,
-        //                         why: why.to_string(),
-        //                     })
-        //                 }
-        //             };
-        //             let responses = match doc.get_str("responses") {
-        //                 Ok(resp_arr) => {
-        //                     let dom_parse = match Dom::parse(resp_arr) {
-        //                         Ok(d) => {
-        //                             // ignore all root tags that arnt <resp>
-        //                             let element_vec = d.children.into_iter().filter_map(|n| match n {
-        //                                 Node::Element(mut e) => {
-        //                                     let name = &e.name;
-        //                                     if name != "resp" {
-        //                                         warn!("Ignoring element \"{name}\" in file {file_path:?}, ignored element type.");
-        //                                         None
-        //                                     } else {
-        //                                         e.children.retain(|e| {
-        //                                             match e {
-        //                                                 Node::Element(e) => {
-        //                                                     e.name == "response"
-        //                                                 }
-        //                                                 _ => false
-        //                                             }
-        //                                         });
-        //                                         Some(e)
-        //                                     }
-        //                                 }
-        //                                 Node::Text(t) => {
-        //                                     warn!("Ignoring text \"{t}\" in file {file_path:?}");
-        //                                     None
-        //                                 }
-        //                                 _ => None,
-        //                             }).collect::<Vec<Element>>();
+        if let Ok(XmlEvent::StartElement { name, .. }) = xml.next() {
+            if name != "subnamespace" {
+                if let Ok(XmlEvent::CData(data)) = xml.next() {}
+            }
+        }
+
+        xml.next();
+
+        match xml.next().map_err(|why| CompilerError::XmlError {
+            why: why.to_string(),
+        })? {
+            XmlEvent::StartElement { name, .. } => {
+                if name != "CoconutPakText" {
+                    return Err(CompilerError::BadText {
+                        why: "Expected CoconutPakText".to_string(),
+                    });
+                }
+            }
+            _ => {}
+        }
+
+        xml.next();
+
+        match xml.next().map_err(|why| CompilerError::XmlError {
+            why: why.to_string(),
+        })? {
+            XmlEvent::StartElement { name, .. } => {
+                if name != "CoconutPakText" {
+                    return Err(CompilerError::BadText {
+                        why: "Expected CoconutPakText".to_string(),
+                    });
+                }
+            }
+            _ => {}
+        }
+
+        xml.next();
+
+        match xml.next().map_err(|why| CompilerError::XmlError {
+            why: why.to_string(),
+        })? {
+            XmlEvent::StartElement { name, .. } => {
+                if name != "CoconutPakText" {
+                    return Err(CompilerError::BadText {
+                        why: "Expected CoconutPakText".to_string(),
+                    });
+                }
+            }
+            _ => {}
+        }
+
+        xml.next();
+
+        // let markdown_opt = Options::all();
         //
-        //                             let counts = element_vec.len();
-        //                             if counts != 1 {
-        //                                 error!("In file {file_path}: More than one <resp> root tags. ({counts}).");
-        //                                 return Err(CompilerError::BadText {
-        //                                     file: file_path,
-        //                                     why: "More than one <resp>".to_string(),
-        //                                 });
-        //                             }
+        // let dom = Dom::parse(&text).map_err(|x| CompilerError::XmlError { why: x.to_string() })?;
+        // if dom.children.len() == 1 {
+        //     return Err(CompilerError::XmlError {
+        //         why: "There can only be one root child.".to_string(),
+        //     });
+        // }
         //
-        //                             element_vec.get(0).unwrap().clone()
-        //                         }
-        //                         Err(why) => {
-        //                             return Err(CompilerError::BadText {
-        //                                 file: file_path,
-        //                                 why: why.to_string(),
-        //                             })
-        //                         }
-        //                     };
+        // let mut root_children = Vec::new();
         //
-        //                     dom_parse
-        //                         .children
-        //                         .into_iter()
-        //                         .filter_map(|x| -> Option<Result<Response, CompilerError>> { match x {
-        //                             Node::Element(e) => {
-        //                                 if e.name != "response" {
-        //                                     warn!("Ignoring {e:?} in file {file_path}");
-        //                                     return None;
-        //                                 }
+        // if let Node::Element(e) = &dom.children[0] {
+        //     if e.name != "CoconutPakText" {
+        //         return Err(CompilerError::XmlError {
+        //             why: "First root child must be CoconutPakText for Text.".to_string(),
+        //         });
+        //     }
+        //     root_children = e.children.clone();
+        // } else {
+        //     return Err(CompilerError::XmlError {
+        //         why: "First root child must be element.".to_string(),
+        //     });
+        // }
         //
+        // let subnamespace = if let Node::Element(e) = &root_children[0] {
+        //     if e.name != "subnamespace" {
+        //         return Err(CompilerError::XmlError {
+        //             why: "First child must be subnamespace".to_string(),
+        //         });
+        //     }
+        //     if let Node::Text(t) = &e.children[0] {
+        //         t.to_string()
+        //     } else {
+        //         return Err(CompilerError::XmlError {
+        //             why: "Subnamespace must be string.".to_string(),
+        //         });
+        //     }
+        // } else {
+        //     return Err(CompilerError::XmlError {
+        //         why: "No Element".to_string(),
+        //     });
+        // };
         //
-        //                                 let probability = match e.attributes.get("probability").cloned().unwrap_or_else(|| Some("1.0".to_string())).as_deref().map(f32::from_str) {
-        //                                     None => 1.0,
-        //                                     Some(Ok(p)) => p,
-        //                                     Some(Err(why)) => {
-        //                                         return Some(Err(
-        //                                             CompilerError::BadAttr {
-        //                                                 attribute: "probability".to_string(),
-        //                                                 value: format!("{:?}", e.attributes.get("probability")),
-        //                                                 why: why.to_string()
-        //                                             }
-        //                                         ))
-        //                                     }
-        //                                 };
-        //                                 let welcome = match e.attributes.get("welcome").cloned().unwrap_or_else(|| Some("false".to_string())).as_deref().map(str::parse::<bool>) {
-        //                                     Some(Ok(b)) => b,
-        //                                     Some(Err(why)) => return Some(Err(
-        //                                         CompilerError::BadAttr {
-        //                                             attribute: "welcome".to_string(),
-        //                                             value: format!("{:?}", e.attributes.get("welcome")),
-        //                                             why: why.to_string()
-        //                                         }
-        //                                     )),
-        //                                     None => false,
-        //                                 };
-        //
-        //                                 let messages = e.children.into_iter()
-        //                                     .filter_map(|x| -> Option<Result<Message, CompilerError>> { match x {
-        //                                         Node::Element(e) => {
-        //                                             if e.name != "message" {
-        //                                                 warn!("Ignoring {e:?} in file {file_path}");
-        //                                                 return None
-        //                                             }
-        //
-        //                                             let wait = match e.attributes.get("wait").cloned().unwrap_or_else(|| Some("0.0".to_string())).as_deref().map(f32::from_str) {
-        //                                                 None => 1.0,
-        //                                                 Some(Ok(p)) => p,
-        //                                                 Some(Err(why)) => {
-        //                                                     return Some(Err(
-        //                                                         CompilerError::BadAttr {
-        //                                                             attribute: "wait".to_string(),
-        //                                                             value: format!("{:?}", e.attributes.get("wait")),
-        //                                                             why: why.to_string()
-        //                                                         }
-        //                                                     ))
-        //                                                 }
-        //                                             };
-        //
-        //                                             let message_str = HtmlNodeWrapper { inner: Node::Element(e) }.to_string().ok()?;
-        //
-        //                                             Some(Ok(Message {
-        //                                                 message: message_str,
-        //                                                 wait_after: wait,
-        //                                             }))
-        //                                         }
-        //                                         i => {
-        //                                             warn!("Ignoring {i:?} in file {file_path}");
-        //                                             None
-        //                                         }
-        //                                     } }).collect::<Result<Vec<Message>, CompilerError>>().ok()?;
-        //
-        //                                 Some(
-        //                                     Ok(
-        //                                         Response {
-        //                                             messages,
-        //                                             probability,
-        //                                             usable_for_welcome: welcome,
-        //                                         }
-        //                                     )
-        //                                 )
-        //
-        //                             }
-        //                             i => {
-        //                                 warn!("Ignoring {i:?} in file {file_path}");
-        //                                 None
-        //                             }
-        //                         } })
-        //                         .collect::<Result<Vec<Response>, CompilerError>>()?
-        //                 }
-        //                 Err(why) => {
-        //                     return Err(CompilerError::BadText {
-        //                         file: file_path,
-        //                         why: why.to_string(),
-        //                     })
-        //                 }
-        //             };
-        //
-        //             Ok(TextContainer::new(
-        //                 sub_namespace,
-        //                 description,
-        //                 language_code,
-        //                 responses,
-        //             ))
-        //         }
-        //         Err(why) => {
-        //             return Err(CompilerError::FileError {
-        //                 file: file_path,
+        // let tags = if let Node::Element(e) = &root_children[1] {
+        //     if e.name != "tag" {
+        //         return Err(CompilerError::XmlError {
+        //             why: "First child must be subnamespace".to_string(),
+        //         });
+        //     }
+        //     if let Node::Text(t) = &e.children[0] {
+        //         t.to_string()
+        //             .parse::<Tags>()
+        //             .map_err(|why| CompilerError::BadText {
         //                 why: why.to_string(),
+        //             })?
+        //     } else {
+        //         return Err(CompilerError::XmlError {
+        //             why: "Tag must be string.".to_string(),
+        //         });
+        //     }
+        // } else {
+        //     return Err(CompilerError::XmlError {
+        //         why: "No Element".to_string(),
+        //     });
+        // };
+        //
+        // let langcode = if let Node::Element(e) = &root_children[2] {
+        //     if e.name != "langcode" {
+        //         return Err(CompilerError::XmlError {
+        //             why: "Second child must be langcode".to_string(),
+        //         });
+        //     }
+        //     if let Node::Text(t) = &e.children[0] {
+        //         LanguageTag::parse(t)
+        //     } else {
+        //         return Err(CompilerError::XmlError {
+        //             why: "langcode must be string.".to_string(),
+        //         });
+        //     }
+        // } else {
+        //     return Err(CompilerError::XmlError {
+        //         why: "No Element".to_string(),
+        //     });
+        // }
+        // .map_err(|why| CompilerError::BadAttr {
+        //     attribute: "langcode".to_string(),
+        //     value: "".to_string(),
+        //     why: why.to_string(),
+        // })?;
+        //
+        // let description = if let Node::Element(e) = &root_children[3] {
+        //     if e.name != "description" {
+        //         return Err(CompilerError::XmlError {
+        //             why: "Third child must be description".to_string(),
+        //         });
+        //     }
+        //     if let Node::Text(t) = &e.children[0] {
+        //         t.to_string()
+        //     } else {
+        //         return Err(CompilerError::XmlError {
+        //             why: "description must be string.".to_string(),
+        //         });
+        //     }
+        // } else {
+        //     return Err(CompilerError::XmlError {
+        //         why: "No Element".to_string(),
+        //     });
+        // };
+        //
+        // let mut texts = HashMap::new();
+        //
+        // if let Some(Node::Element(resps)) = root_children.get(3) {
+        //     if resps.name != "responses" {
+        //         return Err(CompilerError::XmlError {
+        //             why: "Did not find `responses` where it should be.".to_string(),
+        //         });
+        //     }
+        //     for responses in resps.children {
+        //         if let Node::Element(response) = responses {
+        //             if response.name != "response" {
+        //                 return Err(CompilerError::XmlError {
+        //                     why: "Did not find `response` where it should be.".to_string(),
+        //                 });
+        //             }
+        //             let name = response
+        //                 .attributes
+        //                 .get("name")
+        //                 .map(|n| n.as_deref())
+        //                 .flatten()
+        //                 .ok_or(CompilerError::BadAttr {
+        //                     attribute: "name".to_string(),
+        //                     value: "".to_string(),
+        //                     why: "Failed to parse".to_string(),
+        //                 })?
+        //                 .to_string();
+        //
+        //             let welcome = response
+        //                 .attributes
+        //                 .get("welcome")
+        //                 .map(|w| w.as_deref())
+        //                 .flatten()
+        //                 .map(|x| x.parse::<bool>().ok())
+        //                 .flatten()
+        //                 .ok_or(CompilerError::BadAttr {
+        //                     attribute: "welcome".to_string(),
+        //                     value: "".to_string(),
+        //                     why: "Failed to parse".to_string(),
+        //                 })?;
+        //             let probability = response
+        //                 .attributes
+        //                 .get("probability")
+        //                 .map(|p| p.as_deref())
+        //                 .flatten()
+        //                 .map(|x| x.parse::<f32>().ok())
+        //                 .flatten()
+        //                 .ok_or(CompilerError::BadAttr {
+        //                     attribute: "probability".to_string(),
+        //                     value: "".to_string(),
+        //                     why: "Failed to parse".to_string(),
+        //                 })?;
+        //             for msg in response.children {
+        //                 if let Node::Element(message) = msg {
+        //                     if message.name != "message" {
+        //                         return Err(CompilerError::XmlError { why: "Found other nodes that were not message where there are only supposed to be message.".to_string() });
+        //                     }
+        //                     let wait = message
+        //                         .attributes
+        //                         .get("wait")
+        //                         .map(|w| w.as_deref())
+        //                         .flatten()
+        //                         .map(|x| x.parse::<f32>().ok())
+        //                         .flatten()
+        //                         .ok_or(CompilerError::BadAttr {
+        //                             attribute: "wait".to_string(),
+        //                             value: "".to_string(),
+        //                             why: "Failed to parse".to_string(),
+        //                         })?;
+        //                     if wait > 5.0 {
+        //                         return Err(CompilerError::BadAttr {
+        //                             attribute: "wait".to_string(),
+        //                             value: wait.to_string(),
+        //                             why: "wait > 5.0".to_string(),
+        //                         });
+        //                     }
+        //
+        //                     let message_contents = ;
+        //                 }
+        //             }
+        //         } else {
+        //             return Err(CompilerError::XmlError {
+        //                 why: "Found other nodes where there shouldn't be.".to_string(),
         //             });
         //         }
-        //     },
-        //     Err(why) => {
-        //         return Err(CompilerError::FileError {
-        //             file: file_path,
-        //             why: why.to_string(),
-        //         });
         //     }
         // }
     }
 }
 
+// I do not know what the fuck is going on here but it seems correct so here it will stay.
 #[derive(Clone, Debug, PartialOrd, PartialEq)]
 enum SpecialTags<'a> {
     HtmlDefault(Cow<'a, str>),
@@ -593,132 +564,6 @@ impl<'a> From<&'a String> for SpecialTags<'a> {
     }
 }
 
-#[derive(Clone, PartialEq)]
-struct HtmlNodeWrapper {
-    pub inner: Node,
-}
-
-impl HtmlNodeWrapper {
-    pub fn to_string(&self) -> Result<String, CompilerError> {
-        let write_str = match &self.inner {
-            Node::Text(t) => encode_minimal(t),
-            Node::Element(e) => {
-                if ALLOWED_TAGS.contains(&e.name.as_ref()) {
-                    // wtf???? lmao
-                    let mut tag_strings = Vec::with_capacity(5);
-
-                    let open_tag_name = SpecialTags::from(&(e).name);
-                    tag_strings.push(format!("<{}", open_tag_name));
-
-                    let class = match open_tag_name {
-                        SpecialTags::Wave => "text-wave",
-                        SpecialTags::Shake => "text-shake",
-                        SpecialTags::Spoiler => "text-spoiler",
-                        _ => "",
-                    };
-                    tag_strings.push(format!("class=\"{class}\""));
-
-                    if SpecialTags::Color == open_tag_name {
-                        let c = match e.attributes.get("color") {
-                            Some(pcc) => match pcc {
-                                Some(color) => encode_minimal(color),
-                                None => {
-                                    return Err(CompilerError::BadAttr {
-                                        attribute: "color".to_string(),
-                                        value: "None".to_string(),
-                                        why: "Expected".to_string(),
-                                    })
-                                }
-                            },
-                            None => {
-                                return Err(CompilerError::NoAttr {
-                                    attribute: "color".to_string(),
-                                })
-                            }
-                        };
-                        tag_strings.push(format!("style=\"color:{c};\""));
-                    }
-
-                    tag_strings.push(">".to_string());
-
-                    for child in e.children.clone() {
-                        let stringed = HtmlNodeWrapper { inner: child }.to_string()?;
-
-                        tag_strings.push(stringed);
-                    }
-
-                    tag_strings.push(open_tag_name.closer());
-
-                    tag_strings
-                        .into_iter()
-                        .map(|x| {
-                            if x.starts_with("class")
-                                || x.starts_with("href")
-                                || x.starts_with("style")
-                            {
-                                return format!(" {x} ");
-                            }
-                            x
-                        })
-                        .join("")
-                } else if e.name == "message" {
-                    let mut tag_strings = Vec::with_capacity(e.children.len());
-                    for child in e.children.clone() {
-                        let stringed = HtmlNodeWrapper { inner: child }.to_string()?;
-
-                        tag_strings.push(stringed);
-                    }
-
-                    tag_strings
-                        .into_iter()
-                        .map(|x| {
-                            if x.starts_with("class")
-                                || x.starts_with("href")
-                                || x.starts_with("style")
-                            {
-                                return format!(" {x} ");
-                            }
-                            x
-                        })
-                        .join("")
-                } else if e.name == "br" {
-                    "<br>".to_string()
-                } else {
-                    warn!("Ignored Tag {}!", e.name);
-                    "".to_string()
-                }
-            }
-            Node::Comment(_) => "".to_string(),
-        };
-
-        Ok(write_str)
-    }
-}
-
-fn check_name_good<S: AsRef<str>>(string: S) -> bool {
-    if !string.replace(ALLOWED_CHARS, "").is_empty() || !string.starts_with(ALLOWED_START_CHARS) {
-        false
-    } else {
-        true
-    }
-}
-
-impl From<Node> for HtmlNodeWrapper {
-    fn from(n: Node) -> Self {
-        HtmlNodeWrapper { inner: n }
-    }
-}
-
-impl Deref for HtmlNodeWrapper {
-    type Target = Node;
-
-    fn deref(&self) -> &Self::Target {
-        &self.inner
-    }
-}
-
-impl DerefMut for HtmlNodeWrapper {
-    fn deref_mut(&mut self) -> &mut Self::Target {
-        &mut self.inner
-    }
+fn message_element_to_string(message_element: Element) -> Result<String, CompilerError> {
+    // i am cobbling together a thing that turns this thing back into a string at 4am because i was too fucking lazy to use xml-rs and now im suffering for it
 }
