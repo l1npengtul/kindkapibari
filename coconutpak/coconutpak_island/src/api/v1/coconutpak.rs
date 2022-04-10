@@ -1,11 +1,13 @@
-use crate::api::v1::CoconutPakUserApiKey;
+use crate::api::v1::CoconutPakUserAuthentication;
 use crate::report::Report;
 use crate::schema::coconutpak::Model;
 use crate::schema::*;
 use crate::AppData;
 use chrono::{DateTime, Utc};
 use color_eyre::eyre;
-use poem::error::{InternalServerError, NotFound, NotFoundError};
+use kindkapibari_core::throttle::ThrottledBytes;
+use kindkapibari_core::version::Version;
+use poem::error::{Forbidden, InternalServerError, NotFound, NotFoundError, NotImplemented};
 use poem::Result;
 use poem_openapi::param::Path;
 use poem_openapi::payload::{Attachment, PlainText};
@@ -16,6 +18,7 @@ use sea_orm::{
 };
 use std::future::join;
 use std::sync::Arc;
+use tokio::io::AsyncReadExt;
 
 #[derive(Debug, Multipart)]
 struct FileUpload {
@@ -31,8 +34,8 @@ struct CoconutPakApi {
 impl CoconutPakApi {
     // query and metadata
 
-    // #[oai(path = "/query", method = "get")]
-    async fn query(&self, name: Query<String>) -> Json<Vec<coconutpak::SearchableCoconutPak>> {
+    // #[oai(path = "/search", method = "get")]
+    async fn search(&self, name: Query<String>) -> Json<Vec<coconutpak::SearchableCoconutPak>> {
         let search_result = self
             .data
             .meilisearch
@@ -86,14 +89,6 @@ impl CoconutPakApi {
         return Ok(Json(pak_versions));
     }
 
-    // #[oai(path = "/pak/:name/:version/data", method = "get")]
-    async fn pack_version_data(
-        &self,
-        name: Path<String>,
-        version: Path<String>,
-    ) -> Result<Json<coconutpak_history::Model>> {
-    }
-
     // #[oai(path = "/pak/:name/:version/readme", method = "get")]
     async fn readme(&self, name: Path<String>, version: Path<String>) -> Result<PlainText<String>> {
         return Ok(PlainText("".to_string()));
@@ -105,7 +100,7 @@ impl CoconutPakApi {
         name: Path<String>,
         version: Path<String>,
         report: PlainText<String>,
-        api_key: CoconutPakUserApiKey,
+        api_key: CoconutPakUserAuthentication,
     ) -> Result<()> {
         let pak = self
             .get_pak_from_name(name.0)
@@ -133,13 +128,44 @@ impl CoconutPakApi {
         &self,
         name: Path<String>,
         version: Path<String>,
-        auth: CoconutPakUserApiKey,
-        state: Query<bool>,
+        auth: CoconutPakUserAuthentication,
     ) -> Result<()> {
         let pak = self
             .get_pak_from_name(name.0)
             .await?
             .ok_or(NotFound(eyre::Report::msg("Pak Not Found".to_string())))?;
+        if pak.owner != auth.0.uuid {
+            return Err(Forbidden(eyre::Report::msg(
+                "You do not own this CoconutPak.",
+            )));
+        }
+        let parsed_version = Version::parse(&version)?;
+        let mut pak_versions = coconutpak_history::Entity::find()
+            .filter(coconutpak_history::Column::Coconutpak.eq(pak.id))
+            .join(
+                JoinType::RightJoin,
+                coconutpak_history::Relation::CoconutPak.def(),
+            )
+            .all(&self.data.database)
+            .await
+            .unwrap_or_default();
+        pak_versions.retain(|x| x.version == parsed_version);
+        return if let Some(paks) = pak_versions.get(0) {
+            if pak_versions.len() == 1 {
+                let mut active_pak: coconutpak_history::ActiveModel = paks.into();
+                active_pak.yanked = ActiveValue::Set(true);
+                if let Err(why) = active_pak.update(&self.data.database).await {
+                    return Err(InternalServerError(why.into()));
+                }
+                Ok(())
+            } else {
+                Err(InternalServerError(eyre::Report::msg(
+                    "Too many CoconutPaks!",
+                )))
+            }
+        } else {
+            Err(NotFound(eyre::Report::msg("CoconutPak Not Found.")))
+        };
     }
 
     // #[oai(path = "/pak/:name/:version/download", method = "get")]
@@ -147,8 +173,53 @@ impl CoconutPakApi {
         &self,
         name: Path<String>,
         version: Path<String>,
-        api_key: CoconutPakUserApiKey,
-    ) -> Result<Attachment<Vec<u8>>> {
+        _api_key: CoconutPakUserAuthentication,
+    ) -> Result<Attachment<ThrottledBytes>> {
+        let pak = self
+            .get_pak_from_name(name.0)
+            .await?
+            .ok_or(NotFound(eyre::Report::msg("Pak Not Found".to_string())))?;
+        let mut pak_versions = coconutpak_history::Entity::find()
+            .filter(coconutpak_history::Column::Coconutpak.eq(pak.id))
+            .join(
+                JoinType::RightJoin,
+                coconutpak_history::Relation::CoconutPak.def(),
+            )
+            .all(&self.data.database)
+            .await
+            .unwrap_or_default();
+        pak_versions.retain(|x| x.version == parsed_version);
+        if let Some(paks) = pak_versions.get(0) {
+            if !paks.yanked {
+                let path = &self
+                    .data
+                    .config
+                    .read()
+                    .await
+                    .compiler
+                    .compile_target_directory
+                    .to_owned();
+                let compiled =
+                    match tokio::fs::File::open(path + format!("{name}/{version}/{name}.cpak"))
+                        .await
+                    {
+                        Ok(mut f) => {
+                            let mut data = Vec::new();
+                            f.read(&mut data).await.map_err(|_| {
+                                InternalServerError(eyre::Report::msg("Failed to open compiled."))
+                            })?;
+                            data
+                        }
+                        Err(_) => {
+                            return Err(NotFound(eyre::Report::msg(
+                                "Not yet compiled or does not exist.",
+                            )))
+                        }
+                    };
+                return Ok(Attachment::new(ThrottledBytes::new(compiled, 0)));
+            }
+        }
+        return Err(NotFound(eyre::Report::msg("Pak Not Found.")));
     }
 
     // #[oai(path = "/pak/:name/:version/downloadnoverify", method = "get")]
@@ -156,7 +227,10 @@ impl CoconutPakApi {
         &self,
         name: Path<String>,
         version: Path<String>,
-    ) -> Result<Attachment<Vec<u8>>> {
+    ) -> Result<Attachment<ThrottledBytes>> {
+        Err(Forbidden(eyre::Report::msg(
+            "You need to be logged in to do that.",
+        )))
     }
 
     // #[oai(path = "/pak/:name/:version/source", method = "get")]
@@ -165,10 +239,42 @@ impl CoconutPakApi {
         name: Path<String>,
         version: Path<String>,
     ) -> Result<Attachment<Vec<u8>>> {
+        Err(NotImplemented(eyre::Report::msg("Sorry!")))
     }
 
-    // #[oai(path = "/upload", method = "post")]
-    async fn upload(&self, auth: CoconutPakUserApiKey, data: FileUpload) -> Result<Json<u64>> {}
+    // #[oai(path = "/pak/:name/:version/sourcenoverify", method = "get")]
+    async fn source_no_verify(
+        &self,
+        name: Path<String>,
+        version: Path<String>,
+    ) -> Result<Attachment<ThrottledBytes>> {
+        Err(Forbidden(eyre::Report::msg(
+            "You need to be logged in to do that.",
+        )))
+    }
+
+    // #[oai(path = "/pak/:name/upload", method = "post")]
+    async fn upload(
+        &self,
+        auth: CoconutPakUserAuthentication,
+        name: Path<String>,
+        version: Query<String>,
+        data: FileUpload,
+    ) -> Result<Json<u64>> {
+        let pak = self
+            .get_pak_from_name(name.0)
+            .await?
+            .ok_or(NotFound(eyre::Report::msg("Pak Not Found".to_string())))?;
+        let mut pak_versions = coconutpak_history::Entity::find()
+            .filter(coconutpak_history::Column::Coconutpak.eq(pak.id))
+            .join(
+                JoinType::RightJoin,
+                coconutpak_history::Relation::CoconutPak.def(),
+            )
+            .all(&self.data.database)
+            .await
+            .unwrap_or_default();
+    }
 }
 
 impl CoconutPakApi {

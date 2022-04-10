@@ -17,6 +17,7 @@ use uuid::Uuid;
 pub struct Model {
     #[sea_orm(primary_key)]
     pub id: Uuid,
+    pub owner: Uuid,
     #[sea_orm(unique, indexed)]
     pub name: String,
     pub subscribers: u32,
@@ -27,6 +28,7 @@ pub struct Model {
 #[derive(Copy, Clone, Debug, EnumIter)]
 pub enum Relation {
     CoconutPakHistory,
+    User,
 }
 
 impl RelationTrait for Relation {
@@ -35,6 +37,10 @@ impl RelationTrait for Relation {
             Relation::CoconutPakHistory => {
                 Entity::has_many(super::coconutpak_history::Entity).into()
             }
+            Relation::User => Entity::belongs_to(super::user::Entity)
+                .from(Column::Owner)
+                .to(super::user::Column::Uuid)
+                .into(),
         }
     }
 }
@@ -45,23 +51,9 @@ impl Related<super::coconutpak_history::Entity> for Entity {
     }
 }
 
-impl Related<super::reports::Entity> for Entity {
-    fn to() -> RelationDef {
-        super::reports::Relation::User.def()
-    }
-
-    fn via() -> Option<RelationDef> {
-        Some(super::reports::Relation::CoconutPak.def().rev())
-    }
-}
-
 impl Related<super::user::Entity> for Entity {
     fn to() -> RelationDef {
-        super::subscribers::Relation::User.def()
-    }
-
-    fn via() -> Option<RelationDef> {
-        Some(super::subscribers::Relation::CoconutPak.def().rev())
+        Relation::User.def()
     }
 }
 

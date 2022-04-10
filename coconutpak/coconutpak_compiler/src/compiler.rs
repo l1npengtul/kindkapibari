@@ -2,9 +2,11 @@ use crate::error::CompilerError;
 use escaper::encode_minimal;
 use html_parser::{Dom, Node};
 use itertools::Itertools;
+use kindkapibari_core::language::Language;
 use kindkapibari_core::manifest::CoconutPakManifest;
 use kindkapibari_core::output::CoconutPakOutput;
 use kindkapibari_core::text::TextContainer;
+use language_tags::LanguageTag;
 use log::{error, warn};
 use std::collections::HashMap;
 use std::io::Read;
@@ -18,6 +20,7 @@ use std::{
     str::FromStr,
 };
 use walkdir::WalkDir;
+use xml::EventReader;
 
 const ALLOWED_TAGS: [&str; 20] = [
     "CoconutPakAsset",
@@ -159,7 +162,7 @@ impl Compiler {
         }
         // see whats inside src
 
-        let mut files_inside_src_texts: HashMap<String, String> = HashMap::new();
+        let mut files_inside_src_texts = HashMap::new();
         // let files_inside_src_texts = vec![];
         // let files_inside_src_texts = vec![];
         // TODO: Different Types (themes, animals, etc)
@@ -218,7 +221,104 @@ impl Compiler {
         })
     }
 
-    fn compile_text(&self, file: String) -> Result<TextContainer, CompilerError> {
+    fn compile_text(&self, text: String) -> Result<TextContainer, CompilerError> {
+        let dom = Dom::parse(&text).map_err(|x| CompilerError::XmlError { why: x.to_string() })?;
+        if dom.children.len() == 1 {
+            return Err(CompilerError::XmlError {
+                why: "There can only be one root child.".to_string(),
+            });
+        }
+
+        let mut root_children = Vec::new();
+
+        if let Node::Element(e) = &dom.children[0] {
+            if e.name != "CoconutPakText" {
+                return Err(CompilerError::XmlError {
+                    why: "First root child must be CoconutPakText for Text.".to_string(),
+                });
+            }
+            root_children = e.children.clone();
+        } else {
+            return Err(CompilerError::XmlError {
+                why: "First root child must be element.".to_string(),
+            });
+        }
+
+        let subnamespace = if let Node::Element(e) = &root_children[0] {
+            if e.name != "subnamespace" {
+                return Err(CompilerError::XmlError {
+                    why: "First child must be subnamespace".to_string(),
+                });
+            }
+            if let Node::Text(t) = &e.children[0] {
+                t.to_string()
+            } else {
+                return Err(CompilerError::XmlError {
+                    why: "Subnamespace must be string.".to_string(),
+                });
+            }
+        } else {
+            return Err(CompilerError::XmlError {
+                why: "No Element".to_string(),
+            });
+        };
+
+        let langcode = if let Node::Element(e) = &root_children[1] {
+            if e.name != "langcode" {
+                return Err(CompilerError::XmlError {
+                    why: "Second child must be langcode".to_string(),
+                });
+            }
+            if let Node::Text(t) = &e.children[0] {
+                LanguageTag::parse(t)
+            } else {
+                return Err(CompilerError::XmlError {
+                    why: "langcode must be string.".to_string(),
+                });
+            }
+        } else {
+            return Err(CompilerError::XmlError {
+                why: "No Element".to_string(),
+            });
+        }
+        .map_err(|why| CompilerError::BadAttr {
+            attribute: "langcode".to_string(),
+            value: "".to_string(),
+            why: why.to_string(),
+        })?;
+
+        let description = if let Node::Element(e) = &root_children[2] {
+            if e.name != "description" {
+                return Err(CompilerError::XmlError {
+                    why: "Third child must be description".to_string(),
+                });
+            }
+            if let Node::Text(t) = &e.children[0] {
+                t.to_string()
+            } else {
+                return Err(CompilerError::XmlError {
+                    why: "description must be string.".to_string(),
+                });
+            }
+        } else {
+            return Err(CompilerError::XmlError {
+                why: "No Element".to_string(),
+            });
+        };
+
+        let mut texts = vec![];
+
+        if let Some(Node::Element(e)) = root_children.get(3) {
+            for response in e.children {
+                if let Node::Element(e) = response {
+                } else {
+                    return Err(CompilerError::XmlError {
+                        why: "Found other nodes where there shouldn't be.".to_string(),
+                    });
+                }
+            }
+        }
+
         // lint
 
         // match File::open(file) {

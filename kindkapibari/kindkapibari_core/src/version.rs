@@ -21,6 +21,12 @@ impl Version {
             },
         }
     }
+
+    pub fn parse(text: &str) -> Result<Self, semver::Error> {
+        Ok(Version {
+            version: SemVer::parse(text)?.into(),
+        })
+    }
 }
 
 impl Deref for Version {

@@ -1,12 +1,11 @@
-use kindkapybari_core::{
-    dbarray::DBArray, dbvec::DBVec, manifest::CoconutPakManifest, version::Version,
-};
 use oauth2::url::Url;
-use poem_openapi::registry::{MetaSchema, MetaSchemaRef};
-use poem_openapi::types::{ToJSON, Type};
-use sea_orm::strum::IntoEnumIterator;
+use poem_openapi::{
+    registry::{MetaSchema, MetaSchemaRef},
+    types::{ToJSON, Type},
+};
 use sea_orm::{
     prelude::{DeriveEntityModel, EntityTrait, PrimaryKeyTrait, Related, RelationTrait},
+    strum::IntoEnumIterator,
     ActiveModelBehavior, EnumIter, IdenStatic, RelationDef,
 };
 use serde::{Deserialize, Serialize};
@@ -34,7 +33,7 @@ impl RelationTrait for Relation {
         match self {
             Relation::User => Entity::belongs_to(super::user::Entity)
                 .from(Column::UserId)
-                .to(super::user::Column::Id)
+                .to(super::user::Column::Uuid)
                 .into(),
             Relation::CoconutPak => Entity::belongs_to(super::coconutpak::Entity)
                 .from(Column::PakId)

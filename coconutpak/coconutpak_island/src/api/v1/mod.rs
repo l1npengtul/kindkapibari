@@ -22,7 +22,7 @@ pub mod user;
     in = "header",
     checker = "coconutpak_auth_checker"
 )]
-pub struct CoconutPakUserApiKey(pub Model);
+pub struct CoconutPakUserAuthentication(pub Model);
 
 async fn coconutpak_auth_checker(
     data: Data<Arc<AppData>>,

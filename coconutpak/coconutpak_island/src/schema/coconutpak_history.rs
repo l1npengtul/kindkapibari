@@ -1,12 +1,11 @@
-use kindkapibari_core::dbarray::DBArray;
-use kindkapibari_core::dbvec::DBVec;
-use kindkapibari_core::version::Version;
-use kindkapybari_core::{
+use kindkapibari_core::{
     dbarray::DBArray, dbvec::DBVec, manifest::CoconutPakManifest, version::Version,
 };
 use oauth2::url::Url;
-use poem_openapi::registry::{MetaSchema, MetaSchemaRef};
-use poem_openapi::types::{ToJSON, Type};
+use poem_openapi::{
+    registry::{MetaSchema, MetaSchemaRef},
+    types::{ToJSON, Type},
+};
 use redis::{ErrorKind, FromRedisValue, RedisError, RedisResult, RedisWrite, ToRedisArgs};
 use sea_orm::{
     prelude::{DeriveEntityModel, EntityTrait, PrimaryKeyTrait, Related, RelationTrait},
@@ -16,7 +15,6 @@ use serde::{Deserialize, Serialize};
 use serde_json::Value;
 use std::borrow::Cow;
 use uuid::Uuid;
-use kindkapibari_core::manifest::CoconutPakManifest;
 
 #[derive(Clone, Debug, Hash, PartialOrd, PartialEq, Serialize, Deserialize, DeriveEntityModel)]
 #[sea_orm(table_name = "coconutpak_history")]

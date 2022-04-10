@@ -21,5 +21,7 @@ pub mod reseedingrng;
 pub mod responses;
 pub mod templater;
 pub mod text;
+#[cfg(feature = "server")]
+pub mod throttle;
 pub mod user_data;
 pub mod version;

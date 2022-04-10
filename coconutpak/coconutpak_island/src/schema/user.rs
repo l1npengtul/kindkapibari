@@ -1,3 +1,4 @@
+use bson::serde_helpers::serialize_uuid_as_binary;
 use redis::{ErrorKind, FromRedisValue, RedisError, RedisResult, RedisWrite, ToRedisArgs, Value};
 use sea_orm::{
     prelude::{DeriveEntityModel, EntityTrait, PrimaryKeyTrait, Related, RelationTrait},
@@ -22,6 +23,8 @@ pub struct Model {
 pub enum Relation {
     ApiKey,
     Session,
+    Reports,
+    CoconutPak,
 }
 
 impl RelationTrait for Relation {
@@ -29,6 +32,8 @@ impl RelationTrait for Relation {
         match self {
             Relation::ApiKey => Entity::has_many(super::api_key::Entity).into(),
             Relation::Session => Entity::has_many(super::session::Entity).into(),
+            Relation::Reports => Entity::has_many(super::reports::Entity).into(),
+            Relation::CoconutPak => Entity::has_many(super::user::Entity).into(),
         }
     }
 }
@@ -41,27 +46,19 @@ impl Related<super::api_key::Entity> for Entity {
 
 impl Related<super::session::Entity> for Entity {
     fn to() -> RelationDef {
-        super::session::Relation::User.def()
-    }
-}
-
-impl Related<super::coconutpak::Entity> for Entity {
-    fn to() -> RelationDef {
-        super::subscribers::Relation::CoconutPak.def()
-    }
-
-    fn via() -> Option<RelationDef> {
-        Some(super::subscribers::Relation::User.def().rev())
+        Relation::Session.def()
     }
 }
 
 impl Related<super::reports::Entity> for Entity {
     fn to() -> RelationDef {
-        super::reports::Relation::CoconutPak.def()
+        Relation::Reports.def()
     }
+}
 
-    fn via() -> Option<RelationDef> {
-        Some(super::reports::Relation::User.def().rev())
+impl Related<super::coconutpak::Entity> for Entity {
+    fn to() -> RelationDef {
+        Relation::CoconutPak.def()
     }
 }
 

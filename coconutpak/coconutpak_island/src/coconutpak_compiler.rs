@@ -179,8 +179,8 @@ impl Future for CompileTaskHandler {
             Poll::Ready(self.handle.wait())
         } else {
             let waker = cx.waker().clone();
-            std::thread::spawn(|| {
-                sleep(Duration::new(1, 0));
+            tokio::task::spawn(async || {
+                tokio::time::sleep(Duration::new(1, 0));
                 waker.wake();
             });
             Poll::Pending

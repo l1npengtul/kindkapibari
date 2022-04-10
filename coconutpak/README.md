@@ -53,8 +53,7 @@ The `src/` is where all the assets are.
 
 #### 4.1 Custom Text Extensions
 The text definition HTML must only contain:
-- `<!TYPE TEXT>`: Must go before anything else. 
-- A beginning `<CoconutPakAsset></CoconutPakAsset>` (root node)
+- A beginning `<CoconutPakText></CoconutPakText>` (root node)
 - `<subnamespace>`: [STRING] A tag containing the sub-namespace for this group of text
     - Can be UTF-8
     - Can not contain " " or any other special character except for "_" and "-"
@@ -64,6 +63,7 @@ The text definition HTML must only contain:
 - `<description>`: [STRING] A tag containing a short text description.
 - `<responses>`: A tag based markup similar to HTML/XML that defines each response
 
+It must be in this specific order.
 Text themselves is defined in an HTML-like custom markup language (that gets compiled to HTML).
 
 Each response is rolled into a pool, and once a response is chosen it is rolled again to its individual probability. Both must succeed for 
@@ -105,6 +105,7 @@ Please refer to `tera`'s [documentation](https://tera.netlify.app/) for more.
 
 We also have some helpful custom functions to help you:
 - `genderreplace`:
+  - Chooses the correct form based on the user's preferred gender.
   - Usage: `{{genderreplace(fem=[F], masc=[M], nb=[N], cs=[C])}}`
     - where:
       - [F]: Feminine Form (String)
@@ -117,6 +118,11 @@ We also have some helpful custom functions to help you:
     - where:
       - <F>: Format string. Please see [`chrono`'s Documentation](https://github.com/chronotope/chrono#formatting-and-parsing) for more.
       - <D>: Date field, e.g. `"birthday"`.
+- `efmt` 
+  - Short for emoji fmt, Changes a emoji's skin tone based on user's settings.
+  - Usage `{{efmt(<E>)}}`
+    - where:
+      - <E>: Emoji to format. This should be text, e.g. :open_hands: for 👐. 
 
 Using formatters 
 - `pronouns`:
@@ -151,9 +157,8 @@ Using formatters
 
 #### Example
 
-```html
-<!TYPE TEXT>
-<CoconutPakAsset>
+```xml
+<CoconutPakText>
     <subnamespace>turtle거북이</subnamespace>
     <langcode>en</langcode>
     <description>Response about turtles.</description>
@@ -166,7 +171,7 @@ Using formatters
             <message>Turtle says "Hi {{username}}!"</message>
         </response>
     </responses>
-</CoconutPakAsset>
+</CoconutPakText>
 ```
 
 #### 4.2 Custom Theme Extensions
