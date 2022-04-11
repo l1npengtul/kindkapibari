@@ -1,9 +1,17 @@
-use clap::Parser;
+use clap::{Parser, Subcommand};
 
 #[derive(Parser)]
-#[clap(name = "coconutpak")]
-#[clap(bin_name = "coconutpak")]
-enum CoconutPak {
+#[clap(name = "coconutpakman")]
+#[clap(bin_name = "coconutpakman")]
+#[clap(author, version, about, long_about = None)]
+#[clap(propagate_version = true)]
+struct Cli {
+    #[clap(subcommand)]
+    command: Commands,
+}
+
+#[derive(Subcommand)]
+enum Commands {
     Version(Version),
     Init(Init),
     New(New),

@@ -1,34 +1,39 @@
 use crate::error::CompilerError;
 use crate::error::CompilerError::XmlError;
+use ammonia::clean;
 use escaper::encode_minimal;
+use html_minifier::minify;
 use html_parser::{Dom, Element, Node};
 use itertools::Itertools;
-use kindkapibari_core::language::Language;
-use kindkapibari_core::manifest::CoconutPakManifest;
-use kindkapibari_core::output::CoconutPakOutput;
-use kindkapibari_core::responses::{Message, Response};
-use kindkapibari_core::tags::Tags;
-use kindkapibari_core::text::TextContainer;
+use kindkapibari_core::{
+    language::Language,
+    manifest::CoconutPakManifest,
+    output::CoconutPakOutput,
+    responses::{Message, Response},
+    tags::Tags,
+    text::TextContainer,
+};
 use language_tags::LanguageTag;
 use log::{error, warn};
 use pulldown_cmark::{html, Event, Options, Parser, Tag};
-use std::collections::HashMap;
-use std::io::Read;
-use std::path::PathBuf;
 use std::{
     borrow::Cow,
+    collections::HashMap,
     fmt::{Display, Formatter},
     fs::File,
+    io::Read,
     ops::{Deref, DerefMut},
-    path::Path,
+    path::{Path, PathBuf},
     str::FromStr,
 };
 use walkdir::WalkDir;
-use xml::attribute::OwnedAttribute;
-use xml::name::OwnedName;
-use xml::namespace::Namespace;
-use xml::reader::{Error, XmlEvent};
-use xml::{EventReader, EventWriter};
+use xml::{
+    attribute::OwnedAttribute,
+    name::OwnedName,
+    namespace::Namespace,
+    reader::{Error, XmlEvent},
+    EventReader, EventWriter,
+};
 
 const ALLOWED_TAGS: [&str; 20] = [
     "CoconutPakText",
@@ -69,7 +74,6 @@ const ALLOWED_START_CHARS: &[char] = &[
 pub struct Compiler<'a> {
     manifest: CoconutPakManifest,
     source_path: String,
-    mock_renderer: Registry<'a>,
 }
 
 impl Compiler {
@@ -77,9 +81,6 @@ impl Compiler {
         // default to CWD
         let source_path =
             source_path.unwrap_or(std::env::current_dir()?.to_string_lossy().to_string());
-
-        let mut registry = Registry::new();
-        registry.set_strict(true);
 
         // try and find a Coconut.toml
         let mut fs_coconut_manifest = match File::open(&source_path + "Coconut.toml") {
@@ -129,7 +130,6 @@ impl Compiler {
             Ok(Compiler {
                 manifest,
                 source_path: (&source_path + "src").to_string(),
-                mock_renderer: registry,
             })
         } else {
             Err(CompilerError::SourcePathInvalid)
@@ -232,7 +232,7 @@ impl Compiler {
     fn compile_text(&self, intext: String) -> Result<TextContainer, CompilerError> {
         // markup
         let mut markup = Options::all();
-        let parser = Parser::new_ext(&intext, options);
+        let parser = Parser::new_ext(&intext, markup);
         let mut text = String::new();
         html::push_html(&mut text, parser);
 
@@ -414,20 +414,16 @@ impl Compiler {
         }
 
         // response
-        if let Ok(XmlEvent::StartElement {
-            name, attributes, ..
-        }) = xml.next()
-        {
+        let mut response_vec = vec![];
+        if let Ok(XmlEvent::StartElement { name, .. }) = xml.next() {
             if name != "responses" {
                 return Err(CompilerError::XmlError {
                     why: "Expected responses".to_string(),
                 });
             }
-            let mut depth = 0;
             let mut message_start_set = false;
             let mut current_response = Response::default();
-            let mut current_message = Message::default();
-            let mut response_vec = vec![];
+            let mut inner_messages = vec![];
             loop {
                 let xml_event_copy = xml.next().clone();
                 match xml_event_copy {
@@ -436,7 +432,9 @@ impl Compiler {
                             name, attributes, ..
                         } => {
                             let attributes = owned_attribute_vec_to_hashmap(attributes);
-                            if name == "response" {
+                            if name == "responses" {
+                                message_start_set = true;
+                            } else if name == "response" {
                                 current_response.name = attributes
                                     .get("name")
                                     .ok_or(CompilerError::BadAttr {
@@ -476,7 +474,7 @@ impl Compiler {
                                     })
                                     .flatten()?;
 
-                                loop {
+                                'msg: loop {
                                     let inner_message_copy = xml.next().clone();
 
                                     match inner_message_copy {
@@ -513,10 +511,18 @@ impl Compiler {
                                                                 .to_string(),
                                                         });
                                                     }
+
+                                                    let mut event_writer =
+                                                        EventWriter::new(Vec::new());
+
+                                                    event_writer.write(XmlEvent::StartElement {
+                                                        name: "p".to_string().into(),
+                                                        attributes: vec![].into(),
+                                                        namespace: Default::default(),
+                                                    });
+
                                                     loop {
                                                         let message_event = xml.next().clone();
-                                                        let mut event_writer =
-                                                            EventWriter::new(Vec::new());
 
                                                         match message_event {
                                                             Ok(event) => match event {
@@ -616,6 +622,7 @@ impl Compiler {
                                                                         "u" => {
                                                                             event_writer.write(
                                                                                 XmlEvent::EndElement { name: "u".to_string().into(), }
+                                                                            )
                                                                         },
                                                                         "super" => {event_writer.write(
                                                                             XmlEvent::EndElement {
@@ -652,6 +659,14 @@ impl Compiler {
                                                                                 name: "span".to_string().into(),
                                                                             }
                                                                         )},
+                                                                        "message" => {
+                                                                            event_writer.write(
+                                                                                XmlEvent::EndElement {
+                                                                                    name: "p".to_string().into(),
+                                                                                }
+                                                                            );
+                                                                            break
+                                                                        }
                                                                         name => {event_writer.write(
                                                                             XmlEvent::EndElement {
                                                                                 name: name.to_string().into(),
@@ -661,18 +676,20 @@ impl Compiler {
                                                                 }
                                                                 XmlEvent::CData(data)
                                                                 | XmlEvent::Characters(data) => {
-                                                                    eventwriter.write(
-                                                                        XmlEvent::Characters(
-
+                                                                    eventwriter
+                                                                        .write(XmlEvent::Characters(
+                                                                        html_escape::encode_text(
+                                                                            &data,
                                                                         )
-                                                                    )
+                                                                        .to_string(),
+                                                                    ))
                                                                 }
                                                                 XmlEvent::Comment(_)
                                                                 | XmlEvent::Whitespace(_) => {}
                                                                 unexpected => {
                                                                     return Err(CompilerError::XmlError {
                                                                             why: format!("Unexpected XML: {unexpected:?}"),
-                                                                        });
+                                                                    });
                                                                 }
                                                             },
                                                             Err(why) => {
@@ -686,6 +703,25 @@ impl Compiler {
                                                             }
                                                         }
                                                     }
+
+                                                    let message_text = minify(clean(
+                                                        &String::from_utf8(
+                                                            event_writer.into_inner(),
+                                                        )
+                                                        .map_err(|why| CompilerError::BadText {
+                                                            why: why.to_string(),
+                                                        })?,
+                                                    ))
+                                                    .map_err(|why| CompilerError::BadText {
+                                                        why: why.to_string(),
+                                                    })?;
+
+                                                    inner_messages.push(Message {
+                                                        message: message_text,
+                                                        wait_after: wait,
+                                                    });
+
+                                                    break;
                                                 } else {
                                                     return Err(CompilerError::XmlError {
                                                         why: format!("Unexpected XML: {name}"),
@@ -709,10 +745,25 @@ impl Compiler {
                                         }
                                     }
                                 }
+
+                                current_response.messages = inner_messages.clone();
                             }
                         }
-                        XmlEvent::EndElement { name, .. } => {}
-                        XmlEvent::CData(data) | XmlEvent::Characters(data) => {}
+                        XmlEvent::EndElement { name, .. } => {
+                            if name == "response" {
+                                response_vec.push(current_response.clone());
+                                current_response = Default::default();
+                                inner_messages.clear();
+                            } else if name == "responses" {
+                                message_start_set = false;
+                            } else if name == "CoconutPakText" {
+                                break;
+                            } else {
+                                return Err(CompilerError::XmlError {
+                                    why: format!("Unexpected XML Element: {name}"),
+                                });
+                            }
+                        }
                         XmlEvent::Comment(_) | XmlEvent::Whitespace(_) => {
                             continue;
                         }
@@ -730,273 +781,18 @@ impl Compiler {
                 }
             }
         }
-        return Err(CompilerError::XmlError {
-            why: "".to_string(),
-        });
 
-        // let markdown_opt = Options::all();
-        //
-        // let dom = Dom::parse(&text).map_err(|x| CompilerError::XmlError { why: x.to_string() })?;
-        // if dom.children.len() == 1 {
-        //     return Err(CompilerError::XmlError {
-        //         why: "There can only be one root child.".to_string(),
-        //     });
-        // }
-        //
-        // let mut root_children = Vec::new();
-        //
-        // if let Node::Element(e) = &dom.children[0] {
-        //     if e.name != "CoconutPakText" {
-        //         return Err(CompilerError::XmlError {
-        //             why: "First root child must be CoconutPakText for Text.".to_string(),
-        //         });
-        //     }
-        //     root_children = e.children.clone();
-        // } else {
-        //     return Err(CompilerError::XmlError {
-        //         why: "First root child must be element.".to_string(),
-        //     });
-        // }
-        //
-        // let subnamespace = if let Node::Element(e) = &root_children[0] {
-        //     if e.name != "subnamespace" {
-        //         return Err(CompilerError::XmlError {
-        //             why: "First child must be subnamespace".to_string(),
-        //         });
-        //     }
-        //     if let Node::Text(t) = &e.children[0] {
-        //         t.to_string()
-        //     } else {
-        //         return Err(CompilerError::XmlError {
-        //             why: "Subnamespace must be string.".to_string(),
-        //         });
-        //     }
-        // } else {
-        //     return Err(CompilerError::XmlError {
-        //         why: "No Element".to_string(),
-        //     });
-        // };
-        //
-        // let tags = if let Node::Element(e) = &root_children[1] {
-        //     if e.name != "tag" {
-        //         return Err(CompilerError::XmlError {
-        //             why: "First child must be subnamespace".to_string(),
-        //         });
-        //     }
-        //     if let Node::Text(t) = &e.children[0] {
-        //         t.to_string()
-        //             .parse::<Tags>()
-        //             .map_err(|why| CompilerError::BadText {
-        //                 why: why.to_string(),
-        //             })?
-        //     } else {
-        //         return Err(CompilerError::XmlError {
-        //             why: "Tag must be string.".to_string(),
-        //         });
-        //     }
-        // } else {
-        //     return Err(CompilerError::XmlError {
-        //         why: "No Element".to_string(),
-        //     });
-        // };
-        //
-        // let langcode = if let Node::Element(e) = &root_children[2] {
-        //     if e.name != "langcode" {
-        //         return Err(CompilerError::XmlError {
-        //             why: "Second child must be langcode".to_string(),
-        //         });
-        //     }
-        //     if let Node::Text(t) = &e.children[0] {
-        //         LanguageTag::parse(t)
-        //     } else {
-        //         return Err(CompilerError::XmlError {
-        //             why: "langcode must be string.".to_string(),
-        //         });
-        //     }
-        // } else {
-        //     return Err(CompilerError::XmlError {
-        //         why: "No Element".to_string(),
-        //     });
-        // }
-        // .map_err(|why| CompilerError::BadAttr {
-        //     attribute: "langcode".to_string(),
-        //     value: "".to_string(),
-        //     why: why.to_string(),
-        // })?;
-        //
-        // let description = if let Node::Element(e) = &root_children[3] {
-        //     if e.name != "description" {
-        //         return Err(CompilerError::XmlError {
-        //             why: "Third child must be description".to_string(),
-        //         });
-        //     }
-        //     if let Node::Text(t) = &e.children[0] {
-        //         t.to_string()
-        //     } else {
-        //         return Err(CompilerError::XmlError {
-        //             why: "description must be string.".to_string(),
-        //         });
-        //     }
-        // } else {
-        //     return Err(CompilerError::XmlError {
-        //         why: "No Element".to_string(),
-        //     });
-        // };
-        //
-        // let mut texts = HashMap::new();
-        //
-        // if let Some(Node::Element(resps)) = root_children.get(3) {
-        //     if resps.name != "responses" {
-        //         return Err(CompilerError::XmlError {
-        //             why: "Did not find `responses` where it should be.".to_string(),
-        //         });
-        //     }
-        //     for responses in resps.children {
-        //         if let Node::Element(response) = responses {
-        //             if response.name != "response" {
-        //                 return Err(CompilerError::XmlError {
-        //                     why: "Did not find `response` where it should be.".to_string(),
-        //                 });
-        //             }
-        //             let name = response
-        //                 .attributes
-        //                 .get("name")
-        //                 .map(|n| n.as_deref())
-        //                 .flatten()
-        //                 .ok_or(CompilerError::BadAttr {
-        //                     attribute: "name".to_string(),
-        //                     value: "".to_string(),
-        //                     why: "Failed to parse".to_string(),
-        //                 })?
-        //                 .to_string();
-        //
-        //             let welcome = response
-        //                 .attributes
-        //                 .get("welcome")
-        //                 .map(|w| w.as_deref())
-        //                 .flatten()
-        //                 .map(|x| x.parse::<bool>().ok())
-        //                 .flatten()
-        //                 .ok_or(CompilerError::BadAttr {
-        //                     attribute: "welcome".to_string(),
-        //                     value: "".to_string(),
-        //                     why: "Failed to parse".to_string(),
-        //                 })?;
-        //             let probability = response
-        //                 .attributes
-        //                 .get("probability")
-        //                 .map(|p| p.as_deref())
-        //                 .flatten()
-        //                 .map(|x| x.parse::<f32>().ok())
-        //                 .flatten()
-        //                 .ok_or(CompilerError::BadAttr {
-        //                     attribute: "probability".to_string(),
-        //                     value: "".to_string(),
-        //                     why: "Failed to parse".to_string(),
-        //                 })?;
-        //             for msg in response.children {
-        //                 if let Node::Element(message) = msg {
-        //                     if message.name != "message" {
-        //                         return Err(CompilerError::XmlError { why: "Found other nodes that were not message where there are only supposed to be message.".to_string() });
-        //                     }
-        //                     let wait = message
-        //                         .attributes
-        //                         .get("wait")
-        //                         .map(|w| w.as_deref())
-        //                         .flatten()
-        //                         .map(|x| x.parse::<f32>().ok())
-        //                         .flatten()
-        //                         .ok_or(CompilerError::BadAttr {
-        //                             attribute: "wait".to_string(),
-        //                             value: "".to_string(),
-        //                             why: "Failed to parse".to_string(),
-        //                         })?;
-        //                     if wait > 5.0 {
-        //                         return Err(CompilerError::BadAttr {
-        //                             attribute: "wait".to_string(),
-        //                             value: wait.to_string(),
-        //                             why: "wait > 5.0".to_string(),
-        //                         });
-        //                     }
-        //
-        //                     let message_contents = ;
-        //                 }
-        //             }
-        //         } else {
-        //             return Err(CompilerError::XmlError {
-        //                 why: "Found other nodes where there shouldn't be.".to_string(),
-        //             });
-        //         }
-        //     }
-        // }
+        Ok(TextContainer::new(
+            subnamespace,
+            tag,
+            description,
+            langcode,
+            response_vec,
+        ))
     }
 }
 
 // I do not know what the fuck is going on here but it seems correct so here it will stay.
-#[derive(Clone, Debug, PartialOrd, PartialEq)]
-enum SpecialTags<'a> {
-    HtmlDefault(Cow<'a, str>),
-    Color,
-    Strike,
-    Under,
-    Inline,
-    Super,
-    Sub,
-    Highlight,
-    Quote,
-    Wave,
-    Shake,
-    Spoiler,
-}
-
-impl<'a> SpecialTags<'a> {
-    pub fn closer(&self) -> String {
-        format!("</{}>", self)
-    }
-}
-
-impl<'a> Display for SpecialTags<'a> {
-    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
-        write!(
-            f,
-            "{}",
-            match self {
-                SpecialTags::HtmlDefault(d) => d,
-                SpecialTags::Color => "span",
-                SpecialTags::Strike => "del",
-                SpecialTags::Under => "u",
-                SpecialTags::Inline => "code",
-                SpecialTags::Super => "sup",
-                SpecialTags::Sub => "sub",
-                SpecialTags::Highlight => "mark",
-                SpecialTags::Quote => "blockquote",
-                SpecialTags::Wave => "span",
-                SpecialTags::Shake => "span",
-                SpecialTags::Spoiler => "span",
-            }
-        )
-    }
-}
-
-impl<'a> From<&'a String> for SpecialTags<'a> {
-    fn from(s: &'a String) -> Self {
-        match s.as_ref() {
-            "color" => SpecialTags::Color,
-            "strike" => SpecialTags::Strike,
-            "under" => SpecialTags::Under,
-            "inline" => SpecialTags::Inline,
-            "super" => SpecialTags::Super,
-            "sub" => SpecialTags::Sub,
-            "highlight" => SpecialTags::Highlight,
-            "quote" => SpecialTags::Quote,
-            "wave" => SpecialTags::Wave,
-            "shaky" => SpecialTags::Shake,
-            "spoiler" => SpecialTags::Spoiler,
-            d => SpecialTags::HtmlDefault(Cow::from(d)),
-        }
-    }
-}
-
 // fn message_element_to_string(message_element: Element) -> Result<String, CompilerError> {
 //     // i am cobbling together a thing that turns this thing back into a string at 4am because i was too fucking lazy to use xml-rs and now im suffering for it
 // }

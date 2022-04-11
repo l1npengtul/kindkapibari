@@ -1,9 +1,11 @@
 use crate::responses::Response;
+use crate::tags::Tags;
 use language_tags::LanguageTag;
 
 #[derive(Clone, Debug, PartialOrd, PartialEq, Serialize, Deserialize)]
 pub struct TextContainer {
     sub_namespace: String,
+    tags: Tags,
     language: LanguageTag,
     description: String,
     responses: Vec<Response>,
@@ -12,12 +14,14 @@ pub struct TextContainer {
 impl TextContainer {
     pub fn new(
         sub_namespace: String,
+        tags: Tags,
         description: String,
         language: LanguageTag,
         responses: Vec<Response>,
     ) -> Self {
         TextContainer {
             sub_namespace,
+            tags,
             language,
             description,
             responses,
