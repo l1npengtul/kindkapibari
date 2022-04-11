@@ -73,7 +73,8 @@ a given message to appear.
 The files should end in `.copt` (**CO**conut**P**ak**T**ext) 
 
 Note: The max time for responses are 5000 milliseconds of wait.
-Note: Use markdown for basic text formatting. We follow the CommomMark standard, with strikethrough and tables enabled. 
+
+Note: Use markdown for basic text formatting. We follow the CommonMark standard, with strikethrough and tables enabled. 
 
 Tags: 
 - `<response>`: An individual response. There may be multiple.
@@ -93,7 +94,7 @@ Tags:
 - `<br>`: Newline
 - `<spoiler>`: Spoiler Text
 
-You ***MUST*** close your tags. 
+You ***MUST*** close your tags. (Even `<br>`).  
 
 ##### Text Templating
 Text templating is done using the [`tera`](https://crates.io/crates/tera).

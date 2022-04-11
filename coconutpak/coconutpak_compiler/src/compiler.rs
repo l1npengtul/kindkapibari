@@ -1,16 +1,17 @@
 use crate::error::CompilerError;
+use crate::error::CompilerError::XmlError;
 use escaper::encode_minimal;
 use html_parser::{Dom, Element, Node};
 use itertools::Itertools;
 use kindkapibari_core::language::Language;
 use kindkapibari_core::manifest::CoconutPakManifest;
 use kindkapibari_core::output::CoconutPakOutput;
-use kindkapibari_core::responses::Response;
+use kindkapibari_core::responses::{Message, Response};
 use kindkapibari_core::tags::Tags;
 use kindkapibari_core::text::TextContainer;
 use language_tags::LanguageTag;
 use log::{error, warn};
-use pulldown_cmark::Options;
+use pulldown_cmark::{html, Event, Options, Parser, Tag};
 use std::collections::HashMap;
 use std::io::Read;
 use std::path::PathBuf;
@@ -23,10 +24,11 @@ use std::{
     str::FromStr,
 };
 use walkdir::WalkDir;
+use xml::attribute::OwnedAttribute;
 use xml::name::OwnedName;
 use xml::namespace::Namespace;
-use xml::reader::XmlEvent;
-use xml::EventReader;
+use xml::reader::{Error, XmlEvent};
+use xml::{EventReader, EventWriter};
 
 const ALLOWED_TAGS: [&str; 20] = [
     "CoconutPakText",
@@ -227,8 +229,19 @@ impl Compiler {
         })
     }
 
-    fn compile_text(&self, text: String) -> Result<TextContainer, CompilerError> {
-        let mut text = text;
+    fn compile_text(&self, intext: String) -> Result<TextContainer, CompilerError> {
+        // markup
+        let mut markup = Options::all();
+        let parser = Parser::new_ext(&intext, options);
+        let mut text = String::new();
+        html::push_html(&mut text, parser);
+
+        // check DOM
+        if let Err(why) = Dom::parse(&text) {
+            return Err(CompilerError::XmlError {
+                why: why.to_string(),
+            });
+        }
 
         let mut xml = EventReader::from_str(&text);
 
@@ -238,7 +251,7 @@ impl Compiler {
         })? {
             XmlEvent::StartElement { name, .. } => {
                 if name != "CoconutPakText" {
-                    return Err(CompilerError::BadText {
+                    return Err(CompilerError::XmlError {
                         why: "Expected CoconutPakText".to_string(),
                     });
                 }
@@ -248,58 +261,478 @@ impl Compiler {
 
         // subnamespace, tag, langcode, description
 
-        if let Ok(XmlEvent::StartElement { name, .. }) = xml.next() {
-            if name != "subnamespace" {
-                if let Ok(XmlEvent::CData(data)) = xml.next() {}
-            }
-        }
-
-        xml.next();
-
-        match xml.next().map_err(|why| CompilerError::XmlError {
-            why: why.to_string(),
-        })? {
-            XmlEvent::StartElement { name, .. } => {
-                if name != "CoconutPakText" {
-                    return Err(CompilerError::BadText {
-                        why: "Expected CoconutPakText".to_string(),
+        let subnamespace = match xml.next() {
+            Ok(XmlEvent::StartElement { name, .. }) => {
+                if name != "subnamespace" {
+                    return Err(CompilerError::XmlError {
+                        why: "Expected subnamespace".to_string(),
+                    });
+                }
+                if let Ok(XmlEvent::CData(data)) = xml.next() {
+                    if data.starts_with(ALLOWED_START_CHARS)
+                        && data.replace(ALLOWED_CHARS, "") == ""
+                    {
+                        data
+                    } else {
+                        return Err(CompilerError::BadText {
+                            why: "Disallowed Character in subnamespace".to_string(),
+                        });
+                    }
+                } else {
+                    return Err(CompilerError::XmlError {
+                        why: "Expected Data".to_string(),
                     });
                 }
             }
-            _ => {}
+            _ => {
+                return Err(CompilerError::XmlError {
+                    why: "Expected subnamespace".to_string(),
+                });
+            }
+        };
+
+        if let Ok(XmlEvent::EndElement { .. }) = xml.next() {
+        } else {
+            return Err(CompilerError::XmlError {
+                why: "Expected Exit out of previous tag".to_string(),
+            });
         }
 
-        xml.next();
-
-        match xml.next().map_err(|why| CompilerError::XmlError {
-            why: why.to_string(),
-        })? {
-            XmlEvent::StartElement { name, .. } => {
-                if name != "CoconutPakText" {
-                    return Err(CompilerError::BadText {
-                        why: "Expected CoconutPakText".to_string(),
+        let tag = match xml.next() {
+            Ok(XmlEvent::StartElement { name, .. }) => {
+                if name != "tag" {
+                    return Err(CompilerError::XmlError {
+                        why: "Expected tag".to_string(),
+                    });
+                }
+                if let Ok(XmlEvent::CData(data)) = xml.next() {
+                    if data.starts_with(ALLOWED_START_CHARS)
+                        && data.replace(ALLOWED_CHARS, "") == ""
+                    {
+                        data.parse::<Tags>().map_err(|why| CompilerError::BadText {
+                            why: why.to_string(),
+                        })?
+                    } else {
+                        return Err(CompilerError::BadText {
+                            why: "Disallowed Character in tag".to_string(),
+                        });
+                    }
+                } else {
+                    return Err(CompilerError::XmlError {
+                        why: "Expected Data".to_string(),
                     });
                 }
             }
-            _ => {}
+            _ => {
+                return Err(CompilerError::XmlError {
+                    why: "Expected tag".to_string(),
+                });
+            }
+        };
+
+        if let Ok(XmlEvent::EndElement { .. }) = xml.next() {
+        } else {
+            return Err(CompilerError::XmlError {
+                why: "Expected Exit out of previous tag".to_string(),
+            });
         }
 
-        xml.next();
-
-        match xml.next().map_err(|why| CompilerError::XmlError {
-            why: why.to_string(),
-        })? {
-            XmlEvent::StartElement { name, .. } => {
-                if name != "CoconutPakText" {
-                    return Err(CompilerError::BadText {
-                        why: "Expected CoconutPakText".to_string(),
+        let langcode = match xml.next() {
+            Ok(XmlEvent::StartElement { name, .. }) => {
+                if name != "langcode" {
+                    return Err(CompilerError::XmlError {
+                        why: "Expected langcode".to_string(),
+                    });
+                }
+                if let Ok(XmlEvent::CData(data)) = xml.next() {
+                    if data.starts_with(ALLOWED_START_CHARS)
+                        && data.replace(ALLOWED_CHARS, "") == ""
+                    {
+                        LanguageTag::parse(&data).map_err(|why| CompilerError::BadText {
+                            why: why.to_string(),
+                        })?
+                    } else {
+                        return Err(CompilerError::BadText {
+                            why: "Disallowed Character in langcode".to_string(),
+                        });
+                    }
+                } else {
+                    return Err(CompilerError::XmlError {
+                        why: "Expected Data".to_string(),
                     });
                 }
             }
-            _ => {}
+            _ => {
+                return Err(CompilerError::XmlError {
+                    why: "Expected langcode".to_string(),
+                });
+            }
+        };
+
+        if let Ok(XmlEvent::EndElement { .. }) = xml.next() {
+        } else {
+            return Err(CompilerError::XmlError {
+                why: "Expected Exit out of previous tag".to_string(),
+            });
         }
 
-        xml.next();
+        let description = match xml.next() {
+            Ok(XmlEvent::StartElement { name, .. }) => {
+                if name != "description" {
+                    return Err(CompilerError::XmlError {
+                        why: "Expected description".to_string(),
+                    });
+                }
+                if let Ok(XmlEvent::CData(data)) = xml.next() {
+                    if data.starts_with(ALLOWED_START_CHARS)
+                        && data.replace(ALLOWED_CHARS, "") == ""
+                    {
+                        data
+                    } else {
+                        return Err(CompilerError::BadText {
+                            why: "Disallowed Character in description".to_string(),
+                        });
+                    }
+                } else {
+                    return Err(CompilerError::XmlError {
+                        why: "Expected Data".to_string(),
+                    });
+                }
+            }
+            _ => {
+                return Err(CompilerError::XmlError {
+                    why: "Expected description".to_string(),
+                });
+            }
+        };
+
+        if let Ok(XmlEvent::EndElement { .. }) = xml.next() {
+        } else {
+            return Err(CompilerError::XmlError {
+                why: "Expected Exit out of previous tag".to_string(),
+            });
+        }
+
+        // response
+        if let Ok(XmlEvent::StartElement {
+            name, attributes, ..
+        }) = xml.next()
+        {
+            if name != "responses" {
+                return Err(CompilerError::XmlError {
+                    why: "Expected responses".to_string(),
+                });
+            }
+            let mut depth = 0;
+            let mut message_start_set = false;
+            let mut current_response = Response::default();
+            let mut current_message = Message::default();
+            let mut response_vec = vec![];
+            loop {
+                let xml_event_copy = xml.next().clone();
+                match xml_event_copy {
+                    Ok(xml_event) => match xml_event {
+                        XmlEvent::StartElement {
+                            name, attributes, ..
+                        } => {
+                            let attributes = owned_attribute_vec_to_hashmap(attributes);
+                            if name == "response" {
+                                current_response.name = attributes
+                                    .get("name")
+                                    .ok_or(CompilerError::BadAttr {
+                                        attribute: "name".to_string(),
+                                        value: "None".to_string(),
+                                        why: "Does not exist".to_string(),
+                                    })?
+                                    .to_string();
+                                current_response.probability = attributes
+                                    .get("probability")
+                                    .map(|prob| {
+                                        prob.parse::<f32>().map_err(|x| CompilerError::BadAttr {
+                                            attribute: "probability".to_string(),
+                                            value: prob.to_string(),
+                                            why: x.to_string(),
+                                        })
+                                    })
+                                    .ok_or(CompilerError::BadAttr {
+                                        attribute: "probability".to_string(),
+                                        value: "None".to_string(),
+                                        why: "Does not exist.".to_string(),
+                                    })
+                                    .flatten()?;
+                                current_response.usable_for_welcome = attributes
+                                    .get("welcome")
+                                    .map(|prob| {
+                                        prob.parse::<bool>().map_err(|x| CompilerError::BadAttr {
+                                            attribute: "welcome".to_string(),
+                                            value: prob.to_string(),
+                                            why: x.to_string(),
+                                        })
+                                    })
+                                    .ok_or(CompilerError::BadAttr {
+                                        attribute: "welcome".to_string(),
+                                        value: "None".to_string(),
+                                        why: "Does not exist.".to_string(),
+                                    })
+                                    .flatten()?;
+
+                                loop {
+                                    let inner_message_copy = xml.next().clone();
+
+                                    match inner_message_copy {
+                                        Ok(event) => match event {
+                                            XmlEvent::StartElement {
+                                                name, attributes, ..
+                                            } => {
+                                                if name == "message" {
+                                                    let attributes =
+                                                        owned_attribute_vec_to_hashmap(attributes);
+                                                    let wait = attributes
+                                                        .get("wait")
+                                                        .map(|prob| {
+                                                            prob.parse::<f32>().map_err(|x| {
+                                                                CompilerError::BadAttr {
+                                                                    attribute: "wait".to_string(),
+                                                                    value: prob.to_string(),
+                                                                    why: x.to_string(),
+                                                                }
+                                                            })
+                                                        })
+                                                        .ok_or(CompilerError::BadAttr {
+                                                            attribute: "probability".to_string(),
+                                                            value: "None".to_string(),
+                                                            why: "Does not exist.".to_string(),
+                                                        })
+                                                        .flatten()?;
+
+                                                    if wait > 5_f32 {
+                                                        return Err(CompilerError::BadAttr {
+                                                            attribute: "wait".to_string(),
+                                                            value: wait.to_string(),
+                                                            why: "wait > 5.0, max wait is 5"
+                                                                .to_string(),
+                                                        });
+                                                    }
+                                                    loop {
+                                                        let message_event = xml.next().clone();
+                                                        let mut event_writer =
+                                                            EventWriter::new(Vec::new());
+
+                                                        match message_event {
+                                                            Ok(event) => match event {
+                                                                XmlEvent::StartElement {
+                                                                    name,
+                                                                    attributes,
+                                                                    ..
+                                                                } => {
+                                                                    match name.to_string().as_str()
+                                                                    {
+                                                                        "u" => {
+                                                                            event_writer.write(
+                                                                                XmlEvent::StartElement {
+                                                                                    name: "u".to_string().into(),
+                                                                                    attributes: vec![].into(),
+                                                                                    namespace: Default::default(),
+                                                                                }
+                                                                            )
+                                                                        },
+                                                                        "super" => {event_writer.write(
+                                                                            XmlEvent::StartElement {
+                                                                                name: "sup".to_string().into(),
+                                                                                attributes: vec![].into(),
+                                                                                namespace: Default::default(),
+                                                                            }
+                                                                        )},
+                                                                        "sub" => {event_writer.write(
+                                                                            XmlEvent::StartElement {
+                                                                                name: "sub".to_string().into(),
+                                                                                attributes: vec![].into(),
+                                                                                namespace: Default::default(),
+                                                                            }
+                                                                        )},
+                                                                        "highlight" => {event_writer.write(
+                                                                            XmlEvent::StartElement {
+                                                                                name: "mark".to_string().into(),
+                                                                                attributes: vec![].into(),
+                                                                                namespace: Default::default(),
+                                                                            }
+                                                                        )},
+                                                                        "wave" => {event_writer.write(
+                                                                            XmlEvent::StartElement {
+                                                                                name: "span".to_string().into(),
+                                                                                attributes: vec![
+                                                                                    OwnedAttribute {
+                                                                                        name: "class".parse().unwrap(),
+                                                                                        value: "text-wave".to_string()
+                                                                                    }
+                                                                                ].into(),
+                                                                                namespace: Default::default(),
+                                                                            }
+                                                                        )},
+                                                                        "shaky" => {event_writer.write(
+                                                                            XmlEvent::StartElement {
+                                                                                name: "span".to_string().into(),
+                                                                                attributes: vec![OwnedAttribute {
+                                                                                    name: "class".parse().unwrap(),
+                                                                                    value: "text-shaky".to_string()
+                                                                                }].into(),
+                                                                                namespace: Default::default(),
+                                                                            }
+                                                                        )},
+                                                                        "br" => {event_writer.write(
+                                                                            XmlEvent::StartElement {
+                                                                                name: "br".to_string().into(),
+                                                                                attributes: vec![].into(),
+                                                                                namespace: Default::default(),
+                                                                            }
+                                                                        )},
+                                                                        "spoiler" => {event_writer.write(
+                                                                            XmlEvent::StartElement {
+                                                                                name: "span".to_string().into(),
+                                                                                attributes: vec![
+                                                                                    OwnedAttribute {
+                                                                                        name: "class".parse().unwrap(),
+                                                                                        value: "text-spoiler".to_string()
+                                                                                    }
+                                                                                ].into(),
+                                                                                namespace: Default::default(),
+                                                                            }
+                                                                        )},
+                                                                        name => {event_writer.write(
+                                                                            XmlEvent::StartElement {
+                                                                                name: name.to_string().into(),
+                                                                                attributes,
+                                                                                namespace: Default::default(),
+                                                                            }
+                                                                        )},
+                                                                    }
+                                                                }
+                                                                XmlEvent::EndElement {
+                                                                    name,
+                                                                    ..
+                                                                } => {
+                                                                    match name.to_string().as_str()
+                                                                    {
+                                                                        "u" => {
+                                                                            event_writer.write(
+                                                                                XmlEvent::EndElement { name: "u".to_string().into(), }
+                                                                        },
+                                                                        "super" => {event_writer.write(
+                                                                            XmlEvent::EndElement {
+                                                                                name: "sup".to_string().into(),
+                                                                            }
+                                                                        )},
+                                                                        "sub" => {event_writer.write(
+                                                                            XmlEvent::EndElement {
+                                                                                name: "sub".to_string().into(),
+                                                                            }
+                                                                        )},
+                                                                        "highlight" => {event_writer.write(
+                                                                            XmlEvent::EndElement {
+                                                                                name: "mark".to_string().into(),
+                                                                            }
+                                                                        )},
+                                                                        "wave" => {event_writer.write(
+                                                                            XmlEvent::EndElement {
+                                                                                name: "span".to_string().into(),
+                                                                            }
+                                                                        )},
+                                                                        "shaky" => {event_writer.write(
+                                                                            XmlEvent::EndElement {
+                                                                                name: "span".to_string().into(),
+                                                                            }
+                                                                        )},
+                                                                        "br" => {event_writer.write(
+                                                                            XmlEvent::EndElement {
+                                                                                name: "br".to_string().into(),
+                                                                            }
+                                                                        )},
+                                                                        "spoiler" => {event_writer.write(
+                                                                            XmlEvent::EndElement {
+                                                                                name: "span".to_string().into(),
+                                                                            }
+                                                                        )},
+                                                                        name => {event_writer.write(
+                                                                            XmlEvent::EndElement {
+                                                                                name: name.to_string().into(),
+                                                                            }
+                                                                        )},
+                                                                    }
+                                                                }
+                                                                XmlEvent::CData(data)
+                                                                | XmlEvent::Characters(data) => {
+                                                                    eventwriter.write(
+                                                                        XmlEvent::Characters(
+
+                                                                        )
+                                                                    )
+                                                                }
+                                                                XmlEvent::Comment(_)
+                                                                | XmlEvent::Whitespace(_) => {}
+                                                                unexpected => {
+                                                                    return Err(CompilerError::XmlError {
+                                                                            why: format!("Unexpected XML: {unexpected:?}"),
+                                                                        });
+                                                                }
+                                                            },
+                                                            Err(why) => {
+                                                                return Err(
+                                                                    CompilerError::XmlError {
+                                                                        why: format!(
+                                                                            "Bad XML: {why:?}"
+                                                                        ),
+                                                                    },
+                                                                );
+                                                            }
+                                                        }
+                                                    }
+                                                } else {
+                                                    return Err(CompilerError::XmlError {
+                                                        why: format!("Unexpected XML: {name}"),
+                                                    });
+                                                }
+                                            }
+                                            XmlEvent::EndElement { name, .. } => {}
+                                            XmlEvent::Comment(_) | XmlEvent::Whitespace(_) => {
+                                                continue;
+                                            }
+                                            unexpected => {
+                                                return Err(CompilerError::XmlError {
+                                                    why: format!("Unexpected XML: {unexpected:?}"),
+                                                });
+                                            }
+                                        },
+                                        Err(why) => {
+                                            return Err(CompilerError::XmlError {
+                                                why: why.to_string(),
+                                            });
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                        XmlEvent::EndElement { name, .. } => {}
+                        XmlEvent::CData(data) | XmlEvent::Characters(data) => {}
+                        XmlEvent::Comment(_) | XmlEvent::Whitespace(_) => {
+                            continue;
+                        }
+                        unexpected => {
+                            return Err(CompilerError::XmlError {
+                                why: format!("Unexpected XML Event: {unexpected:?}"),
+                            })
+                        }
+                    },
+                    Err(why) => {
+                        return Err(CompilerError::XmlError {
+                            why: why.to_string(),
+                        })
+                    }
+                }
+            }
+        }
+        return Err(CompilerError::XmlError {
+            why: "".to_string(),
+        });
 
         // let markdown_opt = Options::all();
         //
@@ -564,6 +997,14 @@ impl<'a> From<&'a String> for SpecialTags<'a> {
     }
 }
 
-fn message_element_to_string(message_element: Element) -> Result<String, CompilerError> {
-    // i am cobbling together a thing that turns this thing back into a string at 4am because i was too fucking lazy to use xml-rs and now im suffering for it
+// fn message_element_to_string(message_element: Element) -> Result<String, CompilerError> {
+//     // i am cobbling together a thing that turns this thing back into a string at 4am because i was too fucking lazy to use xml-rs and now im suffering for it
+// }
+
+fn owned_attribute_vec_to_hashmap(owned_attrs: Vec<OwnedAttribute>) -> HashMap<String, String> {
+    let mut attribute_map = HashMap::with_capacity(owned_attrs.len());
+    for attribute in owned_attrs {
+        attribute_map.insert(attribute.name.to_string(), attribute.value);
+    }
+    attribute_map
 }

@@ -6,6 +6,7 @@ pub struct Message {
 
 #[derive(Clone, Debug, Default, PartialEq, PartialOrd, Serialize, Deserialize)]
 pub struct Response {
+    pub name: String,
     pub messages: Vec<Message>,
     pub probability: f32,
     pub usable_for_welcome: bool,
