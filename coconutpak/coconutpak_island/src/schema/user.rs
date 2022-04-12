@@ -12,9 +12,13 @@ use uuid::Uuid;
 pub struct Model {
     #[sea_orm(primary_key)]
     pub uuid: Uuid,
-    pub kindkapibari_id: Uuid,
+    // pub kindkapibari_id: Uuid,
+    pub github_id: u64, // This is for now. TODO: change it back!!!!
+    #[sea_orm(column_type = "Text")]
+    pub username: String,
     pub restricted_account: bool,
     pub administrator_account: bool,
+    pub fake_account: bool,
     #[sea_orm(column_type = "Text", nullable)]
     pub email: Option<String>,
 }

@@ -121,6 +121,26 @@ impl CoconutPakApi {
         };
     }
 
+    // #[oai(path = "/pak/:name/:version/list_reports", method = "post")]
+    async fn list_reports(
+        &self,
+        name: Path<String>,
+        version: Path<String>,
+        report: PlainText<String>,
+        api_key: CoconutPakUserAuthentication,
+    ) -> Result<Json(Vec<reports::Model>)> {
+        if !api_key.0.administrator_account {
+            return Err(Forbidden(eyre::Report::msg("You need to be an administrator to do that.")))
+        }
+
+        let pak = self
+            .get_pak_from_name(name.0)
+            .await?
+            .ok_or(NotFound(eyre::Report::msg("Pak Not Found".to_string())))?;
+
+        let reports =
+    }
+
     // file/pak related
 
     // #[oai(path = "/pak/:name/:version/yank", method = "post")]
@@ -134,7 +154,7 @@ impl CoconutPakApi {
             .get_pak_from_name(name.0)
             .await?
             .ok_or(NotFound(eyre::Report::msg("Pak Not Found".to_string())))?;
-        if pak.owner != auth.0.uuid {
+        if pak.owner != auth.0.uuid || auth.0.administrator_account {
             return Err(Forbidden(eyre::Report::msg(
                 "You do not own this CoconutPak.",
             )));

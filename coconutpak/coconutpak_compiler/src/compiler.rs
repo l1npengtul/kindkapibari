@@ -1,12 +1,9 @@
 use crate::error::CompilerError;
-use crate::error::CompilerError::XmlError;
 use ammonia::clean;
-use escaper::encode_minimal;
 use html_minifier::minify;
-use html_parser::{Dom, Element, Node};
+use html_parser::Dom;
 use itertools::Itertools;
 use kindkapibari_core::{
-    language::Language,
     manifest::CoconutPakManifest,
     output::CoconutPakOutput,
     responses::{Message, Response},
@@ -15,25 +12,10 @@ use kindkapibari_core::{
 };
 use language_tags::LanguageTag;
 use log::{error, warn};
-use pulldown_cmark::{html, Event, Options, Parser, Tag};
-use std::{
-    borrow::Cow,
-    collections::HashMap,
-    fmt::{Display, Formatter},
-    fs::File,
-    io::Read,
-    ops::{Deref, DerefMut},
-    path::{Path, PathBuf},
-    str::FromStr,
-};
+use pulldown_cmark::{html, Options, Parser};
+use std::{collections::HashMap, fmt::Display, fs::File, io::Read, path::PathBuf, str::FromStr};
 use walkdir::WalkDir;
-use xml::{
-    attribute::OwnedAttribute,
-    name::OwnedName,
-    namespace::Namespace,
-    reader::{Error, XmlEvent},
-    EventReader, EventWriter,
-};
+use xml::{attribute::OwnedAttribute, reader::XmlEvent, EventReader, EventWriter};
 
 const ALLOWED_TAGS: [&str; 20] = [
     "CoconutPakText",
@@ -105,7 +87,20 @@ impl Compiler {
         }
 
         let mut manifest = match toml::from_str::<CoconutPakManifest>(&read_string_manifest) {
-            Ok(m) => m,
+            Ok(m) => {
+                // lets check for basics
+                if m.name == "" {
+                    return Err(CompilerError::BadManifest(
+                        "Name must not be empty".to_string(),
+                    ));
+                }
+                if m.author == vec![] {
+                    return Err(CompilerError::BadManifest(
+                        "Author must not be empty".to_string(),
+                    ));
+                }
+                m
+            }
             Err(why) => return Err(CompilerError::BadManifest(why.to_string())),
         };
 
@@ -728,7 +723,7 @@ impl Compiler {
                                                     });
                                                 }
                                             }
-                                            XmlEvent::EndElement { name, .. } => {}
+                                            XmlEvent::EndElement { .. } => {}
                                             XmlEvent::Comment(_) | XmlEvent::Whitespace(_) => {
                                                 continue;
                                             }

@@ -7,8 +7,7 @@ use color_eyre::eyre;
 use meilisearch_sdk::client::Client;
 use redis::aio::ConnectionManager;
 use sea_orm::DatabaseConnection;
-use std::sync::Arc;
-use tokio::sync::{Mutex, RwLock};
+use tokio::sync::RwLock;
 
 struct AppData {
     redis: ConnectionManager,

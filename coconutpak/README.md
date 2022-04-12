@@ -11,7 +11,7 @@ A coconut is composed of the following:
 1. A Manifest (Coconut.toml)
 2. An `src/` directory
 3. Assets inside the `src/`
-4. [Optional] README.md file that gives a long description of what this coconutpak does
+4. [Optional] README.md file that gives a long description of what this coconutpak does (Same as your GitHub README!)
 
 ### 3. The Manifest (Coconut.toml)
 A manifest consists of
@@ -197,16 +197,3 @@ It is a JSON file.
     - mouth: Mouth position (in % of SVG)
 - A tag containing a short text description.
 - "types": A list of above things that are changed. (e.g. ["font", "color"])
-
-### 5. lib.json
-This is the equivalent of a `lib.rs` file. It contains everything to be linked into the final file.
-- "text_registers": A list of text JSONs to register
-- "scheme_registers": A list of schemes to register.
-
-### 6. Compiler
-The compiler traverses the `lib.json` and finds files it references recursively and links them to the final BSON file.
-
-### 7. Transfer Format
-Since the registry must compile all coconutpaks itself, we must have a way to transfer files.
-This is done using a tarball compressed with gzip. The only things there should be the `src/` directory and `Coconut.toml` file,
-both at the root of the tarball.

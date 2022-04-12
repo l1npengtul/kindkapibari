@@ -1,0 +1,26 @@
+[package]
+name = "cocopak"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+clap = "3.1"
+color-eyre = "0.6.1"
+pretty_env_logger = "0.4"
+
+[dependencies.serde]
+version = "1.0"
+features = ["derive"]
+
+[dependencies.toml]
+version = "0.5"
+
+[dependencies.coconutpak_compiler]
+path = "../coconutpak_compiler"
+
+[dependencies.kindkapibari_core]
+path = "../../kindkapibari/kindkapibari_core"
+
+[dependencies.gitoxide-core]
+version = "0.14"
+features = ["organize", "serde1"]

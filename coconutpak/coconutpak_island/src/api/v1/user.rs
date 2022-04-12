@@ -2,7 +2,8 @@ use poem_openapi::OpenApi;
 
 struct UserApi;
 
-#[OpenApi]
+// #[OpenApi(prefix_path = "/v1/coconutpaks", tag = "super::VersionTags::V1")]
 impl UserApi {
-    async fn 
+    // #[oai(path = "/search", method = "get")]
+    async fn user
 }
