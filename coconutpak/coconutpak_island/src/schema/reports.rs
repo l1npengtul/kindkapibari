@@ -9,9 +9,9 @@ use uuid::Uuid;
 #[derive(Clone, Debug, Hash, PartialOrd, PartialEq, Serialize, Deserialize, DeriveEntityModel)]
 #[sea_orm(table_name = "reports")]
 pub struct Model {
-    #[sea_orm(primary_key)]
+    #[sea_orm(primary_key, auto_increment = true)]
+    pub report_id: u64,
     pub reporter: Uuid,
-    #[sea_orm(primary_key)]
     pub target_pak: Uuid,
     pub date: DateTime<Utc>,
     #[sea_orm(column_type = "Text")]

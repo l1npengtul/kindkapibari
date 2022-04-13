@@ -1,22 +1,21 @@
-use crate::api::v1::CoconutPakUserAuthentication;
-use crate::report::Report;
-use crate::schema::coconutpak::Model;
-use crate::schema::*;
-use crate::AppData;
+use crate::{api::v1::CoconutPakUserAuthentication, schema::*, AppData};
 use chrono::{DateTime, Utc};
 use color_eyre::eyre;
-use kindkapibari_core::throttle::ThrottledBytes;
-use kindkapibari_core::version::Version;
-use poem::error::{Forbidden, InternalServerError, NotFound, NotFoundError, NotImplemented};
-use poem::Result;
-use poem_openapi::param::Path;
-use poem_openapi::payload::{Attachment, PlainText};
-use poem_openapi::{auth::ApiKey, param::Query, payload::Json, Multipart, OpenApi};
+use kindkapibari_core::{throttle::ThrottledBytes, version::Version};
+use poem::{
+    error::{BadRequest, Forbidden, InternalServerError, NotFound, NotImplemented},
+    Result,
+};
+use poem_openapi::{
+    auth::ApiKey,
+    param::{Path, Query},
+    payload::{Attachment, Json, PlainText},
+    Multipart, OpenApi,
+};
 use redis::{AsyncCommands, Commands};
 use sea_orm::{
-    ActiveValue, ColumnTrait, DbErr, EntityTrait, JoinType, QueryFilter, QuerySelect, RelationTrait,
+    ActiveValue, ColumnTrait, EntityTrait, JoinType, QueryFilter, QuerySelect, RelationTrait,
 };
-use std::future::join;
 use std::sync::Arc;
 use tokio::io::AsyncReadExt;
 
@@ -113,6 +112,7 @@ impl CoconutPakApi {
             date: ActiveValue::Set(Utc::now()),
             reason: ActiveValue::Set(report.0),
             version: ActiveValue::Set(version.0),
+            ..Default::default()
         };
 
         return match report_active.insert(&self.data.database).await {
@@ -128,9 +128,11 @@ impl CoconutPakApi {
         version: Path<String>,
         report: PlainText<String>,
         api_key: CoconutPakUserAuthentication,
-    ) -> Result<Json(Vec<reports::Model>)> {
+    ) -> Result<Json<Vec<reports::Model>>> {
         if !api_key.0.administrator_account {
-            return Err(Forbidden(eyre::Report::msg("You need to be an administrator to do that.")))
+            return Err(Forbidden(eyre::Report::msg(
+                "You need to be an administrator to do that.",
+            )));
         }
 
         let pak = self
@@ -138,7 +140,30 @@ impl CoconutPakApi {
             .await?
             .ok_or(NotFound(eyre::Report::msg("Pak Not Found".to_string())))?;
 
-        let reports =
+        let reports = if version == "*" {
+            coconutpak::Entity::find()
+                .filter(coconutpak::Column::Id.eq(pak.id))
+                .find_with_related(reports::Entity)
+                .all(&self.data.database)
+                .await
+                .map_err(|why| InternalServerError(why))?
+                .into_iter()
+                .map(|x| x.1)
+                .flatten()
+                .collect::<Vec<_>>()
+        } else {
+            let version_str = Version::parse(&version).map_err(|why| BadRequest(why))?;
+            reports::Entity::find()
+                .filter(reports::Column::TargetPak.eq(pak.id))
+                .all(&self.data.database)
+                .await
+                .map_err(|why| InternalServerError(why))?
+                .into_iter()
+                .filter(|report| report.version == version_str)
+                .collect::<Vec<_>>()
+        };
+
+        Ok(Json(reports))
     }
 
     // file/pak related
@@ -154,7 +179,7 @@ impl CoconutPakApi {
             .get_pak_from_name(name.0)
             .await?
             .ok_or(NotFound(eyre::Report::msg("Pak Not Found".to_string())))?;
-        if pak.owner != auth.0.uuid || auth.0.administrator_account {
+        if pak.owner != auth.0.uuid || !auth.0.administrator_account {
             return Err(Forbidden(eyre::Report::msg(
                 "You do not own this CoconutPak.",
             )));
@@ -281,19 +306,21 @@ impl CoconutPakApi {
         version: Query<String>,
         data: FileUpload,
     ) -> Result<Json<u64>> {
-        let pak = self
-            .get_pak_from_name(name.0)
-            .await?
-            .ok_or(NotFound(eyre::Report::msg("Pak Not Found".to_string())))?;
-        let mut pak_versions = coconutpak_history::Entity::find()
-            .filter(coconutpak_history::Column::Coconutpak.eq(pak.id))
-            .join(
-                JoinType::RightJoin,
-                coconutpak_history::Relation::CoconutPak.def(),
-            )
-            .all(&self.data.database)
-            .await
-            .unwrap_or_default();
+        // let pak = self
+        //     .get_pak_from_name(name.0)
+        //     .await?
+        //     .ok_or(NotFound(eyre::Report::msg("Pak Not Found".to_string())))?;
+        // let mut pak_versions = coconutpak_history::Entity::find()
+        //     .filter(coconutpak_history::Column::Coconutpak.eq(pak.id))
+        //     .join(
+        //         JoinType::RightJoin,
+        //         coconutpak_history::Relation::CoconutPak.def(),
+        //     )
+        //     .all(&self.data.database)
+        //     .await
+        //     .map_err(|why| InternalServerError(why))?;
+
+        Err(NotImplemented(eyre::Report::msg("lol")))
     }
 }
 

@@ -1,7 +1,23 @@
-use kindkapybari_core::dbvec::DBVec;
+use kindkapibari_core::dbvec::DBVec;
 use sea_orm::prelude::*;
 use serde::{Deserialize, Serialize};
 use uuid::Uuid;
+
+#[derive(Copy, Clone, Debug, Hash, Eq, PartialEq, Ord, PartialOrd, Serialize, Deserialize)]
+pub enum ApiKeyScope {
+    All,
+    Read,
+    Write,
+    Upload,
+    Download,
+    Subscribe,
+}
+
+impl ApiKeyScope {
+    pub fn has(&self, other: self) -> bool {
+        self == other || self == ApiKeyScope::All
+    }
+}
 
 #[derive(Clone, Debug, Hash, PartialOrd, PartialEq, Serialize, Deserialize, DeriveEntityModel)]
 #[sea_orm(table_name = "api_keys")]
@@ -13,6 +29,7 @@ pub struct Model {
     pub owner: Uuid,
     #[sea_orm(unique, indexed)]
     pub key_hashed_sha512: Vec<u8>,
+    pub api_key_scopes: DBVec<ApiKeyScope>,
 }
 
 #[derive(Copy, Clone, Debug, EnumIter)]

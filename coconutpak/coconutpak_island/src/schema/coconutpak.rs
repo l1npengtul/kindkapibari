@@ -1,7 +1,8 @@
 use chrono::{DateTime, Utc};
-use color_eyre::owo_colors::OwoColorize;
-use poem_openapi::registry::{MetaSchema, MetaSchemaRef};
-use poem_openapi::types::{ToJSON, Type};
+use poem_openapi::{
+    registry::{MetaSchema, MetaSchemaRef},
+    types::{ToJSON, Type},
+};
 use redis::{ErrorKind, FromRedisValue, RedisError, RedisResult, RedisWrite, ToRedisArgs};
 use sea_orm::{
     prelude::{DeriveEntityModel, EntityTrait, PrimaryKeyTrait, Related, RelationTrait},

@@ -7,6 +7,16 @@ use sea_orm::{
 use serde::{Deserialize, Serialize};
 use uuid::Uuid;
 
+pub enum UserPermissions {
+    All,
+    Admin,
+    Demote,
+    Promote,
+    YankSelf,
+    YankOthers,
+    Publish,
+}
+
 #[derive(Clone, Debug, Hash, PartialOrd, PartialEq, Serialize, Deserialize, DeriveEntityModel)]
 #[sea_orm(table_name = "users")]
 pub struct Model {

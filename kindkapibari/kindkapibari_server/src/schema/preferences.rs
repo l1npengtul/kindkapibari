@@ -1,6 +1,5 @@
 use chrono::{DateTime, Utc};
-use kindkapybari_core::preferences::Preferences;
-use kindkapybari_core::pronouns::Pronouns;
+use kindkapibari_core::preferences::Preferences;
 use sea_orm::{
     prelude::{DeriveEntityModel, EntityTrait, PrimaryKeyTrait, RelationTrait},
     sea_query::ValueType,
