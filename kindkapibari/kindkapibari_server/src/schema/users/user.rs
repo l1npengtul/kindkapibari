@@ -13,8 +13,12 @@ use uuid::Uuid;
 pub struct Model {
     #[sea_orm(primary_key)]
     pub id: Uuid,
+    #[sea_orm(column_type = "Text")]
     pub username: String,
+    #[sea_orm(column_type = "Text", unique, indexed)]
     pub handle: String,
+    #[sea_orm(column_type = "Text", nullable)]
+    pub email: Option<String>,
 }
 
 #[derive(Copy, Clone, Debug, EnumIter, DeriveRelation)]
