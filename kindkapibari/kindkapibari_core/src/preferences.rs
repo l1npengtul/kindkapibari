@@ -4,8 +4,11 @@ use std::collections::HashMap;
 use url::Url;
 use uuid::Uuid;
 
+const V1: u32 = 0;
+
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 pub struct Preferences {
+    pub version: u32,
     pub coconutpak_settings: CoconutPakIslandSettings,
     pub appearance: Appearance,
 }
@@ -30,7 +33,7 @@ impl TryGetable for Preferences {
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 pub struct CoconutPakIslandSettings {
     pub blocked_tags: Vec<String>,
-    pub added_islands: HashMap<Url, Uuid>,
+    pub added_islands: HashMap<String, Option<String>>,
 }
 
 #[derive(Clone, Debug, Hash, PartialOrd, PartialEq, Serialize, Deserialize)]

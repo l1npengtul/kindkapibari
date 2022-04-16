@@ -7,6 +7,8 @@ extern crate serde;
 #[cfg(feature = "server")]
 pub mod dbarray;
 #[cfg(feature = "server")]
+pub mod dbhasmap;
+#[cfg(feature = "server")]
 pub mod dbvec;
 pub mod error;
 pub mod gender;

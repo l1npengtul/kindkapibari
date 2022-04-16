@@ -14,6 +14,7 @@ use uuid::Uuid;
 pub struct Model {
     #[sea_orm(primary_key)]
     user_id: Uuid,
+    version: u32,
     preferences: Preferences,
 }
 

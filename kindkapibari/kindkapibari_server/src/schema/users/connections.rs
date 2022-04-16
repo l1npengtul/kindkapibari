@@ -18,7 +18,7 @@ pub struct Model {
     #[sea_orm(nullable)]
     pub twitter_id: Option<u64>,
     #[sea_orm(column_type = "Text", nullable)]
-    pub reddit_username: Option<String>,
+    pub reddit_id: Option<String>,
 }
 
 #[derive(Copy, Clone, Debug, EnumIter)]
