@@ -8,7 +8,7 @@ edition = "2021"
 [features]
 default = []
 client = ["chrono/wasmbind", "wasm-bindgen"]
-server = ["pot", "sea-orm", "sea-orm/macros", "sea-orm/chrono", "sea-orm/runtime-tokio-rustls", "sea-orm/with-json", "sea-orm/with-uuid", "sea-orm/sqlx-postgres", "redis", "redis/cluster", "redis/tokio-comp", "redis/tls", "rand", "flume", "poem", "tokio/time", "tokio/rt", "futures-core"]
+server = ["pot", "sea-orm", "sea-orm/macros", "sea-orm/chrono", "sea-orm/runtime-tokio-rustls", "sea-orm/with-json", "sea-orm/with-uuid", "sea-orm/sqlx-postgres", "redis", "redis/cluster", "redis/tokio-comp", "redis/tls", "rand", "flume", "poem", "tokio/time", "tokio/rt", "futures-core", "crossbeam"]
 
 [dependencies]
 serde_json = "^1.0"
@@ -84,4 +84,8 @@ optional = true
 
 [dependencies.futures-core]
 version = "0.3"
+optional = true
+
+[dependencies.crossbeam]
+version = "0.8"
 optional = true

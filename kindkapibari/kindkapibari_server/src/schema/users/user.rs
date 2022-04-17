@@ -12,7 +12,7 @@ use uuid::Uuid;
 #[sea_orm(table_name = "users")]
 pub struct Model {
     #[sea_orm(primary_key)]
-    pub id: Uuid,
+    pub id: u64,
     #[sea_orm(column_type = "Text")]
     pub username: String,
     #[sea_orm(column_type = "Text", unique, indexed)]
@@ -24,12 +24,22 @@ pub struct Model {
 #[derive(Copy, Clone, Debug, EnumIter, DeriveRelation)]
 pub enum Relation {
     Preferences,
+    Connections,
+    UserData,
+    Bans,
+    Applications,
+    Oauth,
 }
 
 impl RelationTrait for Relation {
     fn def(&self) -> RelationDef {
         match self {
             Self::Preferences => Entity::has_one(super::preferences::Entity).into(),
+            Relation::Connections => Entity::has_one(super::connections::Entity).into(),
+            Relation::UserData => Entity::has_one(super::userdata::Entity).into(),
+            Relation::Bans => Entity::has_many(super::super::bans::Entity).into(),
+            Relation::Applications => Entity::has_many(super::super::applications::Entity).into(),
+            Relation::Oauth => Entity::has_many(super::super::oauth::Entity).into(),
         }
     }
 }

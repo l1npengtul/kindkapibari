@@ -13,7 +13,7 @@ use uuid::Uuid;
 #[sea_orm(table_name = "preferences")]
 pub struct Model {
     #[sea_orm(primary_key)]
-    user_id: Uuid,
+    user_id: u64,
     version: u32,
     preferences: Preferences,
 }

@@ -1,7 +1,11 @@
+#![deny(clippy::pedantic)]
+#![warn(clippy::all)]
+
 mod api;
 mod config;
 mod context;
 mod schema;
+mod scopes;
 
 use crate::config::ServerConfig;
 use crate::context::ApiContext;

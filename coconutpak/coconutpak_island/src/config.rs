@@ -5,6 +5,7 @@ use std::io::{Read, Write};
 
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 pub struct Config {
+    pub machine_id: u8,
     #[serde(default = "default_port")]
     pub port: u16,
     pub compiler: Compiler,

@@ -1,20 +1,26 @@
-use crate::schema::api_key::{Column, Entity, Model};
-use crate::schema::{api_key, session, user};
-use crate::{AppData, SResult};
+use crate::{
+    schema::{
+        api_key::{self, Column, Entity, Model},
+        session, user,
+    },
+    AppData, SResult,
+};
 use argon2::{Algorithm, Argon2, Params, PasswordHasher, Version};
 use bson::spec::BinarySubtype::Column;
+use chrono::{TimeZone, Utc};
 use kindkapibari_core::reseedingrng::AutoReseedingRng;
+use kindkapibari_core::snowflake::SnowflakeIdGenerator;
 use once_cell::sync::Lazy;
 use poem::Request;
-use poem_openapi::auth::ApiKey;
-use poem_openapi::types::Type;
-use redis::aio::ConnectionManager;
-use redis::{AsyncCommands, RedisResult};
+use poem_openapi::{auth::ApiKey, types::Type};
+use redis::{aio::ConnectionManager, AsyncCommands, RedisResult};
 use sea_orm::{ColumnTrait, DatabaseConnection, DbErr, EntityTrait, QueryFilter, Related};
 use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha512};
-use std::fmt::{write, Display, Formatter};
-use std::sync::Arc;
+use std::{
+    fmt::{write, Display, Formatter},
+    sync::Arc,
+};
 use tokio::sync::Mutex;
 use uuid::Uuid;
 
@@ -23,14 +29,16 @@ const AUTH_REDIS_KEY_START_SESSION: [u8; 23] = *b"coconutpak:auth:session";
 const AUTH_SESSION_BYTE_START: &'static str = "COCONUTPAK_SESSION_TOKEN.";
 const AUTH_APIKEY_BYTE_START: &'static str = "COCONUTPAK_APIKEY_TOKEN.";
 
-// i love r/196! (turn the bytes to KiB)
+// 196! 196! 196! 196!
 static AUTO_RESEEDING_APIKEY_RNG: Lazy<Arc<Mutex<AutoReseedingRng<200704>>>> =
     Lazy::new(|| Arc::new(Mutex::new(AutoReseedingRng::new())));
 static AUTO_RESEEDING_SESSION_RNG: Lazy<Arc<Mutex<AutoReseedingRng<200704>>>> =
     Lazy::new(|| Arc::new(Mutex::new(AutoReseedingRng::new())));
-static AUTO_RESEEDING_UUID_RNG: Lazy<Arc<Mutex<AutoReseedingRng<200704>>>> =
-    Lazy::new(|| Arc::new(Mutex::new(AutoReseedingRng::new())));
-
+static ID_GENERATOR: Lazy<Arc<SnowflakeIdGenerator>> = Lazy::new(|| {
+    Arc::new(SnowflakeIdGenerator::new(
+        Utc.timestamp_millis(1650205642069),
+    ))
+});
 #[derive(Clone, Debug, PartialOrd, PartialEq, Serialize, Deserialize)]
 pub struct Generated {
     pub raw_bytes: Vec<u8>,
@@ -76,12 +84,8 @@ pub async fn generate_key(is_api_key: bool) -> SResult<Generated> {
     })
 }
 
-pub async fn generate_uuid() -> Uuid {
-    let uuid_base = AUTO_RESEEDING_SESSION_RNG
-        .lock()
-        .await
-        .generate_bytes::<16>();
-    Uuid::from_bytes(uuid_base)
+pub async fn generate_id(config: Arc<AppData>) -> Option<u64> {
+    ID_GENERATOR.generate_id(config.config.read().await.machine_id)
 }
 
 pub async fn verify_apikey(database: Arc<AppData>, api_key: String) -> Option<user::Model> {

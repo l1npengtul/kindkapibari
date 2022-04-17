@@ -21,6 +21,8 @@ pub mod preferences;
 pub mod pronouns;
 pub mod reseedingrng;
 pub mod responses;
+#[cfg(feature = "server")]
+pub mod snowflake;
 pub mod tags;
 pub mod templater;
 pub mod text;

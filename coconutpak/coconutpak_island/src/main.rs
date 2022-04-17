@@ -9,6 +9,8 @@ use redis::aio::ConnectionManager;
 use sea_orm::DatabaseConnection;
 use tokio::sync::RwLock;
 
+const EPOCH_START: u64 = 1650125769; // haha nice
+
 struct AppData {
     redis: ConnectionManager,
     database: DatabaseConnection,

@@ -1,4 +1,5 @@
 use chrono::{DateTime, Utc};
+use kindkapibari_core::dbvec::DBVec;
 use sea_orm::{
     prelude::{DeriveEntityModel, EntityTrait, PrimaryKeyTrait, RelationTrait},
     sea_query::ValueType,
@@ -12,13 +13,14 @@ use uuid::Uuid;
 #[sea_orm(table_name = "user_data")]
 pub struct Model {
     #[sea_orm(primary_key)]
-    pub user_id: Uuid,
+    pub user_id: u64,
     #[sea_orm(nullable)]
     pub github_id: Option<u64>,
     #[sea_orm(nullable)]
     pub twitter_id: Option<u64>,
     #[sea_orm(column_type = "Text", nullable)]
     pub reddit_id: Option<String>,
+    pub connections: DBVec<u64>,
 }
 
 #[derive(Copy, Clone, Debug, EnumIter)]
