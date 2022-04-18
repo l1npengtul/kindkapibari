@@ -8,7 +8,7 @@ use uuid::Uuid;
 pub struct Model {
     #[sea_orm(primary_key)]
     pub id: u64,
-    pub user: Uuid,
+    pub user: u64,
     #[sea_orm(column_type = "Timestamp", nullable)]
     pub until: Option<DateTime<Utc>>,
     #[sea_orm(column_type = "Text", nullable)]

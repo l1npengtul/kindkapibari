@@ -39,3 +39,6 @@ features = ["server"]
 [dependencies.sea-orm]
 version = "0.7"
 features = ["runtime-tokio-rustls", "sqlx-postgres", "macros"]
+
+[dependencies.oxide-auth-poem]
+git = "https://github.com/l1npengtul/oxide-auth"

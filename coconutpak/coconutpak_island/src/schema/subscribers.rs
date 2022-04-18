@@ -17,9 +17,9 @@ use uuid::Uuid;
 #[sea_orm(table_name = "subscribers")]
 pub struct Model {
     #[sea_orm(primary_key)]
-    user_id: Uuid,
+    user_id: u64,
     #[sea_orm(primary_key)]
-    pak_id: Uuid,
+    pak_id: u64,
 }
 
 #[derive(Copy, Clone, Debug, EnumIter)]

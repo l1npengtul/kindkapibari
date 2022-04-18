@@ -10,7 +10,7 @@ use uuid::Uuid;
 pub struct Model {
     #[sea_orm(primary_key)]
     pub id: u64,
-    pub owner: Uuid,
+    pub owner: u64,
     #[sea_orm(column_type = "Text")]
     pub ip_address: String,
     #[sea_orm(column_type = "Text")]

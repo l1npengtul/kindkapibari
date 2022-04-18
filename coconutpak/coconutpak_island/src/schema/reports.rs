@@ -11,8 +11,8 @@ use uuid::Uuid;
 pub struct Model {
     #[sea_orm(primary_key, auto_increment = true)]
     pub report_id: u64,
-    pub reporter: Uuid,
-    pub target_pak: Uuid,
+    pub reporter: u64,
+    pub target_pak: u64,
     pub date: DateTime<Utc>,
     #[sea_orm(column_type = "Text")]
     pub reason: String,

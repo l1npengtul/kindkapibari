@@ -10,7 +10,7 @@ pub struct Model {
     pub id: u64,
     #[sea_orm(column_type = "Text")]
     pub name: String,
-    pub owner: Uuid,
+    pub owner: u64,
     #[sea_orm(unique, indexed)]
     pub key_hashed_sha512: Vec<u8>,
 }

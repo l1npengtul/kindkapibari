@@ -4,6 +4,7 @@
 
 use crate::config::Config;
 use color_eyre::eyre;
+use hyper::StatusCode;
 use meilisearch_sdk::client::Client;
 use redis::aio::ConnectionManager;
 use sea_orm::DatabaseConnection;
@@ -19,6 +20,7 @@ struct AppData {
 }
 
 pub type SResult<T> = eyre::Result<T>;
+pub type AResult<T> = Result<T, StatusCode>;
 
 mod api;
 mod coconutpak_cleanup;
