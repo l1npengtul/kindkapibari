@@ -13,6 +13,7 @@ pub struct Model {
     pub owner: u64,
     #[sea_orm(unique, indexed)]
     pub key_hashed_sha512: Vec<u8>,
+    pub permissions: Vec<Permissions>,
 }
 
 #[derive(Copy, Clone, Debug, EnumIter)]

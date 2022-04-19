@@ -2,27 +2,15 @@ use crate::login::{verify_apikey, verify_session};
 use crate::schema::user::Model;
 use crate::{AppData, ARGON2};
 use argon2::{Algorithm, Argon2, Params, Version};
-use chrono::Locale::da_DK;
+use axum::async_trait;
+use axum::extract::{FromRequest, RequestParts};
+use axum::headers::HeaderValue;
+use axum::http::StatusCode;
 use kindkapibari_core::motd::MessageOfTheDay;
-use poem::web::{Data, Json};
-use poem::Request;
-use poem_openapi::auth::ApiKey;
-use poem_openapi::payload::PlainText;
-use poem_openapi::{OpenApi, SecurityScheme};
-use redis::Cmd;
 use std::sync::Arc;
 
 pub mod coconutpak;
 pub mod user;
-
-#[derive(SecurityScheme)]
-#[oai(
-    type = "api_key",
-    key_name = "X-API-Key",
-    in = "header",
-    checker = "coconutpak_auth_checker"
-)]
-pub struct CoconutPakUserAuthentication(pub Model);
 
 async fn coconutpak_auth_checker(
     data: Data<Arc<AppData>>,

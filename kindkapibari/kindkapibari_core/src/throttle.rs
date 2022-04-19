@@ -1,10 +1,10 @@
 use futures_core::Stream;
-use poem::Body;
-use redis::aio::tokio;
-use std::pin::Pin;
-use std::process::id;
-use std::task::{Context, Poll};
-use std::time::Duration;
+use std::{
+    pin::Pin,
+    task::{Context, Poll},
+    time::Duration,
+};
+use tokio::{spawn, time::sleep};
 
 pub struct ThrottledBytes {
     data: Vec<Vec<u8>>,
@@ -45,8 +45,8 @@ impl Stream for ThrottledBytes {
         };
 
         let waker = cx.waker().clone();
-        tokio::task::spawn(async || {
-            tokio::time::sleep(Duration::from_millis(100));
+        spawn(async || {
+            sleep(Duration::from_millis(100));
             waker.wake();
         });
         Poll::Ready(Some(to_send))
@@ -54,11 +54,5 @@ impl Stream for ThrottledBytes {
 
     fn size_hint(&self) -> (usize, Option<usize>) {
         (0, Some(self.data.len()))
-    }
-}
-
-impl Into<Body> for ThrottledBytes {
-    fn into(self) -> Body {
-        Body::from_bytes_stream(self)
     }
 }

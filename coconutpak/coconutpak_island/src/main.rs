@@ -27,6 +27,7 @@ mod coconutpak_cleanup;
 mod coconutpak_compiler;
 mod config;
 mod login;
+mod permissions;
 mod report;
 mod schema;
 
