@@ -16,7 +16,7 @@ pub struct Model {
     #[sea_orm(column_type = "Text")]
     pub hostname: String,
     #[sea_orm(unique, indexed)]
-    pub session_hashed_sha512: Vec<u8>,
+    pub session_hashed: Vec<u8>,
 }
 
 #[derive(Copy, Clone, Debug, EnumIter)]

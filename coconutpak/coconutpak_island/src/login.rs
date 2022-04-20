@@ -23,6 +23,7 @@ use std::{
 };
 use tokio::sync::Mutex;
 use uuid::Uuid;
+use crate::permissions::Scopes;
 
 const AUTH_REDIS_KEY_START_APIKEY: [u8; 22] = *b"coconutpak:auth:apikey";
 const AUTH_REDIS_KEY_START_SESSION: [u8; 23] = *b"coconutpak:auth:session";
@@ -36,13 +37,14 @@ static AUTO_RESEEDING_SESSION_RNG: Lazy<Arc<Mutex<AutoReseedingRng<200704>>>> =
     Lazy::new(|| Arc::new(Mutex::new(AutoReseedingRng::new())));
 static ID_GENERATOR: Lazy<Arc<SnowflakeIdGenerator>> = Lazy::new(|| {
     Arc::new(SnowflakeIdGenerator::new(
-        Utc.timestamp_millis(1650205642069),
+        Utc.timestamp_millis(16502056_420_69), // nice
     ))
 });
+
 #[derive(Clone, Debug, PartialOrd, PartialEq, Serialize, Deserialize)]
 pub struct Generated {
-    pub raw_bytes: Vec<u8>,
-    pub hash_salt_bytes: Vec<u8>,
+    pub key: String,
+    pub hashed: Vec<u8>,
 }
 
 const fn uuid_to_byte_array(uuid: Uuid) -> [u8; 16] {
@@ -77,16 +79,26 @@ pub async fn generate_key(is_api_key: bool) -> SResult<Generated> {
 
     let mut hash = Vec::with_capacity(64);
     argon2.hash_password_into(&apikey_base, &salt, &mut hash)?;
+    let front = if is_api_key { "A" } else { "S" };
+    let mut key = format!("{front}{}", base64::encode(base));
 
-    Ok(Generated {
-        raw_bytes: base,
-        hash_salt_bytes: hash,
-    })
+    Ok(Generated { key, hashed: hash })
+}
+
+pub async fn new_apikey(state: Arc<AppData>, user: u64, scopes: Vec<Scopes>) -> SResult<Generated> {
+    let user =
 }
 
 pub async fn generate_id(config: Arc<AppData>) -> Option<u64> {
     ID_GENERATOR.generate_id(config.config.read().await.machine_id)
 }
+
+pub enum Authorized {
+    ApiKey(u64, Vec<Scopes>),
+
+}
+
+pub async fn verify_auth(database: Arc<AppData>, auth: String) -> Option<user::Model>
 
 pub async fn verify_apikey(database: Arc<AppData>, api_key: String) -> Option<user::Model> {
     let argon2 = Argon2::new(
@@ -101,7 +113,7 @@ pub async fn verify_apikey(database: Arc<AppData>, api_key: String) -> Option<us
     );
 
     let rehashed_key = base64::decode(api_key)
-        .map(|mut bytes| {
+        .map(|bytes| {
             let mut hash = Vec::with_capacity(64);
             argon2
                 .hash_password_into(&bytes, &salt, &mut hash)

@@ -17,6 +17,8 @@ pub mod license;
 pub mod manifest;
 pub mod motd;
 pub mod output;
+#[cfg(feature = "server")]
+pub mod permissions;
 pub mod preferences;
 pub mod pronouns;
 pub mod reseedingrng;

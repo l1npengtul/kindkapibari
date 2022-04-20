@@ -1,3 +1,4 @@
+use crate::permissions::Scopes;
 use kindkapibari_core::dbvec::DBVec;
 use sea_orm::prelude::*;
 use serde::{Deserialize, Serialize};
@@ -12,8 +13,8 @@ pub struct Model {
     pub name: String,
     pub owner: u64,
     #[sea_orm(unique, indexed)]
-    pub key_hashed_sha512: Vec<u8>,
-    pub permissions: Vec<Permissions>,
+    pub key_hashed: Vec<u8>,
+    pub permissions: Vec<Scopes>,
 }
 
 #[derive(Copy, Clone, Debug, EnumIter)]

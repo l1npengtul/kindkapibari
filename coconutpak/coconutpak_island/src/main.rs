@@ -30,6 +30,7 @@ mod login;
 mod permissions;
 mod report;
 mod schema;
+mod suspended;
 
 #[tokio::main]
 async fn main() {

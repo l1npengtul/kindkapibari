@@ -13,6 +13,8 @@ pub struct Model {
     pub until: Option<DateTime<Utc>>,
     #[sea_orm(column_type = "Text", nullable)]
     pub reason: Option<String>,
+    #[sea_orm(column_type = "Text", nullable)]
+    pub ip: Option<String>, // if not none is IPBAN
 }
 
 #[derive(Copy, Clone, Debug, EnumIter)]
