@@ -3,7 +3,9 @@
 members = [
     "coconutpak/coconutpak_compiler",
     "coconutpak/coconutpak_island",
-    "coconutpak/cocopak",
+    "coconutpak/coconutpak_island_builds",
+    "coconutpak/coconutpak_island_stats",
+    "coconutpak/cnutpk",
     "kindkapibari/kindkapibari_core",
     "kindkapibari/kindkapibari_server",
     "kindkapibari/kindkapibari_client",

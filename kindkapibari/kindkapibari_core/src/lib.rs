@@ -23,6 +23,8 @@ pub mod reseedingrng;
 pub mod responses;
 #[cfg(feature = "server")]
 pub mod snowflake;
+#[cfg(feature = "server")]
+pub mod state;
 pub mod tags;
 pub mod templater;
 pub mod text;

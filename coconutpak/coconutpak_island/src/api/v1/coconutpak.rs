@@ -33,22 +33,30 @@ struct CoconutPakApi {
 impl CoconutPakApi {
     // query and metadata
 
-    // #[oai(path = "/search", method = "get")]
-    async fn search(&self, name: Query<String>) -> Json<Vec<coconutpak::SearchableCoconutPak>> {
+    // #[oai(path = "/search/:query", method = "get")]
+    async fn search(
+        &self,
+        query: Query<String>,
+    ) -> Result<Json<Vec<coconutpak::SearchableCoconutPak>>> {
         let search_result = self
             .data
             .meilisearch
             .index("coconutpaks")
             .search()
-            .with_query(&name)
+            .with_query(&query)
             .execute::<coconutpak::SearchableCoconutPak>()
             .await
-            .unwrap()
+            .map_err(InternalServerError)?
             .hits
             .into_iter()
             .map(|pak| pak.result)
             .collect::<Vec<coconutpak::SearchableCoconutPak>>();
-        Json(search_result)
+        Ok(Json(search_result))
+    }
+
+    // #[oai(path = "/pak_id_by_name", method = "get")]
+    async fn pak_id_by_name(&self, name: Query<String>) -> Result<u64> {
+        
     }
 
     // i am a lazy asshole
@@ -56,7 +64,7 @@ impl CoconutPakApi {
     // >mfw 3 months from release im desperately adding caching
     // because the response time is 60 seconds because postgres decided
     // to be a piece of shit
-    // #[oai(path = "/pak/:name/data", method = "get")]
+    // #[oai(path = "/pak/:id/data", method = "get")]
     async fn pack_data_name(&self, name: Path<String>) -> Result<Json<coconutpak::Model>> {
         let pak = match self.get_pak_from_name(name.0).await? {
             Some(pak) => pak,
@@ -298,8 +306,8 @@ impl CoconutPakApi {
         )))
     }
 
-    // #[oai(path = "/pak/:name/upload", method = "post")]
-    async fn upload(
+    // #[oai(path = "/pak/:name/publish", method = "post")]
+    async fn publish(
         &self,
         auth: CoconutPakUserAuthentication,
         name: Path<String>,

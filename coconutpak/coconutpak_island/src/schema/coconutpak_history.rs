@@ -20,8 +20,8 @@ use uuid::Uuid;
 #[sea_orm(table_name = "coconutpak_history")]
 pub struct Model {
     #[sea_orm(primary_key)]
-    pub id: u64,
-    pub coconutpak: Uuid,
+    pub id: u32,
+    pub coconutpak: u64,
     // manifest
     pub author: DBVec<String>,
     #[sea_orm(column_type = "Text", nullable)]

@@ -17,8 +17,8 @@ use uuid::Uuid;
 #[sea_orm(table_name = "coconutpaks")]
 pub struct Model {
     #[sea_orm(primary_key)]
-    pub id: Uuid,
-    pub owner: Uuid,
+    pub id: u64,
+    pub owner: u64,
     #[sea_orm(unique, indexed)]
     pub name: String,
     pub subscribers: u32,
