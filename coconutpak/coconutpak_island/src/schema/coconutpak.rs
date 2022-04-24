@@ -36,7 +36,7 @@ impl RelationTrait for Relation {
     fn def(&self) -> RelationDef {
         match self {
             Relation::CoconutPakHistory => {
-                Entity::has_many(super::coconutpak_history::Entity).into()
+                Entity::has_many(super::coconutpak_versions::Entity).into()
             }
             Relation::User => Entity::belongs_to(super::user::Entity)
                 .from(Column::Owner)
@@ -46,7 +46,7 @@ impl RelationTrait for Relation {
     }
 }
 
-impl Related<super::coconutpak_history::Entity> for Entity {
+impl Related<super::coconutpak_versions::Entity> for Entity {
     fn to() -> RelationDef {
         Relation::CoconutPakHistory.def()
     }

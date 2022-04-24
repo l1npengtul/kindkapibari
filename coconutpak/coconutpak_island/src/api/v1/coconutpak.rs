@@ -16,6 +16,8 @@ use redis::{AsyncCommands, Commands};
 use sea_orm::{
     ActiveValue, ColumnTrait, EntityTrait, JoinType, QueryFilter, QuerySelect, RelationTrait,
 };
+use serde::{Deserialize, Serialize};
+use std::process::id;
 use std::sync::Arc;
 use tokio::io::AsyncReadExt;
 
@@ -23,6 +25,11 @@ use tokio::io::AsyncReadExt;
 struct FileUpload {
     name: String,
     data: Vec<u8>,
+}
+
+#[derive(Copy, Clone, Debug, Ord, PartialOrd, Eq, PartialEq, Serialize, Deserialize)]
+struct PakId {
+    id: u64,
 }
 
 struct CoconutPakApi {
@@ -55,8 +62,15 @@ impl CoconutPakApi {
     }
 
     // #[oai(path = "/pak_id_by_name", method = "get")]
-    async fn pak_id_by_name(&self, name: Query<String>) -> Result<u64> {
-        
+    async fn pak_id_by_name(&self, name: Query<String>) -> Result<Json<PakId>> {
+        let id = get_coconut_pak_id_by_name(self.data.clone(), name.0)
+            .await
+            .map_err(InternalServerError)?
+            .ok_or(NotFound(eyre::Report::msg(format!(
+                "CoconutPak {name} does not exist."
+            ))))?;
+
+        Ok(Json(PakId { id }))
     }
 
     // i am a lazy asshole
@@ -65,7 +79,7 @@ impl CoconutPakApi {
     // because the response time is 60 seconds because postgres decided
     // to be a piece of shit
     // #[oai(path = "/pak/:id/data", method = "get")]
-    async fn pack_data_name(&self, name: Path<String>) -> Result<Json<coconutpak::Model>> {
+    async fn pack_data(&self, id: Path<u64>) -> Result<Json<coconutpak::Model>> {
         let pak = match self.get_pak_from_name(name.0).await? {
             Some(pak) => pak,
             None => return Err(NotFound(eyre::Report::msg("Pak Not Found".to_string()))),
@@ -74,28 +88,13 @@ impl CoconutPakApi {
         Ok(Json(pak))
     }
 
-    // #[oai(path = "/pak/:name/versions", method = "get")]
-    async fn pack_versions(
-        &self,
-        name: Path<String>,
-    ) -> Result<Json<Vec<coconutpak_history::Model>>> {
-        let pak = self
-            .get_pak_from_name(name.0)
-            .await?
-            .ok_or(NotFound(eyre::Report::msg("Pak Not Found".to_string())))?;
-
-        let pak_versions = coconutpak_history::Entity::find()
-            .filter(coconutpak_history::Column::Coconutpak.eq(pak.id))
-            .join(
-                JoinType::RightJoin,
-                coconutpak_history::Relation::CoconutPak.def(),
-            )
-            .all(&self.data.database)
-            .await
-            .unwrap_or_default();
-        return Ok(Json(pak_versions));
+    // #[oai(path = "/pak/:id/versions", method = "get")]
+    async fn pack_versions(&self, id: Path<u64>) -> Result<Json<Vec<coconutpak_versions::Model>>> {
+        let versions = get_coconut_pak_versions(self.data.clone(), id.0).await?;
+        return Ok(Json(versions));
     }
 
+    // TODO
     // #[oai(path = "/pak/:name/:version/readme", method = "get")]
     async fn readme(&self, name: Path<String>, version: Path<String>) -> Result<PlainText<String>> {
         return Ok(PlainText("".to_string()));
@@ -129,12 +128,12 @@ impl CoconutPakApi {
         };
     }
 
-    // #[oai(path = "/pak/:name/:version/list_reports", method = "post")]
+    // #[oai(path = "/pak/:id/:version/list_reports", method = "post")]
     async fn list_reports(
         &self,
         name: Path<String>,
         version: Path<String>,
-        report: PlainText<String>,
+        id: PlainText<String>,
         api_key: CoconutPakUserAuthentication,
     ) -> Result<Json<Vec<reports::Model>>> {
         if !api_key.0.administrator_account {
@@ -193,11 +192,11 @@ impl CoconutPakApi {
             )));
         }
         let parsed_version = Version::parse(&version)?;
-        let mut pak_versions = coconutpak_history::Entity::find()
-            .filter(coconutpak_history::Column::Coconutpak.eq(pak.id))
+        let mut pak_versions = coconutpak_versions::Entity::find()
+            .filter(coconutpak_versions::Column::Coconutpak.eq(pak.id))
             .join(
                 JoinType::RightJoin,
-                coconutpak_history::Relation::CoconutPak.def(),
+                coconutpak_versions::Relation::CoconutPak.def(),
             )
             .all(&self.data.database)
             .await
@@ -205,7 +204,7 @@ impl CoconutPakApi {
         pak_versions.retain(|x| x.version == parsed_version);
         return if let Some(paks) = pak_versions.get(0) {
             if pak_versions.len() == 1 {
-                let mut active_pak: coconutpak_history::ActiveModel = paks.into();
+                let mut active_pak: coconutpak_versions::ActiveModel = paks.into();
                 active_pak.yanked = ActiveValue::Set(true);
                 if let Err(why) = active_pak.update(&self.data.database).await {
                     return Err(InternalServerError(why.into()));
@@ -232,11 +231,11 @@ impl CoconutPakApi {
             .get_pak_from_name(name.0)
             .await?
             .ok_or(NotFound(eyre::Report::msg("Pak Not Found".to_string())))?;
-        let mut pak_versions = coconutpak_history::Entity::find()
-            .filter(coconutpak_history::Column::Coconutpak.eq(pak.id))
+        let mut pak_versions = coconutpak_versions::Entity::find()
+            .filter(coconutpak_versions::Column::Coconutpak.eq(pak.id))
             .join(
                 JoinType::RightJoin,
-                coconutpak_history::Relation::CoconutPak.def(),
+                coconutpak_versions::Relation::CoconutPak.def(),
             )
             .all(&self.data.database)
             .await

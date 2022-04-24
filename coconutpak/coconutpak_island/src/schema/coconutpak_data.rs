@@ -25,15 +25,15 @@ pub enum Relation {
 impl RelationTrait for Relation {
     fn def(&self) -> RelationDef {
         match self {
-            Relation::CoconutPakHistory => Entity::belongs_to(super::coconutpak_history::Entity)
+            Relation::CoconutPakHistory => Entity::belongs_to(super::coconutpak_versions::Entity)
                 .from(Column::Id)
-                .to(super::coconutpak_history::Column::Id)
+                .to(super::coconutpak_versions::Column::Id)
                 .into(),
         }
     }
 }
 
-impl Related<super::coconutpak_history::Entity> for Entity {
+impl Related<super::coconutpak_versions::Entity> for Entity {
     fn to() -> RelationDef {
         Relation::CoconutPakHistory.def()
     }

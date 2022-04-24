@@ -23,6 +23,7 @@ use std::{
 };
 use tokio::sync::Mutex;
 use uuid::Uuid;
+use kindkapibari_core::state::State;
 use crate::permissions::Scopes;
 
 const AUTH_REDIS_KEY_START_APIKEY: [u8; 22] = *b"coconutpak:auth:apikey";
@@ -74,13 +75,13 @@ pub async fn generate_key(is_api_key: bool) -> SResult<Generated> {
     } else {
         AUTH_SESSION_BYTE_START
     })
-    .as_bytes()]
-    .concat();
+        .as_bytes()]
+        .concat();
 
     let mut hash = Vec::with_capacity(64);
     argon2.hash_password_into(&apikey_base, &salt, &mut hash)?;
-    let front = if is_api_key { "A" } else { "S" };
-    let mut key = format!("{front}{}", base64::encode(base));
+    let front = if is_api_key { "CCPKA" } else { "CCSTS" };
+    let mut key = format!("{front}-{}", base64::encode(base));
 
     Ok(Generated { key, hashed: hash })
 }
