@@ -9,7 +9,7 @@ use uuid::Uuid;
 #[derive(Clone, Debug, Hash, PartialOrd, PartialEq, Serialize, Deserialize, DeriveEntityModel)]
 #[sea_orm(table_name = "reports")]
 pub struct Model {
-    #[sea_orm(primary_key, auto_increment = true)]
+    #[sea_orm(primary_key)]
     pub report_id: u64,
     pub reporter: u64,
     pub target_pak: u64,

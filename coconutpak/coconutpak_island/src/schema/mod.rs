@@ -1,12 +1,16 @@
+use crate::schema::coconutpak_versions::Model;
 use crate::{AppData, SResult};
+use chrono::Utc;
 use color_eyre::Report;
 use poem::error::NotFound;
-use poem_openapi::response::StaticFileResponse::InternalServerError;
 use redis::{AsyncCommands, RedisResult, ToRedisArgs};
 use sea_orm::{
-    query::*, ColumnTrait, EntityTrait, JoinType, QueryFilter, QuerySelect, RelationTrait,
+    query::*, ActiveValue, ColumnTrait, EntityTrait, IntoActiveModel, QueryFilter, QuerySelect,
+    RelationTrait,
 };
+use semver::Version;
 use std::sync::Arc;
+use tracing::log::log;
 use tracing::{error, warn};
 
 pub mod api_key;
@@ -118,9 +122,9 @@ pub async fn get_coconut_pak_versions(
 
             let pak = get_coconut_pak(state.clone(), id)
                 .await?
-                .ok_or(NotFound(Report::msg(format!(
+                .ok_or(Report::msg(format!(
                     "CoconutPak with ID {id} does not exist."
-                ))))?;
+                )))?;
 
             let versions: Vec<coconutpak_versions::Model> = pak
                 .find_related(coconutpak_versions::Entity)
@@ -137,6 +141,32 @@ pub async fn get_coconut_pak_versions(
     }
 }
 
+pub async fn get_coconut_pak_version(
+    state: Arc<AppData>,
+    pak_id: u64,
+    version: String,
+) -> SResult<Option<coconutpak_versions::Model>> {
+    log!(
+        "get_coconut_pak_version: ",
+        version_tag = %version,
+        coconutpak = %pak_id,
+    );
+    if let Err(why) = Version::parse(&version) {
+        error!(
+            "get_coconut_pak_version: invalid version",
+            version_tag = %version,
+            coconutpak = %pak_id,
+            error = ?why,
+        );
+        return Err(Report::msg("Invalid Version Tag"));
+    }
+
+    let mut pak_versions = get_coconut_pak_versions(state, pak_id).await?;
+    pak_versions.retain(|ver| ver.version == version);
+
+    Ok(pak_versions.pop())
+}
+
 pub async fn get_coconut_pak_readme(state: Arc<AppData>, id: u64) -> SResult<Option<String>> {
     todo!()
 }
@@ -144,9 +174,33 @@ pub async fn get_coconut_pak_readme(state: Arc<AppData>, id: u64) -> SResult<Opt
 pub async fn get_coconut_pak_reports(
     state: Arc<AppData>,
     pak_id: u64,
-    user_id: u64,
-    version: String,
+    user_id: Option<u64>,
+    version: Option<String>,
 ) -> SResult<Vec<reports::Model>> {
+    let pak = get_coconut_pak(state.clone(), pak_id)
+        .await?
+        .ok_or(NotFound(Report::msg(format!(
+            "CoconutPak with ID {id} does not exist."
+        ))))?;
+
+    let mut reports: Vec<reports::Model> = pak
+        .find_related(reports::Entity)
+        .all(&state.database)
+        .await?;
+
+    if let Some(user_id) = user_id {
+        reports.retain(|report| report.reporter == user_id);
+    }
+
+    if let Some(version) = version {
+        if Version::parse(&version).is_ok() {
+            reports.retain(|report| report.version == version);
+        } else {
+            return Err(Report::msg("Invalid Version Tag"));
+        }
+    }
+
+    Ok(reports)
 }
 pub async fn post_coconut_pak_report(
     state: Arc<AppData>,
@@ -154,7 +208,54 @@ pub async fn post_coconut_pak_report(
     user_id: u64,
     version: String,
     reason: String,
-) -> SResult<()> {
+) -> SResult<reports::Model> {
+    match get_coconut_pak_version(state.clone(), pak_id, version.clone()).await? {
+        Some(ver) => {
+            let report_active = reports::ActiveModel {
+                report_id: ActiveValue::NotSet,
+                reporter: ActiveValue::Set(user_id),
+                target_pak: ActiveValue::Set(ver.coconutpak),
+                date: ActiveValue::Set(Utc::now()),
+                reason: ActiveValue::Set(reason),
+                version: ActiveValue::Set(version),
+            };
+
+            let report = report_active.insert(&state.database).await?;
+            Ok(report)
+        }
+        None => {
+            return Err(Report::msg(format!(
+                "CoconutPak with ID {id} and version {version} does not exist."
+            )))
+        }
+    }
+}
+
+pub async fn yank(state: Arc<AppData>, pak_id: u64, version: String, user: u64) -> SResult<()> {
+    let mut active_pak_version = get_coconut_pak_version(state.clone(), pak_id, version)
+        .await?
+        .ok_or(Report::msg(format!(
+            "CoconutPak with ID {id} and version {version} does not exist."
+        )))?
+        .into_active_model();
+
+    // TODO: Log!
+    active_pak_version.yanked = ActiveValue::Set(true);
+    active_pak_version.update(&state.database).await?;
+    Ok(())
+}
+
+pub async fn unyank(state: Arc<AppData>, pak_id: u64, version: String, user: u64) -> SResult<()> {
+    let mut active_pak_version = get_coconut_pak_version(state.clone(), pak_id, version)
+        .await?
+        .ok_or(Report::msg(format!(
+            "CoconutPak with ID {id} and version {version} does not exist."
+        )))?
+        .into_active_model();
+
+    active_pak_version.yanked = ActiveValue::Set(false);
+    active_pak_version.update(&state.database).await?;
+    Ok(())
 }
 
 // we just say "fuck it" when handling redis errors in code
