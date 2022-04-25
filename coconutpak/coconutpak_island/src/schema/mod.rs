@@ -177,28 +177,30 @@ pub async fn get_coconut_pak_reports(
     user_id: Option<u64>,
     version: Option<String>,
 ) -> SResult<Vec<reports::Model>> {
-    let pak = get_coconut_pak(state.clone(), pak_id)
-        .await?
-        .ok_or(NotFound(Report::msg(format!(
-            "CoconutPak with ID {id} does not exist."
-        ))))?;
-
-    let mut reports: Vec<reports::Model> = pak
-        .find_related(reports::Entity)
-        .all(&state.database)
-        .await?;
+    let mut report_query = coconutpak::Entity::find_by_id(pak_id)
+        .join(JoinType::RightJoin, reports::Relation::CoconutPak.def());
 
     if let Some(user_id) = user_id {
-        reports.retain(|report| report.reporter == user_id);
+        report_query = report_query.filter(reports::Column::Reporter.eq(user_id));
     }
 
     if let Some(version) = version {
-        if Version::parse(&version).is_ok() {
-            reports.retain(|report| report.version == version);
-        } else {
-            return Err(Report::msg("Invalid Version Tag"));
+        if let Err(why) = Version::parse(&version) {
+            log!(
+                "get_coconut_pak_reports: ",
+                version_tag = %version,
+                coconutpak = ?pak_id,
+                user_id = ?user_id,
+            );
         }
+
+        report_query = report_query.filter(reports::Column::Version.eq(version));
     }
+
+    let reports = report_query
+        .into_model::<reports::Model>()
+        .all(&state.database)
+        .await?;
 
     Ok(reports)
 }
@@ -231,7 +233,19 @@ pub async fn post_coconut_pak_report(
     }
 }
 
-pub async fn yank(state: Arc<AppData>, pak_id: u64, version: String, user: u64) -> SResult<()> {
+pub async fn post_coconut_pak_yank(
+    state: Arc<AppData>,
+    pak_id: u64,
+    version: String,
+    user: u64,
+) -> SResult<()> {
+    log!(
+        "post_coconut_pak_yank: ",
+        user = %user,
+        pak = %pak_id,
+        version = %version,
+    );
+
     let mut active_pak_version = get_coconut_pak_version(state.clone(), pak_id, version)
         .await?
         .ok_or(Report::msg(format!(
@@ -241,11 +255,25 @@ pub async fn yank(state: Arc<AppData>, pak_id: u64, version: String, user: u64) 
 
     // TODO: Log!
     active_pak_version.yanked = ActiveValue::Set(true);
-    active_pak_version.update(&state.database).await?;
+    coconutpak_versions::Entity::insert(active_pak_version)
+        .exec(&state.database)
+        .await?;
     Ok(())
 }
 
-pub async fn unyank(state: Arc<AppData>, pak_id: u64, version: String, user: u64) -> SResult<()> {
+pub async fn post_coconut_pak_unyank(
+    state: Arc<AppData>,
+    pak_id: u64,
+    version: String,
+    user: u64,
+) -> SResult<()> {
+    log!(
+        "post_coconut_pak_unyank: ",
+        user = %user,
+        pak = %pak_id,
+        version = %version,
+    );
+
     let mut active_pak_version = get_coconut_pak_version(state.clone(), pak_id, version)
         .await?
         .ok_or(Report::msg(format!(
@@ -254,7 +282,51 @@ pub async fn unyank(state: Arc<AppData>, pak_id: u64, version: String, user: u64
         .into_active_model();
 
     active_pak_version.yanked = ActiveValue::Set(false);
-    active_pak_version.update(&state.database).await?;
+    coconutpak_versions::Entity::update(active_pak_version)
+        .exec(&state.database)
+        .await?;
+    Ok(())
+}
+
+pub async fn get_coconut_pak_files(
+    state: Arc<AppData>,
+    pak_id: u64,
+    version: u64,
+) -> SResult<Vec<u8>> {
+    todo!()
+}
+
+pub async fn get_user_subscribes(
+    state: Arc<AppData>,
+    user_id: u64,
+) -> SResult<Vec<coconutpak::Model>> {
+    log!(
+        "get_user_subscribes: ",
+        user = %user_id,
+    );
+    let subscribed_paks = user::Entity::find_by_id(user_id)
+        .join(JoinType::RightJoin, subscribers::Relation::User.def())
+        .join(JoinType::RightJoin, subscribers::Relation::CoconutPak.def())
+        .into_model::<coconutpak::Model>()
+        .all(&state.database)
+        .await?;
+
+    Ok(subscribed_paks)
+}
+
+pub async fn post_user_subscribes(state: Arc<AppData>, user_id: u64, pak_id: u64) -> SResult<()> {
+    log!(
+        "post_user_subscribes: ",
+        user = %user_id,
+        pak = %pak_id,
+    );
+
+    let active_subscribe = subscribers::ActiveModel {
+        user_id: ActiveValue::Set(user_id),
+        pak_id: ActiveValue::Set(pak_id),
+    };
+
+    active_subscribe.insert(&state.database).await?;
     Ok(())
 }
 
