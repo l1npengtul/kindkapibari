@@ -6,6 +6,7 @@ use crate::config::Config;
 use color_eyre::eyre;
 use hyper::StatusCode;
 use meilisearch_sdk::client::Client;
+use poem::http::StatusCode;
 use redis::aio::ConnectionManager;
 use sea_orm::DatabaseConnection;
 use tokio::sync::RwLock;
@@ -31,6 +32,7 @@ mod permissions;
 mod report;
 mod schema;
 mod suspended;
+mod access;
 
 #[tokio::main]
 async fn main() {

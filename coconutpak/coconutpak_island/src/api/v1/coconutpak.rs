@@ -1,5 +1,6 @@
+use crate::access::coconutpak::{get_coconut_pak_id_by_name, get_coconut_pak_versions};
 use crate::{api::v1::CoconutPakUserAuthentication, schema::*, AppData};
-use chrono::{DateTime, Utc};
+use chrono::Utc;
 use color_eyre::eyre;
 use kindkapibari_core::{throttle::ThrottledBytes, version::Version};
 use poem::{
@@ -7,17 +8,15 @@ use poem::{
     Result,
 };
 use poem_openapi::{
-    auth::ApiKey,
     param::{Path, Query},
     payload::{Attachment, Json, PlainText},
-    Multipart, OpenApi,
+    Multipart,
 };
 use redis::{AsyncCommands, Commands};
 use sea_orm::{
     ActiveValue, ColumnTrait, EntityTrait, JoinType, QueryFilter, QuerySelect, RelationTrait,
 };
 use serde::{Deserialize, Serialize};
-use std::process::id;
 use std::sync::Arc;
 use tokio::io::AsyncReadExt;
 
