@@ -1,8 +1,8 @@
-use crate::login::generate_id;
-use crate::permissions::Scopes::Report;
 use crate::{
-    access,
+    access::{insert_into_cache_with_timeout, refresh_redis_cache},
     eyre::Report,
+    login::generate_id,
+    permissions::Scopes::Report,
     schema::{coconutpak, coconutpak_versions, reports},
     AppData, SResult,
 };
@@ -14,8 +14,11 @@ use sea_orm::{
 };
 use semver::Version;
 use std::sync::Arc;
-use tracing::instrument;
-use tracing::log::{error, log, warn};
+use tracing::{
+    instrument,
+    log::{error, log, warn},
+};
+
 #[instrument]
 pub async fn get_coconut_pak_id_by_name(state: Arc<AppData>, name: String) -> SResult<Option<u64>> {
     match state
@@ -24,7 +27,7 @@ pub async fn get_coconut_pak_id_by_name(state: Arc<AppData>, name: String) -> SR
         .await
     {
         Ok(model) => {
-            access::refresh_redis_cache(state, concat!("cpk:name2id:", name).to_string(), None);
+            refresh_redis_cache(state, concat!("cpk:name2id:", name).to_string(), None);
             Ok(Some(model))
         }
         Err(why_redis) => {
@@ -48,7 +51,7 @@ pub async fn get_coconut_pak_id_by_name(state: Arc<AppData>, name: String) -> SR
                 })?
                 .map(|pak| pak.id);
 
-            access::insert_into_cache_with_timeout(
+            insert_into_cache_with_timeout(
                 state,
                 concat!("cpk:name2id:", name).to_string(),
                 &pak,
@@ -67,7 +70,7 @@ pub async fn get_coconut_pak(state: Arc<AppData>, id: u64) -> SResult<Option<coc
         .await
     {
         Ok(model) => {
-            access::refresh_redis_cache(state, concat!("cpk:byid:", id).to_string(), None);
+            refresh_redis_cache(state, concat!("cpk:byid:", id).to_string(), None);
             Ok(model)
         }
         Err(why_redis) => {
@@ -89,12 +92,7 @@ pub async fn get_coconut_pak(state: Arc<AppData>, id: u64) -> SResult<Option<coc
                     dberr
                 })?;
 
-            access::insert_into_cache_with_timeout(
-                state,
-                concat!("cpk:bn:", name).to_string(),
-                &pak,
-                None,
-            );
+            insert_into_cache_with_timeout(state, concat!("cpk:bn:", name).to_string(), &pak, None);
             pak
         }
     }
@@ -111,7 +109,7 @@ pub async fn get_coconut_pak_versions(
         .await
     {
         Ok(versions) => {
-            access::refresh_redis_cache(state, concat!("cpk:vers:", id).to_string(), Some(60));
+            refresh_redis_cache(state, concat!("cpk:vers:", id).to_string(), Some(60));
             Ok(versions)
         }
         Err(why) => {
@@ -131,7 +129,7 @@ pub async fn get_coconut_pak_versions(
                 .find_related(coconutpak_versions::Entity)
                 .all(&state.database)
                 .await?;
-            access::insert_into_cache_with_timeout(
+            insert_into_cache_with_timeout(
                 state,
                 concat!("cpk:vers:", id).to_string(),
                 &versions,
