@@ -14,6 +14,7 @@ use sea_orm::{
 };
 use semver::Version;
 use std::sync::Arc;
+use tracing::log::info;
 use tracing::{
     instrument,
     log::{error, log, warn},
@@ -31,7 +32,7 @@ pub async fn get_coconut_pak_id_by_name(state: Arc<AppData>, name: String) -> SR
             Ok(Some(model))
         }
         Err(why_redis) => {
-            error!(
+            info!(
                 "redis cache: get_coconut_pak_id_by_name: ",
                 argument = %name,
                 error = ?why_redis,
@@ -42,7 +43,7 @@ pub async fn get_coconut_pak_id_by_name(state: Arc<AppData>, name: String) -> SR
                 .one(&state.database)
                 .await
                 .map_err(|dberr| {
-                    error!(
+                    warn!(
                         "postgres : get_coconut_pak_by_name: ",
                         argument = %name,
                         error = ?dberr,
@@ -51,12 +52,7 @@ pub async fn get_coconut_pak_id_by_name(state: Arc<AppData>, name: String) -> SR
                 })?
                 .map(|pak| pak.id);
 
-            insert_into_cache_with_timeout(
-                state,
-                concat!("cpk:name2id:", name).to_string(),
-                &pak,
-                None,
-            );
+            insert_into_cache_with_timeout(state, concat!("cpk:name2id:", name), &pak, None);
             pak
         }
     }
@@ -70,11 +66,11 @@ pub async fn get_coconut_pak(state: Arc<AppData>, id: u64) -> SResult<Option<coc
         .await
     {
         Ok(model) => {
-            refresh_redis_cache(state, concat!("cpk:byid:", id).to_string(), None);
+            refresh_redis_cache(state, concat!("cpk:byid:", id), None);
             Ok(model)
         }
         Err(why_redis) => {
-            warn!(
+            info!(
                 "redis cache: get_coconut_pak: ",
                 argument = %id,
                 error = ?why_redis,
@@ -84,7 +80,7 @@ pub async fn get_coconut_pak(state: Arc<AppData>, id: u64) -> SResult<Option<coc
                 .one(&state.database)
                 .await
                 .map_err(|dberr| {
-                    error!(
+                    warn!(
                         "postgres: get_coconut_pak: ",
                         argument = %id,
                         error = ?dberr,
@@ -92,7 +88,7 @@ pub async fn get_coconut_pak(state: Arc<AppData>, id: u64) -> SResult<Option<coc
                     dberr
                 })?;
 
-            insert_into_cache_with_timeout(state, concat!("cpk:bn:", name).to_string(), &pak, None);
+            insert_into_cache_with_timeout(state, concat!("cpk:bn:", name), &pak, None);
             pak
         }
     }
@@ -109,11 +105,11 @@ pub async fn get_coconut_pak_versions(
         .await
     {
         Ok(versions) => {
-            refresh_redis_cache(state, concat!("cpk:vers:", id).to_string(), Some(60));
+            refresh_redis_cache(state, concat!("cpk:vers:", id), Some(60));
             Ok(versions)
         }
         Err(why) => {
-            warn!(
+            info!(
                 "redis cache: get_coconut_pak_versions: ",
                 argument = %id,
                 error = ?why,
@@ -129,12 +125,7 @@ pub async fn get_coconut_pak_versions(
                 .find_related(coconutpak_versions::Entity)
                 .all(&state.database)
                 .await?;
-            insert_into_cache_with_timeout(
-                state,
-                concat!("cpk:vers:", id).to_string(),
-                &versions,
-                Some(60),
-            );
+            insert_into_cache_with_timeout(state, concat!("cpk:vers:", id), &versions, Some(60));
             Ok(versions)
         }
     }
@@ -146,11 +137,6 @@ pub async fn get_coconut_pak_version(
     pak_id: u64,
     version: String,
 ) -> SResult<Option<coconutpak_versions::Model>> {
-    log!(
-        "get_coconut_pak_version: ",
-        version_tag = %version,
-        coconutpak = %pak_id,
-    );
     if let Err(why) = Version::parse(&version) {
         error!(
             "get_coconut_pak_version: invalid version",

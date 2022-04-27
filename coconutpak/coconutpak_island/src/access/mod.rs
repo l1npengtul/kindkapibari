@@ -12,7 +12,7 @@ pub mod user;
 #[instrument]
 pub fn insert_into_cache_with_timeout(
     state: Arc<AppData>,
-    key: String,
+    key: impl ToRedisArgs,
     value: impl ToRedisArgs,
     timeout: Option<usize>,
 ) {
@@ -30,12 +30,12 @@ pub fn insert_into_cache_with_timeout(
 }
 
 #[instrument]
-pub fn refresh_redis_cache(state: Arc<AppData>, arg: String, timeout: Option<usize>) {
+pub fn refresh_redis_cache(state: Arc<AppData>, arg: impl ToRedisArgs, timeout: Option<usize>) {
     tokio::task::spawn(ref_red_cac_raw(state, arg, timeout));
 }
 
 #[instrument]
-pub async fn ref_red_cac_raw(state: Arc<AppData>, arg: String, timeout: Option<usize>) {
+pub async fn ref_red_cac_raw(state: Arc<AppData>, arg: impl ToRedisArgs, timeout: Option<usize>) {
     if let Err(why) = state.redis.expire(&arg, timeout.unwrap_or(360)).await {
         error!(
             format!("redis timeout error: {arg}"),
@@ -43,4 +43,14 @@ pub async fn ref_red_cac_raw(state: Arc<AppData>, arg: String, timeout: Option<u
             error = ?why,
         );
     }
+}
+
+#[instrument]
+pub fn invalidate_cache(state: Arc<AppData>, arg: impl ToRedisArgs) {
+    tokio::task::spawn(delet_dis(state, arg));
+}
+
+#[instrument]
+pub async fn delet_dis(state: Arc<AppData>, arg: impl ToRedisArgs) {
+    state.redis.del(arg)?
 }
