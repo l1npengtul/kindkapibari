@@ -1,8 +1,10 @@
-use crate::permissions::Scopes;
-use kindkapibari_core::dbvec::DBVec;
-use sea_orm::prelude::*;
+use chrono::DateTime;
+use chrono::Utc;
+use sea_orm::{
+    ActiveModelBehavior, DeriveEntityModel, EntityTrait, EnumIter, Related, RelationDef,
+    RelationTrait,
+};
 use serde::{Deserialize, Serialize};
-use uuid::Uuid;
 
 #[derive(Clone, Debug, Hash, PartialOrd, PartialEq, Serialize, Deserialize, DeriveEntityModel)]
 #[sea_orm(table_name = "api_keys")]
@@ -12,12 +14,13 @@ pub struct Model {
     #[sea_orm(column_type = "Text")]
     pub name: String,
     pub owner: u64,
+    pub revoked: bool,
+    pub created: DateTime<Utc>,
     #[sea_orm(unique, indexed)]
     pub key_hashed: Vec<u8>,
-    pub permissions: Vec<Scopes>,
 }
 
-#[derive(Copy, Clone, Debug, EnumIter)]
+#[derive(Copy, Clone, Debug, sea_orm::EnumIter)]
 pub enum Relation {
     User,
 }

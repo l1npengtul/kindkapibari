@@ -1,16 +1,27 @@
-use crate::login::{verify_apikey, verify_session};
-use crate::schema::user::Model;
-use crate::{AppData, ARGON2};
+use crate::{
+    login::{verify_apikey, verify_session},
+    schema,
+    schema::user::Model,
+    AppData,
+};
 use argon2::{Algorithm, Argon2, Params, Version};
-use axum::async_trait;
-use axum::extract::{FromRequest, RequestParts};
-use axum::headers::HeaderValue;
-use axum::http::StatusCode;
 use kindkapibari_core::motd::MessageOfTheDay;
+use poem::web::Json;
+use poem::{web::Data, Request};
+use poem_openapi::{auth::ApiKey, SecurityScheme};
 use std::sync::Arc;
 
 pub mod coconutpak;
 pub mod user;
+
+#[derive(SecurityScheme)]
+#[oai(
+    type = "api_key",
+    key_name = "X-API-Key",
+    in = "header",
+    checker = "api_checker"
+)]
+pub struct CoconutPakUserAuthentication(schema::user::Model);
 
 async fn coconutpak_auth_checker(
     data: Data<Arc<AppData>>,
@@ -55,5 +66,10 @@ impl Api {
     // #[oai(path = "/kkb_auth_supported", method = "get")]
     async fn supports_kkb_auth(&self) -> bool {
         self.data.config.read().await.support_official_kkb_login
+    }
+
+    // #[oai(path = "/auth_required", method = "get")]
+    async fn requires_auth(&self) -> bool {
+        false
     }
 }

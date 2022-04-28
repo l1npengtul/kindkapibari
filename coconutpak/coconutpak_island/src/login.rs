@@ -1,3 +1,4 @@
+use crate::permissions::Scopes;
 use crate::{
     schema::{
         api_key::{self, Column, Entity, Model},
@@ -6,30 +7,33 @@ use crate::{
     AppData, SResult,
 };
 use argon2::{Algorithm, Argon2, Params, PasswordHasher, Version};
-use bson::spec::BinarySubtype::Column;
-use chrono::{TimeZone, Utc};
+use chrono::{DateTime, TimeZone, Utc};
+use color_eyre::owo_colors::AnsiColors::Default;
 use kindkapibari_core::reseedingrng::AutoReseedingRng;
 use kindkapibari_core::snowflake::SnowflakeIdGenerator;
 use once_cell::sync::Lazy;
-use poem::Request;
-use poem_openapi::{auth::ApiKey, types::Type};
 use redis::{aio::ConnectionManager, AsyncCommands, RedisResult};
-use sea_orm::{ColumnTrait, DatabaseConnection, DbErr, EntityTrait, QueryFilter, Related};
+use sea_orm::{
+    ActiveValue, ColumnTrait, DatabaseConnection, DbErr, EntityTrait, JoinType, QueryFilter,
+    QuerySelect, Related, RelationTrait,
+};
 use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha512};
+use std::ops::Add;
 use std::{
     fmt::{write, Display, Formatter},
     sync::Arc,
 };
 use tokio::sync::Mutex;
 use uuid::Uuid;
-use kindkapibari_core::state::State;
-use crate::permissions::Scopes;
 
 const AUTH_REDIS_KEY_START_APIKEY: [u8; 22] = *b"coconutpak:auth:apikey";
 const AUTH_REDIS_KEY_START_SESSION: [u8; 23] = *b"coconutpak:auth:session";
 const AUTH_SESSION_BYTE_START: &'static str = "COCONUTPAK_SESSION_TOKEN.";
 const AUTH_APIKEY_BYTE_START: &'static str = "COCONUTPAK_APIKEY_TOKEN.";
+
+const API_KEY_PREFIX_NO_DASH: &'static str = "CCPKA";
+const TOKEN_PREFIX_NO_DASH: &'static str = "CCSTS";
 
 // 196! 196! 196! 196!
 static AUTO_RESEEDING_APIKEY_RNG: Lazy<Arc<Mutex<AutoReseedingRng<200704>>>> =
@@ -42,6 +46,9 @@ static ID_GENERATOR: Lazy<Arc<SnowflakeIdGenerator>> = Lazy::new(|| {
     ))
 });
 
+pub type CoconutPakApiKey = String;
+pub type CoconutPakSessionToken = String;
+
 #[derive(Clone, Debug, PartialOrd, PartialEq, Serialize, Deserialize)]
 pub struct Generated {
     pub key: String,
@@ -53,7 +60,7 @@ const fn uuid_to_byte_array(uuid: Uuid) -> [u8; 16] {
     u128.to_le_bytes()
 }
 
-pub async fn generate_key(is_api_key: bool) -> SResult<Generated> {
+pub fn generate_key(is_api_key: bool) -> SResult<Generated> {
     let base = AUTO_RESEEDING_APIKEY_RNG
         .lock()
         .await
@@ -75,19 +82,53 @@ pub async fn generate_key(is_api_key: bool) -> SResult<Generated> {
     } else {
         AUTH_SESSION_BYTE_START
     })
-        .as_bytes()]
-        .concat();
+    .as_bytes()]
+    .concat();
 
     let mut hash = Vec::with_capacity(64);
     argon2.hash_password_into(&apikey_base, &salt, &mut hash)?;
-    let front = if is_api_key { "CCPKA" } else { "CCSTS" };
+    let front = if is_api_key {
+        API_KEY_PREFIX_NO_DASH
+    } else {
+        TOKEN_PREFIX_NO_DASH
+    };
     let mut key = format!("{front}-{}", base64::encode(base));
 
     Ok(Generated { key, hashed: hash })
 }
 
-pub async fn new_apikey(state: Arc<AppData>, user: u64, scopes: Vec<Scopes>) -> SResult<Generated> {
-    let user =
+pub async fn new_apikey(
+    state: Arc<AppData>,
+    user_id: u64,
+    name: String,
+) -> SResult<CoconutPakApiKey> {
+    let key = generate_key(true)?;
+
+    let api_key_active = api_key::ActiveModel {
+        name: ActiveValue::Set(name),
+        owner: ActiveValue::Set(user_id),
+        key_hashed: ActiveValue::Set(key.hashed),
+        created: ActiveValue::Set(Utc::now()),
+        ..Default::default()
+    };
+
+    api_key_active.insert(&state.database).await?;
+    Ok(key.key)
+}
+
+pub async fn new_session(state: Arc<AppData>, user_id: u64) -> SResult<CoconutPakSessionToken> {
+    let key = generate_key(false)?;
+
+    let session_token_active = session::ActiveModel {
+        owner: ActiveValue::Set(user_id),
+        expire: ActiveValue::Set(Utc::now().add(chrono::Duration::days(69))), // haha funny sex number now laugh
+        created: ActiveValue::Set(Utc::now()),
+        session_hashed: ActiveValue::Set(key.hashed),
+        ..Default::default()
+    };
+
+    session_token_active.insert(&state.database).await?;
+    Ok(key.key)
 }
 
 pub async fn generate_id(config: Arc<AppData>) -> Option<u64> {
@@ -96,12 +137,12 @@ pub async fn generate_id(config: Arc<AppData>) -> Option<u64> {
 
 pub enum Authorized {
     ApiKey(u64, Vec<Scopes>),
-
 }
 
-pub async fn verify_auth(database: Arc<AppData>, auth: String) -> Option<user::Model>
-
-pub async fn verify_apikey(database: Arc<AppData>, api_key: String) -> Option<user::Model> {
+pub async fn verify_apikey(
+    database: Arc<AppData>,
+    api_key: CoconutPakApiKey,
+) -> Option<user::Model> {
     let argon2 = Argon2::new(
         Algorithm::Argon2id,
         Version::default(),
@@ -113,54 +154,35 @@ pub async fn verify_apikey(database: Arc<AppData>, api_key: String) -> Option<us
         )?,
     );
 
-    let rehashed_key = base64::decode(api_key)
-        .map(|bytes| {
-            let mut hash = Vec::with_capacity(64);
-            argon2
-                .hash_password_into(&bytes, &salt, &mut hash)
-                .map(|| hash)
-                .ok()
-        })
-        .ok()
-        .flatten()?;
+    if let Some(key_data) = &api_key.strip_prefix(concat!(API_KEY_PREFIX_NO_DASH, "-")) {
+        let rehashed_key = base64::decode(key_data)
+            .map(|bytes| {
+                let mut hash = Vec::with_capacity(64);
+                argon2
+                    .hash_password_into(&bytes, &salt, &mut hash)
+                    .map(|| hash)
+                    .ok()
+            })
+            .ok()
+            .flatten()?;
 
-    // check if redis has our key
-    if let Ok(user) = database
-        .redis
-        .get::<[&[u8]; 2], Option<user::Model>>([&AUTH_REDIS_KEY_START_APIKEY, &rehashed_key])
-        .await
-    {
-        return user;
+        if let Some(user) = api_key::Entity::find()
+            .filter(api_key::Column::KeyHashed.eq(&rehashed_key))
+            .filter(api_key::Column::Revoked.eq(false))
+            .join(JoinType::RightJoin, api_key::Relation::User.def())
+            .into_model::<user::Model>()
+            .one(&database.database)
+            .await?
+        {}
     }
 
-    return match api_key::Entity::find()
-        .filter(Column::KeyHashedSha512.eq(&rehashed_key))
-        .one(&database.database)
-        .await
-        .ok()
-        .flatten()
-    {
-        Some(api_key_model) => {
-            let user_model = user::Entity::find_by_id(api_key_model.owner)
-                .one(&database.database)
-                .await
-                .ok()
-                .flatten();
-            let _result = database
-                .redis
-                .set([&AUTH_REDIS_KEY_START_APIKEY, &rehashed_key], &user_model)
-                .await;
-            database
-                .redis
-                .expire([&AUTH_REDIS_KEY_START_APIKEY, &rehashed_key], 3600)
-                .await;
-            user_model
-        }
-        None => None,
-    };
+    return None;
 }
 
-pub async fn verify_session(database: Arc<AppData>, session: String) -> Option<user::Model> {
+pub async fn verify_session(
+    database: Arc<AppData>,
+    session: CoconutPakSessionToken,
+) -> SResult<Option<user::Model>> {
     let argon2 = Argon2::new(
         Algorithm::Argon2id,
         Version::default(),
@@ -172,49 +194,50 @@ pub async fn verify_session(database: Arc<AppData>, session: String) -> Option<u
         )?,
     );
 
-    let rehashed_key = base64::decode(session)
-        .map(|bytes| {
-            let mut hash = Vec::with_capacity(64);
-            argon2
-                .hash_password_into(&bytes, &salt, &mut hash)
-                .map(|| hash)
-                .ok()
-        })
-        .ok()
-        .flatten()?;
+    if let Some(token_data) = &api_key.strip_prefix(concat!(TOKEN_PREFIX_NO_DASH, "-")) {
+        let rehashed_key = base64::decode(token_data)
+            .map(|bytes| {
+                let mut hash = Vec::with_capacity(64);
+                argon2
+                    .hash_password_into(&bytes, &salt, &mut hash)
+                    .map(|| hash)
+                    .ok()
+            })
+            .ok()
+            .flatten()?;
 
-    // check if redis has our key
-    if let Ok(user) = database
-        .redis
-        .get::<[&[u8]; 2], Option<user::Model>>([&AUTH_REDIS_KEY_START_SESSION, &rehashed_key])
-        .await
-    {
-        return user;
-    }
-
-    return match session::Entity::find()
-        .filter(session::Column::SessionHashedSha512.eq(&rehashed_key))
-        .one(&database.database)
-        .await
-        .ok()
-        .flatten()
-    {
-        Some(session_key_model) => {
-            let user_model = user::Entity::find_by_id(session_key_model.owner)
-                .one(&database.database)
-                .await
-                .ok()
-                .flatten();
-            let _result = database
-                .redis
-                .set([&AUTH_REDIS_KEY_START_SESSION, &rehashed_key], &user_model)
-                .await;
-            database
-                .redis
-                .expire([&AUTH_REDIS_KEY_START_SESSION, &rehashed_key], 3600)
-                .await;
-            user_model
+        #[derive(FromQueryResult)]
+        struct UserAndKey {
+            pub uuid: u64,
+            pub kkb_id: u64, // This is for now. TODO: change it back!!!!
+            pub username: String,
+            pub restricted_account: bool,
+            pub administrator_account: bool,
+            pub fake_account: bool,
+            pub email: Option<String>,
+            pub expire: DateTime<Utc>,
+            pub revoked: bool,
         }
-        None => None,
-    };
+
+        if let Some(user_and_key) = session::Entity::find()
+            .filter(session::Column::SessionHashed.eq(&rehashed_key))
+            .filter(session::Column::Expire.gt(Utc::now()))
+            .filter(session::Column::Revoked.eq(false))
+            .join(JoinType::RightJoin, session::Relation::User.def())
+            .into_model::<UserAndKey>()
+            .one(&database.database)
+            .await?
+        {
+            let user = user::Model {
+                uuid: user_and_key.uuid,
+                kkb_id: user_and_key.kkb_id,
+                username: user_and_key.username,
+                restricted_account: user_and_key.restricted_account,
+                administrator_account: user_and_key.administrator_account,
+                fake_account: user_and_key.fake_account,
+                email: user_and_key.email,
+            };
+        }
+    }
+    return Ok(None);
 }

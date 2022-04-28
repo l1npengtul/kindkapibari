@@ -1,3 +1,4 @@
+use chrono::{DateTime, Utc};
 use sea_orm::{
     ActiveModelBehavior, DeriveEntityModel, EntityTrait, EnumIter, Related, RelationDef,
     RelationTrait,
@@ -11,10 +12,9 @@ pub struct Model {
     #[sea_orm(primary_key)]
     pub id: u64,
     pub owner: u64,
-    #[sea_orm(column_type = "Text")]
-    pub ip_address: String,
-    #[sea_orm(column_type = "Text")]
-    pub hostname: String,
+    pub expire: DateTime<Utc>,
+    pub created: DateTime<Utc>,
+    pub revoked: bool,
     #[sea_orm(unique, indexed)]
     pub session_hashed: Vec<u8>,
 }

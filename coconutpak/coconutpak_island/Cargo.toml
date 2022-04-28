@@ -62,7 +62,7 @@ features = ["csrf", "session", "static-files", "multipart", "cookie"]
 
 [dependencies.poem-openapi]
 version = "1.3"
-features = ["url", "bson", "chrono", "email", "static-files", "rapidoc"]
+features = ["url", "bson", "chrono", "email", "static-files", "redoc"]
 
 [dependencies.sea-orm]
 version = "0.7"

@@ -1,4 +1,5 @@
 use crate::access::invalidate_cache;
+use crate::login::CoconutPakApiKey;
 use crate::{
     access::{insert_into_cache_with_timeout, refresh_redis_cache},
     schema::{coconutpak, subscribers, user},
@@ -100,4 +101,12 @@ pub async fn get_user_published_coconut_paks(
             Ok(user_paks)
         }
     }
+}
+
+#[instrument]
+pub async fn get_new_user_api_key(
+    state: Arc<AppData>,
+    user_id: u64,
+    name: String,
+) -> SResult<CoconutPakApiKey> {
 }
