@@ -2,10 +2,11 @@ use crate::AppData;
 use redis::{AsyncCommands, ToRedisArgs};
 use std::sync::Arc;
 use tracing::instrument;
-use tracing::log::{error, log, warn};
+use tracing::log::{error, log};
 
 pub mod coconutpak;
 pub mod user;
+pub mod login;
 
 // we just say "fuck it" when handling redis errors in code
 // if we get an error we just log it since postgres will pick up the slack

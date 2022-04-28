@@ -27,7 +27,7 @@ impl RelationTrait for Relation {
         match self {
             Relation::User => Entity::belongs_to(super::user::Entity)
                 .from(Column::User)
-                .to(super::user::Column::Uuid)
+                .to(super::user::Column::Id)
                 .into(),
         }
     }

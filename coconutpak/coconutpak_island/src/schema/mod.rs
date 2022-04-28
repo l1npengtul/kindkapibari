@@ -3,6 +3,7 @@ pub mod bans;
 pub mod coconutpak;
 pub mod coconutpak_data;
 pub mod coconutpak_versions;
+pub mod oauth_tokens;
 pub mod reports;
 pub mod session;
 pub mod subscribers;

@@ -113,7 +113,7 @@ impl CoconutPakApi {
             .ok_or(NotFound(eyre::Report::msg("Pak Not Found".to_string())))?;
 
         let report_active = reports::ActiveModel {
-            reporter: ActiveValue::Set(api_key.0.uuid),
+            reporter: ActiveValue::Set(api_key.0.id),
             target_pak: ActiveValue::Set(pak.id),
             date: ActiveValue::Set(Utc::now()),
             reason: ActiveValue::Set(report.0),
@@ -185,7 +185,7 @@ impl CoconutPakApi {
             .get_pak_from_name(name.0)
             .await?
             .ok_or(NotFound(eyre::Report::msg("Pak Not Found".to_string())))?;
-        if pak.owner != auth.0.uuid || !auth.0.administrator_account {
+        if pak.owner != auth.0.id || !auth.0.administrator_account {
             return Err(Forbidden(eyre::Report::msg(
                 "You do not own this CoconutPak.",
             )));

@@ -9,10 +9,9 @@ edition = "2021"
 toml = "0.5"
 sled = "0.34"
 bytes = "1.1"
-oauth2 = "4.1"
 handlebars = "4.2"
 color-eyre = "0.6"
-uuid = "0.8"
+uuid = "1.0.0"
 flume = "0.10"
 rusty_pool = "0.6"
 ahash = "0.7"
@@ -22,14 +21,15 @@ flate2 = "1.0"
 bincode = "1.3"
 argon2 = "0.4"
 once_cell = "1.10"
-wasmtime = "0.35"
+wasmtime = "0.36.0"
 base64 = "0.13"
 sha2 = "0.10"
 rs-snowflake = "0.6"
 pot = "1.0"
-meilisearch-sdk = "0.15"
+meilisearch-sdk = "0.16"
 xml-rs = "0.8"
 tracing = "0.1"
+staticvec = "0.11.5"
 
 [dependencies.tokio]
 version = "1.17"
@@ -92,3 +92,7 @@ path = "../coconutpak_compiler"
 [dependencies.kindkapibari_core]
 path = "../../kindkapibari/kindkapibari_core"
 features = ["server"]
+
+[dependencies.oauth2]
+version = "4.1.0"
+features = ["reqwest"]

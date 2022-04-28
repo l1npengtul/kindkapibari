@@ -1,10 +1,8 @@
 use crate::{
     access::{insert_into_cache_with_timeout, refresh_redis_cache},
+    AppData,
     eyre::Report,
-    login::generate_id,
-    permissions::Scopes::Report,
-    schema::{coconutpak, coconutpak_versions, reports},
-    AppData, SResult,
+    schema::{coconutpak, coconutpak_versions, reports}, SResult,
 };
 use chrono::Utc;
 use redis::AsyncCommands;
@@ -19,6 +17,7 @@ use tracing::{
     instrument,
     log::{error, log, warn},
 };
+use crate::access::login::generate_id;
 
 #[instrument]
 pub async fn get_coconut_pak_id_by_name(state: Arc<AppData>, name: String) -> SResult<Option<u64>> {

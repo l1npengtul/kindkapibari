@@ -11,7 +11,7 @@ use uuid::Uuid;
 #[sea_orm(table_name = "users")]
 pub struct Model {
     #[sea_orm(primary_key)]
-    pub uuid: u64,
+    pub id: u64,
     // pub kindkapibari_id: Uuid,
     pub kkb_id: u64, // This is for now. TODO: change it back!!!!
     #[sea_orm(column_type = "Text")]
@@ -29,6 +29,7 @@ pub enum Relation {
     Session,
     Reports,
     CoconutPak,
+    OAuthTokens,
 }
 
 impl RelationTrait for Relation {
@@ -37,7 +38,8 @@ impl RelationTrait for Relation {
             Relation::ApiKey => Entity::has_many(super::api_key::Entity).into(),
             Relation::Session => Entity::has_many(super::session::Entity).into(),
             Relation::Reports => Entity::has_many(super::reports::Entity).into(),
-            Relation::CoconutPak => Entity::has_many(super::user::Entity).into(),
+            Relation::CoconutPak => Entity::has_many(super::coconutpak::Entity).into(),
+            Relation::OAuthTokens => Entity::has_one(super::oauth_tokens::Entity).into(),
         }
     }
 }
@@ -63,6 +65,12 @@ impl Related<super::reports::Entity> for Entity {
 impl Related<super::coconutpak::Entity> for Entity {
     fn to() -> RelationDef {
         Relation::CoconutPak.def()
+    }
+}
+
+impl Related<super::oauth_tokens::Entity> for Entity {
+    fn to() -> RelationDef {
+        Relation::OAuthTokens.def()
     }
 }
 

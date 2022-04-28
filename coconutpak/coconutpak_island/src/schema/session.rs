@@ -22,7 +22,6 @@ pub struct Model {
 #[derive(Copy, Clone, Debug, EnumIter)]
 pub enum Relation {
     User,
-    SessionLog,
 }
 
 impl RelationTrait for Relation {
@@ -30,9 +29,8 @@ impl RelationTrait for Relation {
         match self {
             Relation::User => Entity::belongs_to(super::user::Entity)
                 .from(Column::Owner)
-                .to(super::user::Column::Uuid)
+                .to(super::user::Column::Id)
                 .into(),
-            Relation::SessionLog => Entity::has_many(super::session_log::Entity).into(),
         }
     }
 }
@@ -40,12 +38,6 @@ impl RelationTrait for Relation {
 impl Related<super::user::Entity> for Entity {
     fn to() -> RelationDef {
         Relation::User.def()
-    }
-}
-
-impl Related<super::session_log::Entity> for Entity {
-    fn to() -> RelationDef {
-        Relation::SessionLog.def()
     }
 }
 

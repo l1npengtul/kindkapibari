@@ -1,5 +1,5 @@
 use crate::access::invalidate_cache;
-use crate::login::CoconutPakApiKey;
+use crate::access::login::{new_apikey, CoconutPakApiKey};
 use crate::{
     access::{insert_into_cache_with_timeout, refresh_redis_cache},
     schema::{coconutpak, subscribers, user},
@@ -109,4 +109,5 @@ pub async fn get_new_user_api_key(
     user_id: u64,
     name: String,
 ) -> SResult<CoconutPakApiKey> {
+    return new_apikey(state, user_id, name).await;
 }

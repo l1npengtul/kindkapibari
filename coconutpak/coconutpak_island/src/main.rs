@@ -23,6 +23,7 @@ struct AppData {
 pub type SResult<T> = eyre::Result<T>;
 pub type AResult<T> = Result<T, StatusCode>;
 
+mod access;
 mod api;
 mod coconutpak_cleanup;
 mod coconutpak_compiler;
@@ -32,7 +33,6 @@ mod permissions;
 mod report;
 mod schema;
 mod suspended;
-mod access;
 
 #[tokio::main]
 async fn main() {

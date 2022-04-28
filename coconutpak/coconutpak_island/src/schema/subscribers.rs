@@ -33,7 +33,7 @@ impl RelationTrait for Relation {
         match self {
             Relation::User => Entity::belongs_to(super::user::Entity)
                 .from(Column::UserId)
-                .to(super::user::Column::Uuid)
+                .to(super::user::Column::Id)
                 .into(),
             Relation::CoconutPak => Entity::belongs_to(super::coconutpak::Entity)
                 .from(Column::PakId)
