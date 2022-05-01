@@ -19,7 +19,7 @@ version = "1.0"
 features = ["derive"]
 
 [dependencies.uuid]
-version = "0.8"
+version = "1.0.0"
 features = ["serde"]
 
 [dependencies.semver]

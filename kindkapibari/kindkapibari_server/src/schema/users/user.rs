@@ -39,7 +39,7 @@ impl RelationTrait for Relation {
             Relation::UserData => Entity::has_one(super::userdata::Entity).into(),
             Relation::Bans => Entity::has_many(super::super::bans::Entity).into(),
             Relation::Applications => Entity::has_many(super::super::applications::Entity).into(),
-            Relation::Oauth => Entity::has_many(super::super::oauth::Entity).into(),
+            Relation::Oauth => Entity::has_many(super::super::oauth_apps::Entity).into(),
         }
     }
 }

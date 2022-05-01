@@ -6,6 +6,8 @@ mod config;
 mod context;
 mod schema;
 mod scopes;
+mod login;
+mod access;
 
 use crate::config::ServerConfig;
 use crate::context::ApiContext;

@@ -1,4 +1,4 @@
-mod bans;
-mod oauth;
-mod users;
+mod application_secrets;
 mod applications;
+mod bans;
+mod users;

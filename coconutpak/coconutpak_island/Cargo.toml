@@ -70,7 +70,7 @@ features = ["runtime-tokio-rustls", "sqlx-postgres", "macros"]
 
 [dependencies.redis]
 version = "0.21"
-features = ["aio", "tokio-comp", "r2d2", "cluster", "connection-manager"]
+features = ["tokio-comp", "cluster", "connection-manager", "tokio-native-tls-comp"]
 
 [dependencies.atomic_enum]
 git = "https://github.com/l1npengtul/atomic_enum"

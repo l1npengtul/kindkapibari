@@ -4,19 +4,24 @@ use serde::{Deserialize, Serialize};
 use uuid::Uuid;
 
 #[derive(Clone, Debug, Hash, PartialOrd, PartialEq, Serialize, Deserialize, DeriveEntityModel)]
-#[sea_orm(table_name = "application")]
+#[sea_orm(table_name = "applications")]
 pub struct Model {
     #[sea_orm(primary_key)]
     pub id: u64,
     pub creator: u64,
+    #[sea_orm(column_type = "Text", indexed)]
     pub name: String,
-    pub domain: String,
-    pub description: String,
+    #[sea_orm(column_type = "Text", nullable)]
+    pub description: Option<String>,
+    pub homepage: String,
+    pub callback: String,
+    pub logo: String,
 }
 
 #[derive(Copy, Clone, Debug, EnumIter)]
 pub enum Relation {
     User,
+    ApplicationSecret,
 }
 
 impl RelationTrait for Relation {
@@ -26,6 +31,9 @@ impl RelationTrait for Relation {
                 .from(Column::Creator)
                 .to(super::users::user::Column::Id)
                 .into(),
+            Relation::ApplicationSecret => {
+                Entity::has_many(super::application_secrets::Entity).into()
+            }
         }
     }
 }
@@ -33,6 +41,12 @@ impl RelationTrait for Relation {
 impl Related<super::users::user::Entity> for Entity {
     fn to() -> RelationDef {
         Relation::User.def()
+    }
+}
+
+impl Related<super::application_secrets::Entity> for Entity {
+    fn to() -> RelationDef {
+        Relation::ApplicationSecret.def()
     }
 }
 

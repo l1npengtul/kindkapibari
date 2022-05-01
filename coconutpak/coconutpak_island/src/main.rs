@@ -1,6 +1,7 @@
 #![deny(clippy::pedantic)]
 #![warn(clippy::all)]
 #![feature(thread_is_running)]
+#![feature(once_cell)]
 
 use crate::config::Config;
 use color_eyre::eyre;

@@ -87,6 +87,8 @@ pub struct OtherCoconutPak {
 pub struct KindKapiBariOAuth {
     pub client_id: String,
     pub client_secret: String,
+    pub authorize_url: String,
+    pub token_url: String,
 }
 
 const fn default_port() -> u16 {
