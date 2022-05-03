@@ -10,10 +10,10 @@ pub struct Config {
     pub port: u16,
     pub compiler: Compiler,
     pub database: Database,
-    pub github: GithubLogin,
     pub other_coconutpak: OtherCoconutPak,
     pub host_url: String,
     pub oauth: KindKapiBariOAuth,
+    pub signing_key: String,
     #[serde(default = "default_kkb_login")]
     pub support_official_kkb_login: bool,
 }
@@ -39,12 +39,6 @@ impl Config {
 pub struct Files {
     #[serde(default = "default_static_serve_location")]
     pub static_serve_location: String,
-}
-
-#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
-pub struct GithubLogin {
-    pub client_id: String,
-    pub client_secret: String,
 }
 
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]

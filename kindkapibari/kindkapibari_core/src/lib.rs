@@ -34,3 +34,5 @@ pub mod text;
 pub mod throttle;
 pub mod user_data;
 pub mod version;
+#[cfg(feature = "server")]
+pub mod tracing_middleware;

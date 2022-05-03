@@ -17,7 +17,7 @@ chrono = "0.4"
 oauth2 = "4.2"
 
 [dependencies.tokio]
-version = "1.17"
+version = "1.18"
 features = ["full"]
 
 [dependencies.serde]

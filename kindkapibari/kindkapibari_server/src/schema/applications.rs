@@ -16,6 +16,8 @@ pub struct Model {
     pub homepage: String,
     pub callback: String,
     pub logo: String,
+    #[sea_orm(column_type = "Text", indexed, nullable)]
+    pub signed_secret: Option<String>,
 }
 
 #[derive(Copy, Clone, Debug, EnumIter)]

@@ -1,8 +1,8 @@
 use crate::{
-    access::{insert_into_cache_with_timeout, refresh_redis_cache},
-    AppData,
+    access::{insert_into_cache_with_timeout, login::generate_id, refresh_redis_cache},
     eyre::Report,
-    schema::{coconutpak, coconutpak_versions, reports}, SResult,
+    schema::{coconutpak, coconutpak_versions, reports},
+    AppData, SResult, ServerError,
 };
 use chrono::Utc;
 use redis::AsyncCommands;
@@ -12,12 +12,7 @@ use sea_orm::{
 };
 use semver::Version;
 use std::sync::Arc;
-use tracing::log::info;
-use tracing::{
-    instrument,
-    log::{error, log, warn},
-};
-use crate::access::login::generate_id;
+use tracing::instrument;
 
 #[instrument]
 pub async fn get_coconut_pak_id_by_name(state: Arc<AppData>, name: String) -> SResult<Option<u64>> {
@@ -30,25 +25,11 @@ pub async fn get_coconut_pak_id_by_name(state: Arc<AppData>, name: String) -> SR
             refresh_redis_cache(state, concat!("cpk:name2id:", name).to_string(), None);
             Ok(Some(model))
         }
-        Err(why_redis) => {
-            info!(
-                "redis cache: get_coconut_pak_id_by_name: ",
-                argument = %name,
-                error = ?why_redis,
-            );
-
+        Err(_) => {
             let pak = coconutpak::Entity::find()
                 .filter(coconutpak::Column::Name.eq(&name))
                 .one(&state.database)
-                .await
-                .map_err(|dberr| {
-                    warn!(
-                        "postgres : get_coconut_pak_by_name: ",
-                        argument = %name,
-                        error = ?dberr,
-                    );
-                    dberr
-                })?
+                .await?
                 .map(|pak| pak.id);
 
             insert_into_cache_with_timeout(state, concat!("cpk:name2id:", name), &pak, None);
@@ -58,7 +39,7 @@ pub async fn get_coconut_pak_id_by_name(state: Arc<AppData>, name: String) -> SR
 }
 
 #[instrument]
-pub async fn get_coconut_pak(state: Arc<AppData>, id: u64) -> SResult<Option<coconutpak::Model>> {
+pub async fn get_coconut_pak(state: Arc<AppData>, id: u64) -> SResult<coconutpak::Model> {
     match state
         .redis
         .get::<&str, Option<coconutpak::Model>>(concat!("cpk:byid:", id))
@@ -66,29 +47,14 @@ pub async fn get_coconut_pak(state: Arc<AppData>, id: u64) -> SResult<Option<coc
     {
         Ok(model) => {
             refresh_redis_cache(state, concat!("cpk:byid:", id), None);
-            Ok(model)
+            Ok(model.ok_or(ServerError::NotFound(format!("{id}"), "None"))?)
         }
-        Err(why_redis) => {
-            info!(
-                "redis cache: get_coconut_pak: ",
-                argument = %id,
-                error = ?why_redis,
-            );
-
+        Err(_) => {
             let pak = coconutpak::Entity::find_by_id(id)
                 .one(&state.database)
-                .await
-                .map_err(|dberr| {
-                    warn!(
-                        "postgres: get_coconut_pak: ",
-                        argument = %id,
-                        error = ?dberr,
-                    );
-                    dberr
-                })?;
-
+                .await?;
             insert_into_cache_with_timeout(state, concat!("cpk:bn:", name), &pak, None);
-            pak
+            Ok(pak.ok_or(ServerError::NotFound(format!("{id}"), "None"))?)
         }
     }
 }
@@ -107,13 +73,7 @@ pub async fn get_coconut_pak_versions(
             refresh_redis_cache(state, concat!("cpk:vers:", id), Some(60));
             Ok(versions)
         }
-        Err(why) => {
-            info!(
-                "redis cache: get_coconut_pak_versions: ",
-                argument = %id,
-                error = ?why,
-            );
-
+        Err(_) => {
             let pak = get_coconut_pak(state.clone(), id)
                 .await?
                 .ok_or(Report::msg(format!(
@@ -135,21 +95,17 @@ pub async fn get_coconut_pak_version(
     state: Arc<AppData>,
     pak_id: u64,
     version: String,
-) -> SResult<Option<coconutpak_versions::Model>> {
+) -> SResult<coconutpak_versions::Model> {
     if let Err(why) = Version::parse(&version) {
-        error!(
-            "get_coconut_pak_version: invalid version",
-            version_tag = %version,
-            coconutpak = %pak_id,
-            error = ?why,
-        );
-        return Err(Report::msg("Invalid Version Tag"));
+        return Err(ServerError::BadArgumentError("version", why));
     }
 
     let mut pak_versions = get_coconut_pak_versions(state, pak_id).await?;
     pak_versions.retain(|ver| ver.version == version);
 
-    Ok(pak_versions.pop())
+    Ok(pak_versions
+        .pop()
+        .ok_or(ServerError::NotFound(format!("{pak_id}@{version}"), "None"))?)
 }
 
 #[instrument]
@@ -172,13 +128,8 @@ pub async fn get_coconut_pak_reports(
     }
 
     if let Some(version) = version {
-        if let Err(why) = Version::parse(&version) {
-            log!(
-                "get_coconut_pak_reports: ",
-                version_tag = %version,
-                coconutpak = ?pak_id,
-                user_id = ?user_id,
-            );
+        if let Err(_) = Version::parse(&version) {
+            return Err(ServerError::BadArgumentError("version", why));
         }
 
         report_query = report_query.filter(reports::Column::Version.eq(version));
@@ -214,11 +165,7 @@ pub async fn post_coconut_pak_report(
             let report = report_active.insert(&state.database).await?;
             Ok(report)
         }
-        None => {
-            return Err(Report::msg(format!(
-                "CoconutPak with ID {id} and version {version} does not exist."
-            )))
-        }
+        None => return Err(ServerError::NotFound("coconutpak", pak_id)),
     }
 }
 
@@ -229,13 +176,6 @@ pub async fn patch_coconut_pak_yank(
     version: String,
     user: u64,
 ) -> SResult<()> {
-    log!(
-        "post_coconut_pak_yank: ",
-        user = %user,
-        pak = %pak_id,
-        version = %version,
-    );
-
     let mut active_pak_version = get_coconut_pak_version(state.clone(), pak_id, version)
         .await?
         .ok_or(Report::msg(format!(
@@ -258,18 +198,8 @@ pub async fn patch_coconut_pak_unyank(
     version: String,
     user: u64,
 ) -> SResult<()> {
-    log!(
-        "post_coconut_pak_unyank: ",
-        user = %user,
-        pak = %pak_id,
-        version = %version,
-    );
-
     let mut active_pak_version = get_coconut_pak_version(state.clone(), pak_id, version)
         .await?
-        .ok_or(Report::msg(format!(
-            "CoconutPak with ID {id} and version {version} does not exist."
-        )))?
         .into_active_model();
 
     active_pak_version.yanked = ActiveValue::Set(false);

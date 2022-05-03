@@ -19,6 +19,8 @@ pub struct Model {
     pub handle: String,
     #[sea_orm(column_type = "Text", nullable)]
     pub email: Option<String>,
+    #[sea_orm(column_type = "Text", nullable)]
+    pub profile_pictures: Option<String>,
 }
 
 #[derive(Copy, Clone, Debug, EnumIter, DeriveRelation)]

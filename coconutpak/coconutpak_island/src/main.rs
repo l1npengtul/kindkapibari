@@ -4,6 +4,7 @@
 #![feature(once_cell)]
 
 use crate::config::Config;
+use crate::error::ServerError;
 use color_eyre::eyre;
 use hyper::StatusCode;
 use meilisearch_sdk::client::Client;
@@ -21,14 +22,14 @@ struct AppData {
     config: RwLock<Config>,
 }
 
-pub type SResult<T> = eyre::Result<T>;
-pub type AResult<T> = Result<T, StatusCode>;
+pub type SResult<T> = Result<T, ServerError>;
 
 mod access;
 mod api;
 mod coconutpak_cleanup;
 mod coconutpak_compiler;
 mod config;
+mod error;
 mod login;
 mod permissions;
 mod report;
