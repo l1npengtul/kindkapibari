@@ -13,6 +13,7 @@ pub struct Config {
     pub other_coconutpak: OtherCoconutPak,
     pub host_url: String,
     pub oauth: KindKapiBariOAuth,
+    pub salting: String,
     pub signing_key: String,
     #[serde(default = "default_kkb_login")]
     pub support_official_kkb_login: bool,
@@ -71,8 +72,6 @@ pub struct Compiler {
 
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 pub struct OtherCoconutPak {
-    pub statistics_service_address: String,
-    pub statistics_service_secret: String,
     pub build_service_address: String,
     pub build_service_secret: String,
 }

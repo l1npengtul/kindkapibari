@@ -1,4 +1,6 @@
+use crate::roles::Roles;
 use chrono::{DateTime, Utc};
+use kindkapibari_core::dbvec::DBVec;
 use sea_orm::{
     prelude::{DeriveEntityModel, EntityTrait, PrimaryKeyTrait, RelationTrait},
     sea_query::ValueType,
@@ -21,6 +23,7 @@ pub struct Model {
     pub email: Option<String>,
     #[sea_orm(column_type = "Text", nullable)]
     pub profile_pictures: Option<String>,
+    pub roles: DBVec<Roles>,
 }
 
 #[derive(Copy, Clone, Debug, EnumIter, DeriveRelation)]
@@ -30,7 +33,8 @@ pub enum Relation {
     UserData,
     Bans,
     Applications,
-    Oauth,
+    Authorizations,
+    LoginTokens,
 }
 
 impl RelationTrait for Relation {
@@ -41,7 +45,10 @@ impl RelationTrait for Relation {
             Relation::UserData => Entity::has_one(super::userdata::Entity).into(),
             Relation::Bans => Entity::has_many(super::super::bans::Entity).into(),
             Relation::Applications => Entity::has_many(super::super::applications::Entity).into(),
-            Relation::Oauth => Entity::has_many(super::super::oauth_apps::Entity).into(),
+            Relation::Authorizations => {
+                Entity::has_many(super::oauth_authorizations::Entity).into()
+            }
+            Relation::LoginTokens => Entity::has_many(super::login_tokens::Entity).into(),
         }
     }
 }

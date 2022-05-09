@@ -6,9 +6,7 @@
 use crate::config::Config;
 use crate::error::ServerError;
 use color_eyre::eyre;
-use hyper::StatusCode;
 use meilisearch_sdk::client::Client;
-use poem::http::StatusCode;
 use redis::aio::ConnectionManager;
 use sea_orm::DatabaseConnection;
 use tokio::sync::RwLock;

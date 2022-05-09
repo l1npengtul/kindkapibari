@@ -1,13 +1,15 @@
 #![deny(clippy::pedantic)]
 #![warn(clippy::all)]
 
+mod access;
 mod api;
+mod badges;
 mod config;
 mod context;
+mod login;
+mod roles;
 mod schema;
 mod scopes;
-mod login;
-mod access;
 
 use crate::config::ServerConfig;
 use crate::context::ApiContext;

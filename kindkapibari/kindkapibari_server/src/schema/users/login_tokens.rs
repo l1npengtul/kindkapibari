@@ -1,25 +1,23 @@
 use chrono::{DateTime, Utc};
-use kindkapibari_core::dbvec::DBVec;
+use kindkapibari_core::dbarray::DBArray;
 use sea_orm::{
-    prelude::{DeriveEntityModel, EntityTrait, PrimaryKeyTrait, RelationTrait},
-    sea_query::ValueType,
-    ActiveModelBehavior, DerivePrimaryKey, DeriveRelation, EnumIter, IdenStatic, Related,
-    RelationDef, TryGetable,
+    ActiveModelBehavior, DeriveEntityModel, EntityTrait, EnumIter, Related, RelationDef,
+    RelationTrait,
 };
 use serde::{Deserialize, Serialize};
-use uuid::Uuid;
 
 #[derive(Clone, Debug, Hash, PartialOrd, PartialEq, Serialize, Deserialize, DeriveEntityModel)]
-#[sea_orm(table_name = "user_data")]
+#[sea_orm(table_name = "login_tokens")]
 pub struct Model {
     #[sea_orm(primary_key)]
-    pub user_id: u64,
-    #[sea_orm(nullable)]
-    pub github_id: Option<u64>,
-    #[sea_orm(nullable)]
-    pub twitter_id: Option<u64>,
-    #[sea_orm(column_type = "Text", nullable)]
-    pub reddit_id: Option<String>,
+    pub id: u64,
+    pub owner: u64,
+    pub expire: DateTime<Utc>,
+    pub created: DateTime<Utc>,
+    #[sea_orm(unique, indexed)]
+    pub session_hashed: Vec<u8>,
+    #[sea_orm(unique)]
+    pub nonce: DBArray<u8, 12>,
 }
 
 #[derive(Copy, Clone, Debug, EnumIter)]
@@ -31,7 +29,7 @@ impl RelationTrait for Relation {
     fn def(&self) -> RelationDef {
         match self {
             Self::User => Entity::belongs_to(super::user::Entity)
-                .from(Column::UserId)
+                .from(Column::Owner)
                 .to(super::user::Column::Id)
                 .into(),
         }

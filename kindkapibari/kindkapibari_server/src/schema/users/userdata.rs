@@ -5,6 +5,8 @@ use sea_orm::prelude::*;
 use serde::{Deserialize, Serialize};
 use uuid::Uuid;
 
+// TODO: support encrypted Userdata to protect our users
+
 #[derive(Clone, Debug, Hash, PartialOrd, PartialEq, Serialize, Deserialize, DeriveEntityModel)]
 #[sea_orm(table_name = "user_data")]
 pub struct Model {

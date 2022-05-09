@@ -14,13 +14,12 @@ pub struct Model {
     #[sea_orm(column_type = "Text")]
     pub name: String,
     pub owner: u64,
-    pub revoked: bool,
     pub created: DateTime<Utc>,
     #[sea_orm(unique, indexed)]
     pub key_hashed: Vec<u8>,
 }
 
-#[derive(Copy, Clone, Debug, sea_orm::EnumIter)]
+#[derive(Copy, Clone, Debug, EnumIter)]
 pub enum Relation {
     User,
 }

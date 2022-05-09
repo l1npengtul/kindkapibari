@@ -15,13 +15,10 @@ use std::{fmt::Display, ops::Add, sync::Arc};
 use tokio::sync::Mutex;
 use uuid::Uuid;
 
-const AUTH_REDIS_KEY_START_APIKEY: [u8; 22] = *b"coconutpak:auth:apikey";
-const AUTH_REDIS_KEY_START_SESSION: [u8; 23] = *b"coconutpak:auth:session";
-const AUTH_SESSION_BYTE_START: &'static str = "COCONUTPAK_SESSION_TOKEN.";
-const AUTH_APIKEY_BYTE_START: &'static str = "COCONUTPAK_APIKEY_TOKEN.";
-
-const API_KEY_PREFIX_NO_DASH: &'static str = "CCPKA";
-const TOKEN_PREFIX_NO_DASH: &'static str = "CCSTS";
+const AUTH_REDIS_KEY_START_APIKEY: [u8; 6] = *b"cpk:ak";
+const AUTH_REDIS_KEY_START_SESSION: [u8; 6] = *b"cpk:se";
+const API_KEY_PREFIX_NO_DASH: &'static str = "A";
+const TOKEN_PREFIX_NO_DASH: &'static str = "S";
 
 // 196! 196! 196! 196!
 static AUTO_RESEEDING_APIKEY_RNG: Lazy<Arc<Mutex<AutoReseedingRng<200704>>>> =
@@ -48,7 +45,7 @@ const fn uuid_to_byte_array(uuid: Uuid) -> [u8; 16] {
     u128.to_le_bytes()
 }
 
-pub fn generate_key(is_api_key: bool) -> SResult<Generated> {
+pub fn generate_key(state: Arc<AppData>, is_api_key: bool) -> SResult<Generated> {
     let base = AUTO_RESEEDING_APIKEY_RNG
         .lock()
         .await
@@ -65,16 +62,12 @@ pub fn generate_key(is_api_key: bool) -> SResult<Generated> {
         )?,
     );
 
-    let salt = [(if is_api_key {
-        AUTH_APIKEY_BYTE_START
-    } else {
-        AUTH_SESSION_BYTE_START
-    })
-    .as_bytes()]
-    .concat();
-
     let mut hash = Vec::with_capacity(64);
-    argon2.hash_password_into(&apikey_base, &salt, &mut hash)?;
+    argon2.hash_password_into(
+        &apikey_base,
+        &state.config.read().await.salting.as_bytes(),
+        &mut hash,
+    )?;
     let front = if is_api_key {
         API_KEY_PREFIX_NO_DASH
     } else {
@@ -90,7 +83,7 @@ pub async fn new_apikey(
     user_id: u64,
     name: String,
 ) -> SResult<CoconutPakApiKey> {
-    let key = generate_key(true)?;
+    let key = generate_key(state.clone(), true)?;
 
     let api_key_active = api_key::ActiveModel {
         name: ActiveValue::Set(name),
@@ -105,7 +98,7 @@ pub async fn new_apikey(
 }
 
 pub async fn new_session(state: Arc<AppData>, user_id: u64) -> SResult<CoconutPakSessionToken> {
-    let key = generate_key(false)?;
+    let key = generate_key(state.clone(), false)?;
 
     let session_token_active = session::ActiveModel {
         owner: ActiveValue::Set(user_id),
