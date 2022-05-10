@@ -69,12 +69,12 @@ where
     }
 }
 
-impl<T> From<DBVec<T>> for sea_orm::Value
+impl<T> From<DBVec<T>> for Value
 where
     T: Serialize,
 {
     fn from(db: DBVec<T>) -> Self {
-        sea_orm::Value::Bytes(pot::to_vec(&db.internal).ok().map(Box::new))
+        Value::Bytes(pot::to_vec(&db.internal).ok().map(Box::new))
     }
 }
 
@@ -111,5 +111,17 @@ where
 impl<T> Nullable for DBVec<T> {
     fn null() -> Value {
         Value::Bytes(None)
+    }
+}
+
+impl<T> From<Vec<T>> for DBVec<T> {
+    fn from(v: Vec<T>) -> Self {
+        DBVec { internal: v }
+    }
+}
+
+impl<T> From<DBVec<T>> for Vec<T> {
+    fn from(dbvec: DBVec<T>) -> Self {
+        dbvec.internal
     }
 }

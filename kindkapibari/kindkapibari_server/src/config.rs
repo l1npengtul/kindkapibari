@@ -10,7 +10,6 @@ pub struct Config {
     pub port: u16,
     pub database: Database,
     pub host_url: String,
-    pub salting: String,
     pub signing_key: String,
 }
 

@@ -20,11 +20,11 @@ pub struct Model {
     #[sea_orm(unique, indexed)]
     pub access_token_hashed: Vec<u8>,
     #[sea_orm(unique)]
-    pub access_token_nonce: DBArray<u8, 12>,
-    #[sea_orm(nullable, indexed)]
+    pub access_token_salt: DBArray<u8, 32>,
+    #[sea_orm(unique, nullable, indexed)]
     pub refresh_token_hashed: Option<Vec<u8>>,
-    #[sea_orm(unique)]
-    pub refresh_token_nonce: DBArray<u8, 12>,
+    #[sea_orm(unique, nullable)]
+    pub refresh_token_salt: Option<DBArray<u8, 32>>,
     pub scopes: DBVec<Scopes>,
 }
 

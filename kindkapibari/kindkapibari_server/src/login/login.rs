@@ -27,4 +27,21 @@ pub struct KKBUserAuthorization(user::Model);
 fn check_kkb_user_authorization(_: &Request, key: ApiKey) -> Option<AuthorizedUser> {
     let key = key.key;
     // decrypt the key
+    // parsing the key - the key is made of 3 parts
+    // {nonce}.{front}.{payload}
+    let splitted = key.split(".").collect::<Vec<_>>();
+    if splitted.len() != 3 {
+        return None;
+    }
+    let nonce = base64::decode(splitted[0]).ok()?;
+    // this determines where the decoder pipeline goes to next
+    match splitted[1] {
+        "O" => {
+            todo!()
+        }
+        "A" => {
+            todo!()
+        }
+        _ => return None;
+    }
 }

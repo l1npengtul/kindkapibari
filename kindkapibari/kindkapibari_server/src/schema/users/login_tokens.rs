@@ -17,7 +17,7 @@ pub struct Model {
     #[sea_orm(unique, indexed)]
     pub session_hashed: Vec<u8>,
     #[sea_orm(unique)]
-    pub nonce: DBArray<u8, 12>,
+    pub salt: DBArray<u8, 32>,
 }
 
 #[derive(Copy, Clone, Debug, EnumIter)]

@@ -13,7 +13,6 @@ pub struct Config {
     pub other_coconutpak: OtherCoconutPak,
     pub host_url: String,
     pub oauth: KindKapiBariOAuth,
-    pub salting: String,
     pub signing_key: String,
     #[serde(default = "default_kkb_login")]
     pub support_official_kkb_login: bool,

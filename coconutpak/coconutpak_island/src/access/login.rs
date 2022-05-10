@@ -55,7 +55,7 @@ pub fn generate_key(state: Arc<AppData>, is_api_key: bool) -> SResult<Generated>
         .generate_bytes::<64>()
         .to_vec();
 
-    base.append(&mut Utc::now().timestamp_millis().to_ne_bytes().to_vec());
+    base.extend_from_slice(Utc::now().timestamp_millis().to_ne_bytes().as_slice());
     base.push(config.machine_id);
 
     let argon2 = Argon2::new(
@@ -84,7 +84,7 @@ pub fn generate_key(state: Arc<AppData>, is_api_key: bool) -> SResult<Generated>
         TOKEN_PREFIX_NO_DASH
     };
     let mut key = format!(
-        "{front}.{}.{}",
+        "{}.{front}.{}.{}",
         base64::encode(nonce),
         base64::encode(&signed)
     );

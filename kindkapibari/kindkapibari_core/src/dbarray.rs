@@ -70,12 +70,12 @@ where
     }
 }
 
-impl<T, const N: usize> From<DBArray<T, N>> for sea_orm::Value
+impl<T, const N: usize> From<DBArray<T, N>> for Value
 where
     T: Serialize,
 {
     fn from(db: DBArray<T, N>) -> Self {
-        sea_orm::Value::Bytes(pot::to_vec(&db.internal).ok().map(Box::new))
+        Value::Bytes(pot::to_vec(&db.internal).ok().map(Box::new))
     }
 }
 
@@ -112,5 +112,19 @@ where
 impl<T, const N: usize> Nullable for DBArray<T, N> {
     fn null() -> Value {
         Value::Bytes(None)
+    }
+}
+
+impl<T, const N: usize> From<[T; N]> for DBArray<T, N> {
+    fn from(arr: [T; N]) -> Self {
+        DBArray {
+            internal: StaticVec::from(&arr),
+        }
+    }
+}
+
+impl<T, const N: usize> From<DBArray<T, N>> for &[T] {
+    fn from(dbarr: DBArray<T, N>) -> Self {
+        dbarr.internal.as_slice()
     }
 }

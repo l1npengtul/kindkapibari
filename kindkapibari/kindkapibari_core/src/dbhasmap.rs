@@ -86,13 +86,13 @@ where
     }
 }
 
-impl<K, V> From<DBHashMap<K, V>> for sea_orm::Value
+impl<K, V> From<DBHashMap<K, V>> for Value
 where
     K: Serialize + Hash,
     V: Serialize,
 {
     fn from(db: DBHashMap<K, V>) -> Self {
-        sea_orm::Value::Bytes(pot::to_vec(&db.internal).ok().map(Box::new))
+        Value::Bytes(pot::to_vec(&db.internal).ok().map(Box::new))
     }
 }
 

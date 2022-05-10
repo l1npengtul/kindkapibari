@@ -24,6 +24,8 @@ pub mod pronouns;
 pub mod reseedingrng;
 pub mod responses;
 #[cfg(feature = "server")]
+pub mod secret_gen;
+#[cfg(feature = "server")]
 pub mod snowflake;
 #[cfg(feature = "server")]
 pub mod state;
