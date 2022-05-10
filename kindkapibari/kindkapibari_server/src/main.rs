@@ -11,13 +11,19 @@ mod roles;
 mod schema;
 mod scopes;
 
-use crate::config::ServerConfig;
-use crate::context::ApiContext;
-use sea_orm::Database;
-use sled::Db;
-use std::time::Duration;
-use std::{iter::Once, sync::Arc};
-use tokio::{fs::File, io::AsyncReadExt, sync::OnceCell};
+use crate::config::Config;
+use redis::aio::ConnectionManager;
+use sea_orm::DatabaseConnection;
+use tokio::io::AsyncReadExt;
+use tokio::sync::RwLock;
+
+const EPOCH_START: u64 = 1650125769; // haha nice
+
+pub struct AppData {
+    redis: ConnectionManager,
+    database: DatabaseConnection,
+    config: RwLock<Config>,
+}
 
 #[tokio::main]
 async fn main() {}

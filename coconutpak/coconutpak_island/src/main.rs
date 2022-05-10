@@ -13,7 +13,7 @@ use tokio::sync::RwLock;
 
 const EPOCH_START: u64 = 1650125769; // haha nice
 
-struct AppData {
+pub struct AppData {
     redis: ConnectionManager,
     database: DatabaseConnection,
     meilisearch: Client,

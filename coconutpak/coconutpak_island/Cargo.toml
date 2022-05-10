@@ -28,10 +28,10 @@ meilisearch-sdk = "0.17.0"
 xml-rs = "0.8"
 tracing = "0.1"
 staticvec = "0.11.5"
-aes-gcm-siv = "0.10.3"
+chacha20poly1305 = "0.10.0-pre"
 
 [dependencies.tokio]
-version = "1.17"
+version = "1.18"
 features = ["full"]
 
 [dependencies.serde]

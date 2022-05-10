@@ -2,8 +2,6 @@ use chrono::{DateTime, Utc};
 use crossbeam::atomic::AtomicCell;
 use std::sync::atomic::{AtomicU16, Ordering};
 
-const U17_MAX: u32 = 2_u32 ^ 17;
-
 pub struct SnowflakeIdGenerator {
     epoch: DateTime<Utc>,
     last: AtomicCell<DateTime<Utc>>,
@@ -29,7 +27,7 @@ impl SnowflakeIdGenerator {
         let epoch = self.epoch;
         let last_gen = self.last.load();
 
-        if epoch < now || last_gen < now || machine > 32 {
+        if epoch < now || last_gen < now || machine > 64 {
             return None;
         }
         let difference = now - epoch;
@@ -41,7 +39,7 @@ impl SnowflakeIdGenerator {
             self.last.store(now);
         }
 
-        // store 44 bits of time, 5 bits of machine ID, 17 bits of sequence
+        // store 44 bits of time, 7 bits of machine ID, 16 bits of sequence
         Some(
             (difference.num_milliseconds() as u64) << 22
                 | (machine as u64) << 16 // FIXME: Check if this is right (i am dumb shit)
