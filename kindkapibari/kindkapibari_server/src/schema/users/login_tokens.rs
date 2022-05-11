@@ -16,7 +16,7 @@ pub struct Model {
     pub created: DateTime<Utc>,
     #[sea_orm(unique, indexed)]
     pub session_hashed: Vec<u8>,
-    #[sea_orm(unique)]
+    #[sea_orm(unique, indexed)]
     pub salt: DBArray<u8, 32>,
 }
 

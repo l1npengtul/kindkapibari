@@ -1,11 +1,11 @@
 use crate::schema::users::{login_tokens, oauth_authorizations};
-use crate::scopes::Scopes;
+use crate::scopes::Scope;
 use crate::{AResult, AppData};
 use chrono::{Duration, TimeZone, Utc};
 use color_eyre::Report;
 use kindkapibari_core::dbarray::DBArray;
 use kindkapibari_core::dbvec::DBVec;
-use kindkapibari_core::secret_gen::generate_signed_key;
+use kindkapibari_core::secret::generate_signed_key;
 use kindkapibari_core::snowflake::SnowflakeIdGenerator;
 use once_cell::sync::Lazy;
 use sea_orm::ActiveValue;
@@ -63,12 +63,12 @@ pub fn generate_oauth_with_refresh(
     state: Arc<AppData>,
     user_id: u64,
     application_id: u64,
-    requested_scopes: Vec<Scopes>,
+    requested_scopes: Vec<Scope>,
 ) -> AResult<OAuthWithRefresh> {
     if !requested_scopes.is_empty() {
         return Err(Report::msg("Scopes must not be empty."));
     }
-    if !requested_scopes.contains(&Scopes::OfflineRead) {
+    if !requested_scopes.contains(&Scope::OfflineRead) {
         return Err(Report::msg(
             "To have refresh token you must add the `OfflineRead` scope.",
         ));
@@ -120,12 +120,12 @@ pub fn generate_oauth_no_refresh(
     state: Arc<AppData>,
     user_id: u64,
     application_id: u64,
-    requested_scopes: Vec<Scopes>,
+    requested_scopes: Vec<Scope>,
 ) -> AResult<String> {
     if !requested_scopes.is_empty() {
         return Err(Report::msg("Scopes must not be empty."));
     }
-    if requested_scopes.contains(&Scopes::OfflineRead) {
+    if requested_scopes.contains(&Scope::OfflineRead) {
         return Err(Report::msg(
             "To not have refresh token you must not request the `OfflineRead` scope.",
         ));

@@ -28,27 +28,31 @@ pub struct Model {
 
 #[derive(Copy, Clone, Debug, EnumIter, DeriveRelation)]
 pub enum Relation {
-    Preferences,
-    Connections,
-    UserData,
-    Bans,
     Applications,
     Authorizations,
+    Badges,
+    Bans,
+    Connections,
     LoginTokens,
+    Passwords,
+    Preferences,
+    UserData,
 }
 
 impl RelationTrait for Relation {
     fn def(&self) -> RelationDef {
         match self {
-            Self::Preferences => Entity::has_one(super::preferences::Entity).into(),
-            Relation::Connections => Entity::has_one(super::connections::Entity).into(),
-            Relation::UserData => Entity::has_one(super::userdata::Entity).into(),
-            Relation::Bans => Entity::has_many(super::super::bans::Entity).into(),
             Relation::Applications => Entity::has_many(super::super::applications::Entity).into(),
             Relation::Authorizations => {
                 Entity::has_many(super::oauth_authorizations::Entity).into()
             }
+            Relation::Badges => Entity::has_one(),
+            Relation::Bans => Entity::has_many(super::super::bans::Entity).into(),
+            Relation::Connections => Entity::has_one(super::connections::Entity).into(),
             Relation::LoginTokens => Entity::has_many(super::login_tokens::Entity).into(),
+            Relation::Passwords => Entity::has_one(super::passwords::Entity).into(),
+            Relation::Preferences => Entity::has_one(super::preferences::Entity).into(),
+            Relation::UserData => Entity::has_one(super::userdata::Entity).into(),
         }
     }
 }

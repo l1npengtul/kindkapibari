@@ -1,22 +1,23 @@
 use chrono::{DateTime, Utc};
 use kindkapibari_core::dbarray::DBArray;
+use kindkapibari_core::preferences::Preferences;
 use sea_orm::{
-    ActiveModelBehavior, DeriveEntityModel, EntityTrait, EnumIter, Related, RelationDef,
-    RelationTrait,
+    prelude::{DeriveEntityModel, EntityTrait, PrimaryKeyTrait, RelationTrait},
+    sea_query::ValueType,
+    ActiveModelBehavior, DerivePrimaryKey, DeriveRelation, EnumIter, IdenStatic, Related,
+    RelationDef, TryGetable,
 };
 use serde::{Deserialize, Serialize};
-use uuid::Uuid;
 
 #[derive(Clone, Debug, Hash, PartialOrd, PartialEq, Serialize, Deserialize, DeriveEntityModel)]
-#[sea_orm(table_name = "sessions")]
+#[sea_orm(table_name = "user_passwords")]
 pub struct Model {
     #[sea_orm(primary_key)]
-    pub id: u64,
-    pub owner: u64,
-    pub expire: DateTime<Utc>,
-    pub created: DateTime<Utc>,
+    id: u64,
+    owner: u64,
+    last_changed: DateTime<Utc>,
     #[sea_orm(unique, indexed)]
-    pub session_hashed: Vec<u8>,
+    pub password_hashed: Vec<u8>,
     #[sea_orm(unique, indexed)]
     pub salt: DBArray<u8, 32>,
 }
@@ -29,7 +30,7 @@ pub enum Relation {
 impl RelationTrait for Relation {
     fn def(&self) -> RelationDef {
         match self {
-            Relation::User => Entity::belongs_to(super::user::Entity)
+            Self::User => Entity::belongs_to(super::user::Entity)
                 .from(Column::Owner)
                 .to(super::user::Column::Id)
                 .into(),

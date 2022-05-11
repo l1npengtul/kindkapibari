@@ -1,6 +1,6 @@
 use crate::roles::Roles;
 use crate::schema::{users::*, *};
-use crate::scopes::Scopes;
+use crate::scopes::Scope;
 use poem::Request;
 use poem_openapi::auth::{ApiKey, Bearer};
 use poem_openapi::{OAuthScopes, SecurityScheme};
@@ -8,7 +8,7 @@ use serde::{Deserialize, Serialize};
 
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 pub struct AuthorizedUser {
-    pub scopes: Option<Scopes>,
+    pub scopes: Option<Scope>,
     pub roles: Vec<Roles>,
     pub user: user::Model,
 }

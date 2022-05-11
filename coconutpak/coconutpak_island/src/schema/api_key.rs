@@ -1,5 +1,6 @@
 use chrono::DateTime;
 use chrono::Utc;
+use kindkapibari_core::dbarray::DBArray;
 use sea_orm::{
     ActiveModelBehavior, DeriveEntityModel, EntityTrait, EnumIter, Related, RelationDef,
     RelationTrait,
@@ -17,6 +18,8 @@ pub struct Model {
     pub created: DateTime<Utc>,
     #[sea_orm(unique, indexed)]
     pub key_hashed: Vec<u8>,
+    #[sea_orm(unique, indexed)]
+    pub salt: DBArray<u8, 32>,
 }
 
 #[derive(Copy, Clone, Debug, EnumIter)]

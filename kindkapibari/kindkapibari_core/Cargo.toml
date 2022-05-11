@@ -9,16 +9,17 @@ edition = "2021"
 default = []
 client = ["chrono/wasmbind", "wasm-bindgen"]
 # I apologize to anyone reading this
-server = ["pot", "sea-orm", "sea-orm/macros",
-    "sea-orm/chrono", "sea-orm/runtime-tokio-rustls",
-    "sea-orm/with-json", "sea-orm/with-uuid", "sea-orm/sqlx-postgres",
-    "redis", "redis/cluster", "redis/tokio-comp", "redis/tls",
-    "rand", "flume", "tokio/time", "tokio/rt",
+server = ["pot", "sea-orm",
+    "redis", "flume", "tokio",
     "futures-core", "crossbeam", "poem", "base64", "chacha20poly1305", "argon2", "blake3", "eyre", "once_cell"]
 
 [dependencies]
 serde_json = "^1.0"
 thiserror = "1.0"
+
+[dependencies.rand]
+version = "0.8.5"
+features = ["small_rng", "getrandom"]
 
 [dependencies.serde]
 version = "1.0"
@@ -53,6 +54,7 @@ features = ["serde", "unstable-locales"]
 
 [dependencies.redis]
 version = "0.21"
+features = ["tokio-comp", "tls", "cluster"]
 optional = true
 
 [dependencies.pot]
@@ -61,15 +63,11 @@ optional = true
 
 [dependencies.sea-orm]
 version = "0.8"
+features = ["with-uuid", "runtime-tokio-rustls", "sqlx-postgres", "with-chrono", "with-json", "macros"]
 optional = true
 
 [dependencies.wasm-bindgen]
 version = "0.2"
-optional = true
-
-[dependencies.rand]
-version = "0.8"
-features = ["getrandom"]
 optional = true
 
 [dependencies.rand_chacha]
@@ -86,6 +84,7 @@ optional = true
 
 [dependencies.tokio]
 version = "1.18"
+features = ["rt", "time"]
 optional = true
 
 [dependencies.futures-core]

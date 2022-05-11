@@ -1,14 +1,13 @@
-use crate::{
-    AppData,
-    schema,
-    schema::user::Model,
+use crate::access::login::{
+    verify_apikey, verify_session, API_KEY_PREFIX_NO_DASH, TOKEN_PREFIX_NO_DASH,
 };
+use crate::{schema, schema::user::Model, AppData};
 use kindkapibari_core::motd::MessageOfTheDay;
+use kindkapibari_core::secret::decode_gotten_secret;
 use poem::web::Json;
-use poem::{Request, web::Data};
+use poem::{web::Data, Request};
 use poem_openapi::{auth::ApiKey, SecurityScheme};
 use std::sync::Arc;
-use crate::access::login::{verify_apikey, verify_session};
 
 pub mod coconutpak;
 pub mod user;
@@ -16,27 +15,32 @@ pub mod user;
 #[derive(SecurityScheme)]
 #[oai(
     type = "api_key",
-    key_name = "X-API-Key",
-    in = "header",
-    checker = "api_checker"
+    key_name = "CIAuth",
+    in = "cookie",
+    checker = "coconutpak_auth_checker"
 )]
 pub struct CoconutPakUserAuthentication(schema::user::Model);
 
 async fn coconutpak_auth_checker(
     data: Data<Arc<AppData>>,
-    request: &Request,
+    _: &Request,
     key: ApiKey,
 ) -> Option<Model> {
-    // session
-    if key.key.is_empty() {
-        let auth_token = request.cookie().get("authtoken")?.value_str().to_string();
-        if !auth_token.is_empty() {
-            return verify_session(data.clone(), auth_token);
-        }
-    } else {
-        return verify_apikey(data.clone(), key.key);
+    let decoded = decode_gotten_secret(
+        key.key,
+        ":",
+        data.config.read().await.signing_key.as_bytes(),
+    )
+    .ok()?;
+    match decoded.secret_type.as_str() {
+        API_KEY_PREFIX_NO_DASH => verify_apikey(data.0, decoded.hash, decoded.salt)
+            .ok()
+            .flatten(),
+        TOKEN_PREFIX_NO_DASH => verify_session(data.0, decoded.hash, decoded.salt)
+            .ok()
+            .flatten(),
+        _ => return None,
     }
-    return None;
 }
 
 struct Api {
