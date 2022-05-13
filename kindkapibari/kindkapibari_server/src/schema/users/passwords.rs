@@ -14,7 +14,6 @@ use serde::{Deserialize, Serialize};
 pub struct Model {
     #[sea_orm(primary_key)]
     id: u64,
-    owner: u64,
     last_changed: DateTime<Utc>,
     #[sea_orm(unique, indexed)]
     pub password_hashed: Vec<u8>,
@@ -31,7 +30,7 @@ impl RelationTrait for Relation {
     fn def(&self) -> RelationDef {
         match self {
             Self::User => Entity::belongs_to(super::user::Entity)
-                .from(Column::Owner)
+                .from(Column::Id)
                 .to(super::user::Column::Id)
                 .into(),
         }

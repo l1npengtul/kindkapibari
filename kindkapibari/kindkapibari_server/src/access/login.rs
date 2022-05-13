@@ -1,23 +1,18 @@
-use crate::schema::users::{login_tokens, oauth_authorizations};
-use crate::scopes::Scope;
-use crate::{AResult, AppData};
+use crate::schema::users::{login_tokens, passwords};
+use crate::{user, AResult, AppData, SResult, ServerError};
+use argon2::{Algorithm, Argon2, Params, Version};
 use chrono::{Duration, TimeZone, Utc};
-use color_eyre::Report;
 use kindkapibari_core::dbarray::DBArray;
-use kindkapibari_core::dbvec::DBVec;
 use kindkapibari_core::secret::generate_signed_key;
 use kindkapibari_core::snowflake::SnowflakeIdGenerator;
 use once_cell::sync::Lazy;
-use sea_orm::ActiveValue;
-use serde::{Deserialize, Serialize};
+use sea_orm::{
+    ActiveValue, ColumnTrait, EntityTrait, JoinType, QueryFilter, QuerySelect, RelationTrait,
+};
 use std::ops::Add;
 use std::sync::Arc;
 
-const AUTH_REDIS_KEY_START_OAUTH_ACCESS: [u8; 2] = *b"oa";
-const AUTH_REDIS_KEY_START_OAUTH_REFRESH: [u8; 2] = *b"or";
 const AUTH_REDIS_KEY_START_SESSION: [u8; 2] = *b"se";
-const OAUTH_ACCESS_PREFIX_NO_DASH: &'static str = "OA";
-const OAUTH_REFRESH_PREFIX_NO_DASH: &'static str = "OR";
 const LOGIN_TOKEN_PREFIX_NO_DASH: &'static str = "LT";
 
 static ID_GENERATOR: Lazy<Arc<SnowflakeIdGenerator>> = Lazy::new(|| {
@@ -26,7 +21,7 @@ static ID_GENERATOR: Lazy<Arc<SnowflakeIdGenerator>> = Lazy::new(|| {
     ))
 });
 
-pub fn generate_login_token(state: Arc<AppData>, user_id: u64) -> AResult<String> {
+pub async fn generate_login_token(state: Arc<AppData>, user_id: u64) -> AResult<String> {
     let config = state.config.read().await;
     let key = generate_signed_key(config.machine_id, config.signing_key.as_bytes())?;
 
@@ -53,109 +48,27 @@ pub fn generate_login_token(state: Arc<AppData>, user_id: u64) -> AResult<String
     Ok(token)
 }
 
-#[derive(Clone, Debug, PartialOrd, PartialEq, Serialize, Deserialize)]
-pub struct OAuthWithRefresh {
-    pub access: String,
-    pub refresh: String,
-}
-
-pub fn generate_oauth_with_refresh(
+pub async fn log_user_in_username_passwd(
     state: Arc<AppData>,
-    user_id: u64,
-    application_id: u64,
-    requested_scopes: Vec<Scope>,
-) -> AResult<OAuthWithRefresh> {
-    if !requested_scopes.is_empty() {
-        return Err(Report::msg("Scopes must not be empty."));
-    }
-    if !requested_scopes.contains(&Scope::OfflineRead) {
-        return Err(Report::msg(
-            "To have refresh token you must add the `OfflineRead` scope.",
-        ));
-    }
+    username: String,
+    password: String,
+) -> SResult<String> {
+    let password = user::Entity::find()
+        .filter(user::Column::Handle.eq(&username))
+        .join(JoinType::RightJoin, passwords::Relation::User.def())
+        .into_model::<passwords::Model>()
+        .one(&state.database)
+        .await?
+        .ok_or(ServerError::Unauthorized)?;
 
-    let config = state.config.read().await;
-    let access = generate_signed_key(config.machine_id, config.signing_key.as_bytes())?;
-    let refresh = generate_signed_key(config.machine_id, config.signing_key.as_bytes())?;
-
-    let access_token = format!(
-        "{}.{}.{}-{}",
-        base64::encode(access.nonce),
-        OAUTH_ACCESS_PREFIX_NO_DASH,
-        base64::encode(&access.salt),
-        base64::encode(&access.signed)
+    let argon2_key = Argon2::new(
+        Algorithm::Argon2id,
+        Version::default(),
+        Params::new(
+            Params::DEFAULT_M_COST,
+            Params::DEFAULT_T_COST,
+            Params::DEFAULT_P_COST,
+            Some(64),
+        )?,
     );
-    let refresh_token = format!(
-        "{}.{}.{}-{}",
-        base64::encode(refresh.nonce),
-        OAUTH_REFRESH_PREFIX_NO_DASH,
-        base64::encode(&refresh.salt),
-        base64::encode(&refresh.signed)
-    );
-
-    let now = Utc::now();
-
-    let oauth_token_active = oauth_authorizations::ActiveModel {
-        owner: ActiveValue::Set(user_id),
-        application: ActiveValue::Set(application_id),
-        expire: ActiveValue::Set(now.add(Duration::hours(3))),
-        created: ActiveValue::Set(now),
-        access_token_hashed: ActiveValue::Set(access.signed),
-        access_token_salt: ActiveValue::Set(DBArray::from(access.salt)),
-        refresh_token_hashed: ActiveValue::Set(Some(refresh.signed)),
-        refresh_token_salt: ActiveValue::Set(Some(DBArray::from(refresh.salt))),
-        scopes: ActiveValue::Set(DBVec::from(requested_scopes)),
-        ..Default::default()
-    };
-
-    oauth_token_active.insert(&state.database).await?;
-
-    Ok(OAuthWithRefresh {
-        access: access_token,
-        refresh: refresh_token,
-    })
-}
-
-pub fn generate_oauth_no_refresh(
-    state: Arc<AppData>,
-    user_id: u64,
-    application_id: u64,
-    requested_scopes: Vec<Scope>,
-) -> AResult<String> {
-    if !requested_scopes.is_empty() {
-        return Err(Report::msg("Scopes must not be empty."));
-    }
-    if requested_scopes.contains(&Scope::OfflineRead) {
-        return Err(Report::msg(
-            "To not have refresh token you must not request the `OfflineRead` scope.",
-        ));
-    }
-
-    let config = state.config.read().await;
-    let access = generate_signed_key(config.machine_id, config.signing_key.as_bytes())?;
-
-    let access_token = format!(
-        "{}.{}.{}-{}",
-        base64::encode(access.nonce),
-        OAUTH_ACCESS_PREFIX_NO_DASH,
-        base64::encode(&access.salt),
-        base64::encode(&access.signed)
-    );
-
-    let now = Utc::now();
-
-    let oauth_token_active = oauth_authorizations::ActiveModel {
-        owner: ActiveValue::Set(user_id),
-        application: ActiveValue::Set(application_id),
-        expire: ActiveValue::Set(now.add(Duration::hours(3))),
-        created: ActiveValue::Set(now),
-        access_token_hashed: ActiveValue::Set(access.signed),
-        access_token_salt: ActiveValue::Set(DBArray::from(access.salt)),
-        scopes: ActiveValue::Set(DBVec::from(requested_scopes)),
-        ..Default::default()
-    };
-
-    oauth_token_active.insert(&state.database).await?;
-
-    Ok(access_token)
 }

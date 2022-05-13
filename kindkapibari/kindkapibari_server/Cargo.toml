@@ -47,6 +47,10 @@ features = ["runtime-tokio-rustls", "sqlx-postgres", "macros"]
 [dependencies.oxide-auth-poem]
 git = "https://github.com/l1npengtul/oxide-auth"
 
+[dependencies.moka]
+version = "0.8"
+features = ["future"]
+
 [dependencies.redis]
 version = "0.21"
 features = ["tokio-comp", "tokio-native-tls-comp", "cluster", "connection-manager"]
