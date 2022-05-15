@@ -9,13 +9,11 @@ use poem_openapi::auth::{ApiKey, Bearer};
 use poem_openapi::{OAuthScopes, SecurityScheme};
 use serde::{Deserialize, Serialize};
 use std::sync::Arc;
+use tracing::instrument;
 
-#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
-pub struct AuthorizedUser {
-    pub scopes: Option<Scope>,
-    pub roles: Vec<Roles>,
-    pub user: user::Model,
-}
+use crate::access::{
+    login::LOGIN_TOKEN_PREFIX_NO_DASH, oauth::OAUTH_ACCESS_PREFIX_NO_DASH, TOKEN_SEPERATOR,
+};
 
 // it ""works""
 // use the same auth fn for all login tokens and oauth tokens
@@ -28,6 +26,7 @@ pub struct AuthorizedUser {
 )]
 pub struct KKBUserAuthorization(user::Model);
 
+#[instrument]
 async fn check_kkb_user_authorization(
     state: Data<Arc<AppData>>,
     _: &Request,
@@ -37,11 +36,15 @@ async fn check_kkb_user_authorization(
     // decrypt the key
     // parsing the key - the key is made of 3 parts
     // {nonce}.{front}.{payload}
-    let key_parts =
-        decode_gotten_secret(key, "-", state.config.read().await.signing_key.as_bytes()).ok()?;
+    let key_parts = decode_gotten_secret(
+        key,
+        TOKEN_SEPERATOR,
+        state.config.read().await.signing_key.as_bytes(),
+    )
+    .ok()?;
     match key_parts.secret_type.as_str() {
-        "OA" => {}
-        "LT" => {}
+        OAUTH_ACCESS_PREFIX_NO_DASH => {}
+        LOGIN_TOKEN_PREFIX_NO_DASH => {}
         _ => None,
     }
 }

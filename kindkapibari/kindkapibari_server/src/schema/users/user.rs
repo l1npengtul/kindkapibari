@@ -1,3 +1,4 @@
+use crate::impl_redis;
 use crate::roles::Roles;
 use chrono::{DateTime, Utc};
 use kindkapibari_core::dbvec::DBVec;
@@ -8,7 +9,6 @@ use sea_orm::{
     RelationDef, TryGetable,
 };
 use serde::{Deserialize, Serialize};
-use uuid::Uuid;
 
 #[derive(Clone, Debug, Hash, PartialOrd, PartialEq, Serialize, Deserialize, DeriveEntityModel)]
 #[sea_orm(table_name = "users")]
@@ -22,7 +22,8 @@ pub struct Model {
     #[sea_orm(column_type = "Text", nullable)]
     pub email: Option<String>,
     #[sea_orm(column_type = "Text", nullable)]
-    pub profile_pictures: Option<String>,
+    pub profile_picture: Option<String>,
+    pub creation_date: DateTime<Utc>,
     pub roles: DBVec<Roles>,
 }
 
@@ -46,7 +47,7 @@ impl RelationTrait for Relation {
             Relation::Authorizations => {
                 Entity::has_many(super::oauth_authorizations::Entity).into()
             }
-            Relation::Badges => Entity::has_one(),
+            Relation::Badges => Entity::has_one(super::badges::Entity).into(),
             Relation::Bans => Entity::has_many(super::super::bans::Entity).into(),
             Relation::Connections => Entity::has_one(super::connections::Entity).into(),
             Relation::LoginTokens => Entity::has_many(super::login_tokens::Entity).into(),
@@ -64,3 +65,5 @@ impl Related<super::preferences::Entity> for Entity {
 }
 
 impl ActiveModelBehavior for ActiveModel {}
+
+impl_redis!(Model);

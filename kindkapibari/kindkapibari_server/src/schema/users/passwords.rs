@@ -13,8 +13,8 @@ use serde::{Deserialize, Serialize};
 #[sea_orm(table_name = "user_passwords")]
 pub struct Model {
     #[sea_orm(primary_key)]
-    id: u64,
-    last_changed: DateTime<Utc>,
+    pub id: u64,
+    pub last_changed: DateTime<Utc>,
     #[sea_orm(unique, indexed)]
     pub password_hashed: Vec<u8>,
     #[sea_orm(unique, indexed)]

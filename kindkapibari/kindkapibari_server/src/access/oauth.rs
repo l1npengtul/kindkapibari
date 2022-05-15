@@ -1,15 +1,19 @@
-use crate::{schema::users::oauth_authorizations, scopes::Scope, AResult, AppData, Report};
+use crate::access::TOKEN_SEPERATOR;
+use crate::{schema::users::oauth_authorizations, scopes::Scope, AResult, AppData, Report, SResult};
 use chrono::{Duration, Utc};
 use kindkapibari_core::{dbarray::DBArray, dbvec::DBVec, secret::generate_signed_key};
-use sea_orm::ActiveValue;
+use sea_orm::{ActiveValue, ColumnTrait, EntityTrait, QueryFilter};
 use serde::{Deserialize, Serialize};
 use std::ops::Add;
 use std::sync::Arc;
+use tracing::instrument;
+use kindkapibari_core::secret::DecodedSecret;
+use crate::users::AuthorizedUser;
 
-const AUTH_REDIS_KEY_START_OAUTH_ACCESS: [u8; 2] = *b"oa";
-const AUTH_REDIS_KEY_START_OAUTH_REFRESH: [u8; 2] = *b"or";
-const OAUTH_ACCESS_PREFIX_NO_DASH: &'static str = "OA";
-const OAUTH_REFRESH_PREFIX_NO_DASH: &'static str = "OR";
+pub const AUTH_REDIS_KEY_START_OAUTH_ACCESS: [u8; 2] = *b"oa";
+pub const AUTH_REDIS_KEY_START_OAUTH_REFRESH: [u8; 2] = *b"or";
+pub const OAUTH_ACCESS_PREFIX_NO_DASH: &'static str = "OA";
+pub const OAUTH_REFRESH_PREFIX_NO_DASH: &'static str = "OR";
 
 #[derive(Clone, Debug, PartialOrd, PartialEq, Serialize, Deserialize)]
 pub struct OAuthWithRefresh {
@@ -17,6 +21,7 @@ pub struct OAuthWithRefresh {
     pub refresh: String,
 }
 
+#[instrument]
 pub async fn generate_oauth_with_refresh(
     state: Arc<AppData>,
     user_id: u64,
@@ -37,17 +42,19 @@ pub async fn generate_oauth_with_refresh(
     let refresh = generate_signed_key(config.machine_id, config.signing_key.as_bytes())?;
 
     let access_token = format!(
-        "{}.{}.{}-{}",
+        "{}.{}.{}{}{}",
         base64::encode(access.nonce),
         OAUTH_ACCESS_PREFIX_NO_DASH,
         base64::encode(&access.salt),
+        TOKEN_SEPERATOR,
         base64::encode(&access.signed)
     );
     let refresh_token = format!(
-        "{}.{}.{}-{}",
+        "{}.{}.{}{}{}",
         base64::encode(refresh.nonce),
         OAUTH_REFRESH_PREFIX_NO_DASH,
         base64::encode(&refresh.salt),
+        TOKEN_SEPERATOR,
         base64::encode(&refresh.signed)
     );
 
@@ -68,12 +75,17 @@ pub async fn generate_oauth_with_refresh(
 
     oauth_token_active.insert(&state.database).await?;
 
+    tokio::task::spawn(async {
+
+    })
+
     Ok(OAuthWithRefresh {
         access: access_token,
         refresh: refresh_token,
     })
 }
 
+#[instrument]
 pub async fn generate_oauth_no_refresh(
     state: Arc<AppData>,
     user_id: u64,
@@ -93,10 +105,11 @@ pub async fn generate_oauth_no_refresh(
     let access = generate_signed_key(config.machine_id, config.signing_key.as_bytes())?;
 
     let access_token = format!(
-        "{}.{}.{}-{}",
+        "{}.{}.{}{}{}",
         base64::encode(access.nonce),
         OAUTH_ACCESS_PREFIX_NO_DASH,
         base64::encode(&access.salt),
+        TOKEN_SEPERATOR,
         base64::encode(&access.signed)
     );
 
@@ -116,4 +129,13 @@ pub async fn generate_oauth_no_refresh(
     oauth_token_active.insert(&state.database).await?;
 
     Ok(access_token)
+}
+
+#[instrument]
+pub fn verify_access_token(state: Arc<AppData>, token: DecodedSecret) -> SResult<AuthorizedUser> {
+    let access = oauth_authorizations::Entity::find().filter(oauth_authorizations::Column::AccessTokenSalt.eq(&token.salt))
+        .filter(oauth_authorizations::Column::Expire.gt(Utc::now()))
+        .one(&state.database)
+        .await?
+        .
 }

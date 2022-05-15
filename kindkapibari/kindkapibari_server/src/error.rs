@@ -17,6 +17,8 @@ pub enum ServerError {
     RedisError(#[from] RedisError),
     #[error(transparent)]
     DatabaseError(#[from] DbErr),
+    #[error(transparent)]
+    InternalServer(#[from] dyn std::error::Error),
     #[error("Bad Argument {0}: {1}")]
     BadArgumentError(dyn Display, #[from] dyn std::error::Error),
     #[error("Unauthorized.")]
@@ -41,7 +43,9 @@ impl From<ServerError> for Error {
     fn from(why: ServerError) -> Self {
         match &why {
             ServerError::NotFound(_, _) => NotFound(why),
-            ServerError::RedisError(_) | ServerError::DatabaseError(_) => InternalServerError(why),
+            ServerError::RedisError(_)
+            | ServerError::DatabaseError(_)
+            | ServerError::InternalServer(_) => InternalServerError(why),
             ServerError::BadArgumentError(_, _) => BadRequest(why),
             ServerError::Unauthorized => Unauthorized(why),
             ServerError::Forbidden => Forbidden(why),

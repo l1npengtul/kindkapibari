@@ -19,6 +19,8 @@ color-eyre = "0.6"
 chacha20poly1305 = "0.10.0-pre"
 argon2 = "0.4"
 base64 = "0.20.0-alpha.1"
+tracing = "0.1.34"
+pot = "1.0"
 
 [dependencies.tokio]
 version = "1.18"
@@ -42,7 +44,7 @@ features = ["server"]
 
 [dependencies.sea-orm]
 version = "0.8"
-features = ["runtime-tokio-rustls", "sqlx-postgres", "macros"]
+features = ["with-uuid", "runtime-tokio-rustls", "sqlx-postgres", "with-chrono", "with-json", "macros"]
 
 [dependencies.oxide-auth-poem]
 git = "https://github.com/l1npengtul/oxide-auth"

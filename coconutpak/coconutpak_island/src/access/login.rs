@@ -1,12 +1,12 @@
 use crate::{
     permissions::Scopes,
     schema::{api_key, session, user},
-    AppData, SResult,
+    AppData, SResult, ServerError,
 };
 use argon2::{Algorithm, Argon2, Params, PasswordHasher, Version};
 use chrono::{TimeZone, Utc};
 use kindkapibari_core::dbarray::DBArray;
-use kindkapibari_core::secret::generate_signed_key;
+use kindkapibari_core::secret::{check_equality, generate_signed_key};
 use kindkapibari_core::{reseedingrng::AutoReseedingRng, snowflake::SnowflakeIdGenerator};
 use once_cell::sync::Lazy;
 use sea_orm::{
@@ -16,10 +16,11 @@ use std::{fmt::Display, ops::Add, sync::Arc};
 use tokio::sync::Mutex;
 use uuid::Uuid;
 
-const AUTH_REDIS_KEY_START_APIKEY: [u8; 6] = *b"cak";
-const AUTH_REDIS_KEY_START_SESSION: [u8; 6] = *b"cse";
+const AUTH_REDIS_KEY_START_APIKEY: [u8; 3] = *b"cak";
+const AUTH_REDIS_KEY_START_SESSION: [u8; 3] = *b"cse";
 pub const API_KEY_PREFIX_NO_DASH: &'static str = "A";
 pub const TOKEN_PREFIX_NO_DASH: &'static str = "S";
+pub const SECRET_SEPERATOR: &'static str = "!";
 
 // 196! 196! 196! 196!
 static AUTO_RESEEDING_TOKEN_RNG: Lazy<Arc<Mutex<AutoReseedingRng<200704>>>> =
@@ -58,10 +59,11 @@ pub async fn new_apikey(
     };
 
     let apikey = format!(
-        "{}.{}.{}:{}",
+        "{}.{}.{}{}{}",
         base64::encode(key.nonce),
         API_KEY_PREFIX_NO_DASH,
         base64::encode(key.salt),
+        SECRET_SEPERATOR,
         base64::encode(key.signed),
     );
 
@@ -83,10 +85,11 @@ pub async fn new_session(state: Arc<AppData>, user_id: u64) -> SResult<CoconutPa
     };
 
     let session = format!(
-        "{}.{}.{}:{}",
+        "{}.{}.{}{}{}",
         base64::encode(key.nonce),
         TOKEN_PREFIX_NO_DASH,
         base64::encode(key.salt),
+        SECRET_SEPERATOR,
         base64::encode(key.signed),
     );
 
@@ -104,29 +107,41 @@ pub enum Authorized {
 
 pub async fn verify_apikey(
     database: Arc<AppData>,
-    hash: Vec<u8>,
+    raw: Vec<u8>,
     salt: Vec<u8>,
 ) -> SResult<Option<user::Model>> {
-    return Ok(api_key::Entity::find()
-        .filter(api_key::Column::KeyHashed.eq(&hash))
+    let api_key = api_key::Entity::find()
         .filter(api_key::Column::Salt.eq(&salt))
-        .join(JoinType::RightJoin, api_key::Relation::User.def())
-        .into_model::<user::Model>()
         .one(&database.database)
-        .await?);
+        .await?
+        .ok_or(ServerError::Unauthorized)?;
+
+    if check_equality(&raw, &api_key.key_hashed, &api_key.salt) {
+        Ok(user::Entity::find_by_id(api_key.owner)
+            .one(&database.database)
+            .await?)
+    } else {
+        return Err(ServerError::Unauthorized);
+    }
 }
 
 pub async fn verify_session(
     database: Arc<AppData>,
-    hash: Vec<u8>,
+    raw: Vec<u8>,
     salt: Vec<u8>,
 ) -> SResult<Option<user::Model>> {
-    return Ok(session::Entity::find()
-        .filter(session::Column::SessionHashed.eq(&hash))
+    let session = session::Entity::find()
         .filter(session::Column::Salt.eq(&salt))
         .filter(session::Column::Expire.gt(Utc::now()))
-        .join(JoinType::RightJoin, session::Relation::User.def())
-        .into_model::<user::Model>()
         .one(&database.database)
-        .await?);
+        .await?
+        .ok_or(ServerError::Unauthorized)?;
+
+    if check_equality(&raw, &session.session_hashed, &session.salt) {
+        Ok(user::Entity::find_by_id(session.owner)
+            .one(&database.database)
+            .await?)
+    } else {
+        return Err(ServerError::Unauthorized);
+    }
 }

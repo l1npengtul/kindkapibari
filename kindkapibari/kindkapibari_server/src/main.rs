@@ -10,11 +10,14 @@ mod config;
 mod error;
 mod login;
 mod roles;
+#[macro_use]
 mod schema;
 mod scopes;
 
-use crate::{config::Config, error::ServerError, schema::users::user};
+use crate::schema::users;
+use crate::{config::Config, error::ServerError, schema::users::user, scopes::Scope};
 use color_eyre::Report;
+use kindkapibari_core::secret::DecodedSecret;
 use moka::future::Cache;
 use redis::aio::ConnectionManager;
 use sea_orm::DatabaseConnection;
@@ -32,8 +35,8 @@ pub struct AppData {
 }
 
 pub struct Caches {
-    pub user_login_token: Cache<String, user::Model>,
-    pub user_oauth_token: Cache<String, user::Model>,
+    pub login_token: Cache<DecodedSecret, user::Model>,
+    pub oauth_token: Cache<DecodedSecret, users::AuthorizedUser>,
 }
 
 #[tokio::main]

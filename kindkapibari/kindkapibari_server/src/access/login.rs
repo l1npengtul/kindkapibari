@@ -1,19 +1,27 @@
-use crate::schema::users::{login_tokens, passwords};
-use crate::{user, AResult, AppData, SResult, ServerError};
+use crate::access::TOKEN_SEPERATOR;
+use crate::{
+    access::insert_into_cache,
+    roles::Roles,
+    schema::users::{login_tokens, passwords},
+    user, AppData, SResult, ServerError,
+};
 use argon2::{Algorithm, Argon2, Params, Version};
-use chrono::{Duration, TimeZone, Utc};
-use kindkapibari_core::dbarray::DBArray;
-use kindkapibari_core::secret::generate_signed_key;
-use kindkapibari_core::snowflake::SnowflakeIdGenerator;
+use chrono::{DateTime, Duration, TimeZone, Utc};
+use kindkapibari_core::secret::{check_equality, decode_gotten_secret, DecodedSecret};
+use kindkapibari_core::{
+    dbarray::DBArray, dbvec::DBVec, secret::generate_signed_key, snowflake::SnowflakeIdGenerator,
+};
 use once_cell::sync::Lazy;
 use sea_orm::{
-    ActiveValue, ColumnTrait, EntityTrait, JoinType, QueryFilter, QuerySelect, RelationTrait,
+    ActiveValue, ColumnTrait, EntityTrait, FromQueryResult, JoinType, QueryFilter, QuerySelect,
+    RelationTrait,
 };
 use std::ops::Add;
 use std::sync::Arc;
+use tracing::instrument;
 
-const AUTH_REDIS_KEY_START_SESSION: [u8; 2] = *b"se";
-const LOGIN_TOKEN_PREFIX_NO_DASH: &'static str = "LT";
+pub const AUTH_REDIS_KEY_START_SESSION: [u8; 2] = *b"se";
+pub const LOGIN_TOKEN_PREFIX_NO_DASH: &'static str = "LT";
 
 static ID_GENERATOR: Lazy<Arc<SnowflakeIdGenerator>> = Lazy::new(|| {
     Arc::new(SnowflakeIdGenerator::new(
@@ -21,15 +29,19 @@ static ID_GENERATOR: Lazy<Arc<SnowflakeIdGenerator>> = Lazy::new(|| {
     ))
 });
 
-pub async fn generate_login_token(state: Arc<AppData>, user_id: u64) -> AResult<String> {
+// LOGIN TOKEN CONVENTION: ALL LOGIN TOKENS ARE ENCRYPTED IN REDIS
+#[instrument]
+pub async fn generate_login_token(state: Arc<AppData>, user: user::Model) -> SResult<String> {
     let config = state.config.read().await;
-    let key = generate_signed_key(config.machine_id, config.signing_key.as_bytes())?;
+    let key = generate_signed_key(config.machine_id, config.signing_key.as_bytes())
+        .map_err(|why| ServerError::InternalServer(why))?;
 
     let token = format!(
-        "{}.{}.{}-{}",
+        "{}.{}.{}{}{}",
         base64::encode(key.nonce),
         LOGIN_TOKEN_PREFIX_NO_DASH,
-        base64::encode(&key.salt),
+        base64::encode(key.salt),
+        TOKEN_SEPERATOR,
         base64::encode(&key.signed)
     );
 
@@ -45,18 +57,64 @@ pub async fn generate_login_token(state: Arc<AppData>, user_id: u64) -> AResult<
     };
     login_token_active.insert(&state.database).await?;
 
+    // cache
+    tokio::task::spawn(async {
+        // insert into redis
+        insert_into_cache(state.clone(), &token, &user, None);
+        // insert into moka
+        state.caches.login_token.insert(token.clone(), user);
+    });
+
     Ok(token)
 }
 
-pub async fn log_user_in_username_passwd(
+#[instrument]
+pub async fn verify_login_token(state: Arc<AppData>, token: DecodedSecret) -> SResult<user::Model> {
+    let login_token = login_tokens::Entity::find()
+        .filter(login_tokens::Column::Salt.eq(&token.salt))
+        .filter(login_tokens::Column::Expire.gt(Utc::now()))
+        .one(&state.database)
+        .await?
+        .ok_or(ServerError::Unauthorized)?;
+
+    if check_equality(&token.raw, &login_token.session_hashed, &login_token.salt) {
+        Ok(user::Entity::find_by_id(login_token.owner)
+            .one(&state.database)
+            .await?
+            .ok_or(ServerError::Unauthorized)?)
+    } else {
+        return Err(ServerError::Unauthorized);
+    }
+}
+
+// TODO: Add 2FA support
+#[instrument]
+pub async fn verify_username_passwd(
     state: Arc<AppData>,
     username: String,
     password: String,
 ) -> SResult<String> {
-    let password = user::Entity::find()
+    #[derive(FromQueryResult)]
+    struct UserAndPasswordModel {
+        pub id: u64,
+        pub username: String,
+        pub handle: String,
+        pub email: Option<String>,
+        pub profile_pictures: Option<String>,
+        pub creation_date: DateTime<Utc>,
+        pub password_id: u64,
+        pub roles: DBVec<Roles>,
+        pub last_changed: DateTime<Utc>,
+        pub password_hashed: Vec<u8>,
+        pub salt: DBArray<u8, 32>,
+    }
+
+    let user_auth = user::Entity::find()
         .filter(user::Column::Handle.eq(&username))
-        .join(JoinType::RightJoin, passwords::Relation::User.def())
-        .into_model::<passwords::Model>()
+        .join(JoinType::Join, passwords::Relation::User.def())
+        .group_by(user::Column::Id)
+        .column_as(passwords::Column::Id, "password_id")
+        .into_model::<UserAndPasswordModel>()
         .one(&state.database)
         .await?
         .ok_or(ServerError::Unauthorized)?;
@@ -71,4 +129,29 @@ pub async fn log_user_in_username_passwd(
             Some(64),
         )?,
     );
+
+    let mut user_input_hash_out = Vec::with_capacity(64);
+    argon2_key.hash_password_into(
+        password.as_bytes(),
+        user_auth.salt.as_bytes(),
+        &mut user_input_hash_out,
+    )?;
+
+    // create a new login token
+    if user_input_hash_out == user_auth.password_hashed {
+        Ok(generate_login_token(
+            state,
+            user::Model {
+                id: user_auth.id,
+                username: user_auth.username,
+                handle: user_auth.handle,
+                email: user_auth.email,
+                profile_picture: user_auth.profile_pictures,
+                creation_date: user_auth.creation_date,
+                roles: user_auth.roles,
+            },
+        )?)
+    } else {
+        Err(ServerError::Unauthorized)
+    }
 }

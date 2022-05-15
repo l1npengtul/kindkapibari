@@ -16,7 +16,7 @@ static AUTO_RESEEDING_SALT_SHAKER_RNG: Lazy<Arc<Mutex<AutoReseedingRng<65535>>>>
     // i love shaking salts all over my hash~~browns~~
     Lazy::new(|| Arc::new(Mutex::new(AutoReseedingRng::new())));
 
-#[derive(Clone, Debug, PartialOrd, PartialEq, Serialize, Deserialize)]
+#[derive(Clone, Debug, Hash, PartialOrd, PartialEq, Serialize, Deserialize)]
 pub struct RawGenerated {
     pub signed: Vec<u8>,
     pub nonce: Vec<u8>,
@@ -84,7 +84,7 @@ pub fn generate_signed_key(machine_id: u8, signing_key: &[u8]) -> Result<RawGene
     let key = Key::from_slice(signing_key);
     let aead = XChaCha20Poly1305::new(key);
     let nonce_generic = XNonce::from_slice(&nonce);
-    let signed = aead.encrypt(nonce_generic, &hash)?;
+    let signed = aead.encrypt(nonce_generic, &base)?;
 
     Ok(RawGenerated {
         signed,
@@ -95,10 +95,10 @@ pub fn generate_signed_key(machine_id: u8, signing_key: &[u8]) -> Result<RawGene
     })
 }
 
-#[derive(Clone, Debug, PartialOrd, PartialEq, Serialize, Deserialize)]
+#[derive(Clone, Debug, Hash, PartialOrd, PartialEq, Serialize, Deserialize)]
 pub struct DecodedSecret {
     pub secret_type: String,
-    pub hash: Vec<u8>,
+    pub raw: Vec<u8>,
     pub salt: Vec<u8>,
 }
 
@@ -124,7 +124,15 @@ pub fn decode_gotten_secret(
     let nonce_generic = XNonce::from_slice(&nonce);
     let raw = aead.decrypt(nonce_generic, base64::decode(salt_raw_combo[1])?)?;
 
-    let argon2_key = Argon2::new(
+    Ok(DecodedSecret {
+        secret_type: secret_type.to_string(),
+        raw,
+        salt,
+    })
+}
+
+pub fn check_equality(raw: &[u8], hash: &[u8], salt: &[u8]) -> bool {
+    let argon2 = Argon2::new(
         Algorithm::Argon2id,
         Version::default(),
         Params::new(
@@ -135,12 +143,10 @@ pub fn decode_gotten_secret(
         )?,
     );
 
-    let mut hash = Vec::with_capacity(64);
-    argon2_key.hash_password_into(&raw, &salt, &mut hash);
+    let mut raw_hashed = Vec::with_capacity(64);
+    if let Err(_) = argon2.hash_password_into(raw, salt, &mut raw_hashed) {
+        return false;
+    }
 
-    Ok(DecodedSecret {
-        secret_type: secret_type.to_string(),
-        hash,
-        salt,
-    })
+    raw_hashed.as_bytes() == hash
 }
