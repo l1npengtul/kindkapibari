@@ -6,6 +6,9 @@ use sea_orm::{
     DbErr, QueryResult, TryGetError, TryGetable, Value,
 };
 
+// TODO: Localized Pronouns! This is English centric!
+// EX: some languages don't have gender neutral pronouns or neopronouns. We should support that!
+
 pub const PRONOUNS_CONST_BUILTIN: [PronounProfileStr<'static>; 9] = [
     PronounProfileStr::HE_HIM,
     PronounProfileStr::SHE_HER,

@@ -13,11 +13,14 @@ use kindkapibari_core::dbarray::DBArray;
 pub struct Model {
     #[sea_orm(primary_key)]
     pub user_id: u64,
-    pub nonce: DBArray<u8, 24>,
-    pub password_hash: Vec<u8>,
-    pub salt: DBArray<u8, 32>,
+    #[sea_orm(nullable)]
+    pub nonce: Option<DBArray<u8, 24>>,
     pub encrypted: bool,
     pub user_data: Vec<u8>,
+}
+
+impl Model {
+    pub fn decrypt()
 }
 
 #[derive(Copy, Clone, Debug, EnumIter)]

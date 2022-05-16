@@ -36,3 +36,6 @@ pub mod text;
 pub mod throttle;
 pub mod user_data;
 pub mod version;
+#[cfg(feature = "server")]
+#[macro_use]
+pub mod redis_impl;

@@ -1,19 +1,35 @@
-use crate::language::Language;
 use crate::{gender::Gender, pronouns::Pronouns};
-use chrono::{Date, DateTime, Utc};
+use chrono::{Date, Utc};
 use language_tags::LanguageTag;
 #[cfg(feature = "server")]
 use sea_orm::{DbErr, QueryResult, TryGetError, TryGetable};
 
+const CURRENT_SCHEMA: u64 = 0;
+
 #[derive(Clone, Debug, Hash, PartialEq, Serialize, Deserialize)]
 pub struct UserData {
-    pub username: String,
-    pub handle: String,
+    pub schema: u64,
     pub gender: Gender,
     pub pronouns: Pronouns,
     pub birthday: Date<Utc>,
-    pub registered_date: DateTime<Utc>,
-    pub language: LanguageTag,
+    pub locale: LanguageTag,
+}
+
+impl UserData {
+    pub fn new(
+        gender: Gender,
+        pronouns: Pronouns,
+        birthday: Date<Utc>,
+        locale: LanguageTag,
+    ) -> Self {
+        Self {
+            schema: CURRENT_SCHEMA,
+            gender,
+            pronouns,
+            birthday,
+            locale,
+        }
+    }
 }
 
 #[cfg(feature = "server")]

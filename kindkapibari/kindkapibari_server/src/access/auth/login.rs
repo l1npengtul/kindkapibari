@@ -1,23 +1,18 @@
-use crate::access::TOKEN_SEPERATOR;
-use crate::{
-    access::insert_into_cache,
-    roles::Roles,
-    schema::users::{login_tokens, passwords},
-    user, AppData, SResult, ServerError,
-};
 use argon2::{Algorithm, Argon2, Params, Version};
 use chrono::{DateTime, Duration, TimeZone, Utc};
-use kindkapibari_core::secret::{check_equality, decode_gotten_secret, DecodedSecret};
 use kindkapibari_core::{
-    dbarray::DBArray, dbvec::DBVec, secret::generate_signed_key, snowflake::SnowflakeIdGenerator,
+    dbarray::DBArray,
+    dbvec::DBVec,
+    secret::{check_equality, decode_gotten_secret, generate_signed_key, DecodedSecret},
+    snowflake::SnowflakeIdGenerator,
 };
 use once_cell::sync::Lazy;
+use redis::AsyncCommands;
 use sea_orm::{
     ActiveValue, ColumnTrait, EntityTrait, FromQueryResult, JoinType, QueryFilter, QuerySelect,
     RelationTrait,
 };
-use std::ops::Add;
-use std::sync::Arc;
+use std::{ops::Add, sync::Arc};
 use tracing::instrument;
 
 pub const AUTH_REDIS_KEY_START_SESSION: [u8; 2] = *b"se";
@@ -58,33 +53,12 @@ pub async fn generate_login_token(state: Arc<AppData>, user: user::Model) -> SRe
     login_token_active.insert(&state.database).await?;
 
     // cache
-    tokio::task::spawn(async {
-        // insert into redis
-        insert_into_cache(state.clone(), &token, &user, None);
-        // insert into moka
-        state.caches.login_token.insert(token.clone(), user);
-    });
+    if let Ok(secret) = decode_gotten_secret(&token, TOKEN_SEPERATOR, config.signing_key.as_bytes())
+    {
+        state.caches.login_token.insert(secret, user);
+    }
 
     Ok(token)
-}
-
-#[instrument]
-pub async fn verify_login_token(state: Arc<AppData>, token: DecodedSecret) -> SResult<user::Model> {
-    let login_token = login_tokens::Entity::find()
-        .filter(login_tokens::Column::Salt.eq(&token.salt))
-        .filter(login_tokens::Column::Expire.gt(Utc::now()))
-        .one(&state.database)
-        .await?
-        .ok_or(ServerError::Unauthorized)?;
-
-    if check_equality(&token.raw, &login_token.session_hashed, &login_token.salt) {
-        Ok(user::Entity::find_by_id(login_token.owner)
-            .one(&state.database)
-            .await?
-            .ok_or(ServerError::Unauthorized)?)
-    } else {
-        return Err(ServerError::Unauthorized);
-    }
 }
 
 // TODO: Add 2FA support
@@ -153,5 +127,28 @@ pub async fn verify_username_passwd(
         )?)
     } else {
         Err(ServerError::Unauthorized)
+    }
+}
+
+#[instrument]
+pub async fn verify_login_token(state: Arc<AppData>, token: DecodedSecret) -> SResult<user::Model> {
+    if let Ok(user) = state.caches.login_token.get(&token) {
+        return Ok(user);
+    }
+
+    let login_token = login_tokens::Entity::find()
+        .filter(login_tokens::Column::Salt.eq(&token.salt))
+        .filter(login_tokens::Column::Expire.gt(Utc::now()))
+        .one(&state.database)
+        .await?
+        .ok_or(ServerError::Unauthorized)?;
+
+    if check_equality(&token.raw, &login_token.session_hashed, &login_token.salt) {
+        Ok(user::Entity::find_by_id(login_token.owner)
+            .one(&state.database)
+            .await?
+            .ok_or(ServerError::Unauthorized)?)
+    } else {
+        return Err(ServerError::Unauthorized);
     }
 }

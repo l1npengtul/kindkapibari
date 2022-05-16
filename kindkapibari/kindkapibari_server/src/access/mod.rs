@@ -1,12 +1,10 @@
 use crate::AppData;
-use redis::{AsyncCommands, RedisError, ToRedisArgs};
+use redis::{AsyncCommands, ToRedisArgs};
 use std::sync::Arc;
-use tokio::time::timeout;
 use tracing::{error, instrument};
 
-pub mod login;
-pub mod oauth;
-pub mod oauth_thirdparty;
+pub mod auth;
+pub mod user;
 
 pub const TOKEN_SEPERATOR: &'static str = "-";
 
@@ -28,7 +26,9 @@ pub async fn insert_into_cache(
                 error = ?why,
             );
         }
-        ref_red_cac_raw(state, key, timeout).await;
+        if !timeout.is_none() {
+            ref_red_cac_raw(state, key, timeout).await;
+        }
     });
 }
 

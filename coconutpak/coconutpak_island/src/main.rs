@@ -7,6 +7,7 @@ use crate::config::Config;
 use crate::error::ServerError;
 use color_eyre::eyre;
 use meilisearch_sdk::client::Client;
+use poem::http::StatusCode;
 use redis::aio::ConnectionManager;
 use sea_orm::DatabaseConnection;
 use tokio::sync::RwLock;
@@ -21,6 +22,7 @@ pub struct AppData {
 }
 
 pub type SResult<T> = Result<T, ServerError>;
+pub type EResult<T> = EResult<T, StatusCode>;
 
 mod access;
 mod api;

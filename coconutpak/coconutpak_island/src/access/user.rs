@@ -14,6 +14,11 @@ use tracing::instrument;
 use tracing::log::{error, info, warn};
 
 #[instrument]
+pub async fn get_user_by_kkb_id(state: Arc<AppData>, kkb_id: u64) -> SResult<Option<user::Model>> {
+    Ok(user::Entity::find().filter(user::Column::KkbId.eq(kkb_id)).one(&state.database).await?)
+}
+
+#[instrument]
 pub async fn get_user_subscribes(
     state: Arc<AppData>,
     user_id: u64,

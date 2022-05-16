@@ -1,4 +1,5 @@
-use crate::{access::insert_without_timeout, AResult, AppData, Config, SResult};
+use crate::{access::insert_without_timeout, AResult, AppData, Config, EResult, SResult};
+use oauth2::basic::BasicTokenResponse;
 use oauth2::{
     basic::BasicClient, reqwest::async_http_client, AuthUrl, AuthorizationCode, ClientId,
     ClientSecret, CsrfToken, PkceCodeChallenge, PkceCodeVerifier, RedirectUrl, Scope, TokenUrl,
@@ -10,6 +11,7 @@ use poem::{
 };
 use redis::AsyncCommands;
 use std::sync::Arc;
+use tracing::instrument;
 
 fn get_client(config: Config) -> SResult<BasicClient> {
     let auth_url = AuthUrl::new(config.oauth.authorize_url)?;
@@ -24,7 +26,7 @@ fn get_client(config: Config) -> SResult<BasicClient> {
     .set_redirect_uri(redirect_url))
 }
 // #[handler]
-pub async fn login(state: Data<Arc<AppData>>) -> AResult<impl IntoResponse> {
+pub async fn login(state: Data<Arc<AppData>>) -> EResult<impl IntoResponse> {
     let config = *state.config.read().await;
     let client = get_client(config).map_err(InternalServerError)?;
 
@@ -48,7 +50,7 @@ pub async fn redirect(
     app_state: Data<Arc<AppData>>,
     Query(state): Query<String>,
     Query(code): Query<String>,
-) -> AResult<impl IntoResponse> {
+) -> EResult<impl IntoResponse> {
     let config = *state.config.read().await;
     let verifier_pkce = app_state
         .redis
@@ -63,5 +65,11 @@ pub async fn redirect(
         .await
         .map_err(Unauthorized)?;
 
+    // TODO: commit token to storage
+    //
+
     Ok("Welcome to CoconutPak Island, prepare to e x p e r i e n c e sexual allegories for exploitiative systems. (pemng chan alreaddy has taken all the coconut paks)")
 }
+
+#[instrument]
+pub async fn token_to_user(state: Arc<AppData>, token: BasicTokenResponse) -> SResult<u64> {}

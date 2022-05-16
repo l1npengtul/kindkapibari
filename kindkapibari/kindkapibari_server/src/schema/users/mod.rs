@@ -1,4 +1,5 @@
 use crate::Scope;
+use kindkapibari_core::impl_redis;
 use serde::{Deserialize, Serialize};
 
 pub mod badges;
@@ -10,8 +11,10 @@ pub mod preferences;
 pub mod user;
 pub mod userdata;
 
-#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct AuthorizedUser {
-    pub scopes: Option<Scope>,
+    pub scopes: Vec<Scope>,
     pub user: user::Model,
 }
+
+impl_redis!(AuthorizedUser);

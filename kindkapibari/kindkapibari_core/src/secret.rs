@@ -1,3 +1,4 @@
+use crate::impl_redis;
 use crate::reseedingrng::AutoReseedingRng;
 use argon2::{Algorithm, Argon2, Params, PasswordHasher, Version};
 use chacha20poly1305::aead::{Aead, NewAead};
@@ -5,6 +6,7 @@ use chacha20poly1305::{Key, XChaCha20Poly1305, XNonce};
 use chrono::Utc;
 use eyre::Report;
 use once_cell::sync::Lazy;
+use std::io::BufRead;
 use std::sync::Arc;
 use tokio::sync::Mutex;
 
@@ -95,19 +97,21 @@ pub fn generate_signed_key(machine_id: u8, signing_key: &[u8]) -> Result<RawGene
     })
 }
 
-#[derive(Clone, Debug, Hash, PartialOrd, PartialEq, Serialize, Deserialize)]
+#[derive(Clone, Debug, Hash, PartialOrd, PartialEq, Eq, Serialize, Deserialize)]
 pub struct DecodedSecret {
     pub secret_type: String,
     pub raw: Vec<u8>,
     pub salt: Vec<u8>,
 }
 
+impl_redis!(DecodedSecret);
+
 pub fn decode_gotten_secret(
-    gotten: String,
+    gotten: impl AsRef<str>,
     seperator: &'static str,
     signing_key: &[u8],
 ) -> Result<DecodedSecret, Report> {
-    let splitted = gotten.split(".").collect::<Vec<_>>();
+    let splitted = gotten.as_ref().split(".").collect::<Vec<_>>();
     if splitted.len() != 3 {
         return Err(Report::msg("gotten not long enough"));
     }

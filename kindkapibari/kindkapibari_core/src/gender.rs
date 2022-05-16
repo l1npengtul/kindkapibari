@@ -6,43 +6,43 @@ use serde::{Deserialize, Deserializer, Serialize, Serializer};
 use std::fmt::{Debug, Display, Formatter};
 
 #[derive(Copy, Clone, Hash, Ord, PartialOrd, Eq, PartialEq)]
-pub enum OnlyThree {
+pub enum AsThree {
     Man,
     Woman,
     NonBinary,
 }
 
-impl Debug for OnlyThree {
+impl Debug for AsThree {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         write!(
             f,
             "{}",
             match self {
-                OnlyThree::Man => "man",
-                OnlyThree::Woman => "woman",
-                OnlyThree::NonBinary => "nb",
+                AsThree::Man => "man",
+                AsThree::Woman => "woman",
+                AsThree::NonBinary => "nb",
             }
         )
     }
 }
 
-impl Display for OnlyThree {
+impl Display for AsThree {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         write!(f, "{self:?}")
     }
 }
 
-impl From<Gender> for OnlyThree {
+impl From<Gender> for AsThree {
     fn from(gender: Gender) -> Self {
         match gender {
-            Gender::Man => OnlyThree::Man,
-            Gender::Woman => OnlyThree::Woman,
-            _ => OnlyThree::NonBinary,
+            Gender::Man => AsThree::Man,
+            Gender::Woman => AsThree::Woman,
+            _ => AsThree::NonBinary,
         }
     }
 }
 
-impl Serialize for OnlyThree {
+impl Serialize for AsThree {
     fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
     where
         S: Serializer,
@@ -51,7 +51,7 @@ impl Serialize for OnlyThree {
     }
 }
 
-impl<'de> Deserialize<'de> for OnlyThree {
+impl<'de> Deserialize<'de> for AsThree {
     fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
     where
         D: Deserializer<'de>,
@@ -66,8 +66,8 @@ impl<'de> Deserialize<'de> for OnlyThree {
 pub enum Gender {
     Man,
     Woman,
-    Nonbinary,
-    Custom(String),
+    NonBinary,
+    Custom(String), // upload custom gender. max 10 MB /s
 }
 
 impl Debug for Gender {
@@ -78,7 +78,7 @@ impl Debug for Gender {
             match self {
                 Gender::Man => "man",
                 Gender::Woman => "woman",
-                Gender::Nonbinary => "nb",
+                Gender::NonBinary => "nb",
                 Gender::Custom(s) => s.as_str(),
             }
         )
@@ -99,7 +99,7 @@ where
         match s.as_ref() {
             "man" => Gender::Man,
             "woman" => Gender::Woman,
-            "non-binary" => Gender::Nonbinary,
+            "non-binary" => Gender::NonBinary,
             g => Gender::Custom(g.to_owned()),
         }
     }

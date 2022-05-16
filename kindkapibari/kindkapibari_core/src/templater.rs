@@ -1,6 +1,6 @@
 use crate::{
     error::KKBCoreError,
-    gender::{Gender, OnlyThree},
+    gender::{Gender, AsThree},
     pronouns::PronounProfile,
     user_data::UserData,
 };
@@ -12,7 +12,7 @@ use tera::{Context, Tera};
 struct TemplateUserData {
     pronouns: PronounProfile,
     gender: Gender,
-    gender_three: OnlyThree,
+    gender_three: AsThree,
     username: String,
     birthday: DateTime<Utc>, // WHAT THE FUCK WHYYYYYY WHY DOES NOT `Date<Utc>` IMPLEMENT SERIALIZE AND DESERIALIZE???????????
     registerdate: DateTime<Utc>, // WHAT THE FUCK IS WRONG WITH CHRONO?????? WHAHTWAHT(*WAHTUIOWAHOTIWAIOTJOIPWA

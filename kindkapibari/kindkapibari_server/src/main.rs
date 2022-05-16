@@ -10,7 +10,6 @@ mod config;
 mod error;
 mod login;
 mod roles;
-#[macro_use]
 mod schema;
 mod scopes;
 
