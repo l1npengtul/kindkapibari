@@ -3,7 +3,7 @@ use poem::error::{
     ServiceUnavailable, TooManyRequests, Unauthorized, UnavailableForLegalReasons,
     UnsupportedMediaType,
 };
-use poem::Error;
+use poem::{Error, IntoResponse, Response};
 use redis::RedisError;
 use sea_orm::error::DbErr;
 use std::fmt::Display;
@@ -59,6 +59,12 @@ impl From<ServerError> for Error {
     }
 }
 
+impl IntoResponse for ServerError {
+    fn into_response(self) -> Response {
+        Response::from(Error::from(self))
+    }
+}
+
 impl From<RedisError> for ServerError {
     fn from(why: RedisError) -> Self {
         ServerError::RedisError(why)
@@ -71,5 +77,11 @@ impl From<DbErr> for ServerError {
             DbErr::RecordNotFound(rec) => ServerError::NotFound(rec.to_owned(), ""),
             _ => ServerError::DatabaseError(db),
         }
+    }
+}
+
+impl From<Error> for ServerError {
+    fn from(why: Error) -> Self {
+        return ServerError::InternalServer(why);
     }
 }

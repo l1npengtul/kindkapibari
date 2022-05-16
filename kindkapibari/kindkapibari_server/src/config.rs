@@ -11,6 +11,8 @@ pub struct Config {
     pub database: Database,
     pub host_url: String,
     pub signing_key: String,
+    pub oauth: OAuthProviders,
+    pub coconutpak: CoconutPak,
 }
 
 impl Config {
@@ -55,6 +57,9 @@ pub struct CoconutPak {
 
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 pub struct OAuthProviders {
+    pub authorize_url: String,
+    pub token_url: String,
+    pub redirect_url: String,
     pub twitter: OAuth,
     pub google: OAuth,
     pub github: OAuth,

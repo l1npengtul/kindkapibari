@@ -1,13 +1,9 @@
-use chrono::{DateTime, Utc};
-use kindkapibari_core::dbvec::DBVec;
 use sea_orm::{
     prelude::{DeriveEntityModel, EntityTrait, PrimaryKeyTrait, RelationTrait},
     sea_query::ValueType,
-    ActiveModelBehavior, DerivePrimaryKey, DeriveRelation, EnumIter, IdenStatic, Related,
-    RelationDef, TryGetable,
+    ActiveModelBehavior, DerivePrimaryKey, EnumIter, IdenStatic, Related, RelationDef, TryGetable,
 };
 use serde::{Deserialize, Serialize};
-use uuid::Uuid;
 
 #[derive(Clone, Debug, Hash, PartialOrd, PartialEq, Serialize, Deserialize, DeriveEntityModel)]
 #[sea_orm(table_name = "user_data")]
