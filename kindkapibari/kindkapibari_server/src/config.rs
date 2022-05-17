@@ -57,19 +57,17 @@ pub struct CoconutPak {
 
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 pub struct OAuthProviders {
-    pub authorize_url: String,
-    pub token_url: String,
     pub redirect_url: String,
     pub twitter: OAuth,
-    pub google: OAuth,
     pub github: OAuth,
-    pub reddit: OAuth,
 }
 
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 pub struct OAuth {
     pub client_id: String,
     pub secret: String,
+    pub authorize_url: String,
+    pub token_url: String,
 }
 
 const fn default_port() -> u16 {
