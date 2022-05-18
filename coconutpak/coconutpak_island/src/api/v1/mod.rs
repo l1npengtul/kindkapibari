@@ -47,9 +47,9 @@ struct Api {
     data: Arc<AppData>,
 }
 
-// #[OpenApi(prefix_path = "/v1", tag = "super::VersionTags::V1")]
+#[OpenApi(prefix_path = "/v1", tag = "super::VersionTags::V1")]
 impl Api {
-    // #[oai(path = "/motd", method = "get")]
+    #[oai(path = "/motd", method = "get")]
     async fn motd(&self) -> Json<MessageOfTheDay> {
         // TODO: replace with webconsole
         Json(MessageOfTheDay {
@@ -61,17 +61,17 @@ impl Api {
         })
     }
 
-    // #[oai(path = "/readonly", method = "get")]
+    #[oai(path = "/readonly", method = "get")]
     async fn read_only(&self) -> bool {
         false
     }
 
-    // #[oai(path = "/kkb_auth_supported", method = "get")]
+    #[oai(path = "/kkb_auth_supported", method = "get")]
     async fn supports_kkb_auth(&self) -> bool {
         self.data.config.read().await.support_official_kkb_login
     }
 
-    // #[oai(path = "/auth_required", method = "get")]
+    #[oai(path = "/auth_required", method = "get")]
     async fn requires_auth(&self) -> bool {
         false
     }

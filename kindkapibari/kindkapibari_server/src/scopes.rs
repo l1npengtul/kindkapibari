@@ -1,7 +1,12 @@
+use poem_openapi::OAuthScopes;
 use serde::{Deserialize, Serialize};
 
-#[derive(Copy, Clone, Debug, Default, Ord, PartialOrd, Eq, PartialEq, Serialize, Deserialize)]
+#[derive(
+    Copy, Clone, Debug, Default, Ord, PartialOrd, Eq, PartialEq, Serialize, Deserialize, OAuthScopes,
+)]
 pub enum Scope {
+    // This is a private user scope.
+    UserReadWriteApplication,
     PublicRead,
     PublicWrite,
     BadgesRead,
@@ -12,9 +17,10 @@ pub enum Scope {
     PreferencesRead,
     PreferencesWrite,
     UserdataDecryptRead,
-    // No external application can write to Userdata.
     ApplicationsRead,
     ApplicationsWrite,
     RecordsRead,
     OfflineRead,
+    // Application (Read Only)
+    Application,
 }

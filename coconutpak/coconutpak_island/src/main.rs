@@ -1,7 +1,5 @@
 #![deny(clippy::pedantic)]
 #![warn(clippy::all)]
-#![feature(thread_is_running)]
-#![feature(once_cell)]
 
 use crate::config::Config;
 use crate::error::ServerError;
@@ -22,7 +20,7 @@ pub struct AppData {
 }
 
 pub type SResult<T> = Result<T, ServerError>;
-pub type EResult<T> = EResult<T, StatusCode>;
+pub type EResult<T> = Result<T, StatusCode>;
 
 mod access;
 mod api;

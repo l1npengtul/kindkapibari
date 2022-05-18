@@ -6,6 +6,7 @@ use oauth2::{
 };
 use poem::{
     error::{InternalServerError, NotFound, Unauthorized},
+    handler,
     web::{Data, Query, Redirect},
     IntoResponse,
 };
@@ -25,7 +26,7 @@ fn get_client(config: Config) -> SResult<BasicClient> {
     )
     .set_redirect_uri(redirect_url))
 }
-// #[handler]
+#[handler]
 pub async fn login(state: Data<Arc<AppData>>) -> EResult<impl IntoResponse> {
     let config = *state.config.read().await;
     let client = get_client(config).map_err(InternalServerError)?;
@@ -45,7 +46,7 @@ pub async fn login(state: Data<Arc<AppData>>) -> EResult<impl IntoResponse> {
     Ok(Redirect::see_other(auth_url))
 }
 
-// #[handler]
+#[handler]
 pub async fn redirect(
     app_state: Data<Arc<AppData>>,
     Query(state): Query<String>,
