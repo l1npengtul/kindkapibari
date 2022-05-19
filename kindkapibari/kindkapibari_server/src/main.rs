@@ -13,7 +13,7 @@ mod roles;
 mod schema;
 mod scopes;
 
-use crate::schema::users;
+use crate::schema::{applications, users};
 use crate::{config::Config, error::ServerError, schema::users::user, scopes::Scope};
 use color_eyre::Report;
 use kindkapibari_core::secret::DecodedSecret;
@@ -26,6 +26,8 @@ const EPOCH_START: u64 = 1650125769; // haha nice
 type SResult<T> = Result<T, ServerError>;
 type AResult<T> = Result<T, Report>;
 
+pub const URL: &'static str = "https://kindkapibari.land";
+
 pub struct AppData {
     pub redis: ConnectionManager,
     pub database: DatabaseConnection,
@@ -36,6 +38,7 @@ pub struct AppData {
 pub struct Caches {
     pub login_token: Cache<DecodedSecret, user::Model>,
     pub oauth_token: Cache<DecodedSecret, users::AuthorizedUser>,
+    pub applications: Cache<u64, applications::Model>,
 }
 
 #[tokio::main]

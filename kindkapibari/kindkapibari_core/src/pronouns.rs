@@ -338,17 +338,3 @@ impl<'a> From<PronounProfileStr<'a>> for PronounProfile {
         }
     }
 }
-
-impl<'a> ToOwned for PronounProfileStr<'a> {
-    type Owned = PronounProfile;
-
-    fn to_owned(&self) -> Self::Owned {
-        PronounProfile {
-            nominative: self.nominative.to_string(),
-            accusative: self.accusative.to_string(),
-            pronominal: self.pronominal.to_string(),
-            predicative: self.predicative.to_string(),
-            reflexive: self.reflexive.to_string(),
-        }
-    }
-}

@@ -5,8 +5,6 @@ use serde::{Deserialize, Serialize};
     Copy, Clone, Debug, Default, Ord, PartialOrd, Eq, PartialEq, Serialize, Deserialize, OAuthScopes,
 )]
 pub enum Scope {
-    // This is a private user scope.
-    UserReadWriteApplication,
     PublicRead,
     PublicWrite,
     BadgesRead,
@@ -21,6 +19,6 @@ pub enum Scope {
     ApplicationsWrite,
     RecordsRead,
     OfflineRead,
-    // Application (Read Only)
-    Application,
+    // Only KindKapiBari itself can request this scope.
+    KKBApp,
 }

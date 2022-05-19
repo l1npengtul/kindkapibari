@@ -21,6 +21,8 @@ pub enum ServerError {
     InternalServer(#[from] dyn std::error::Error),
     #[error("Bad Argument {0}: {1}")]
     BadArgumentError(dyn Display, #[from] dyn std::error::Error),
+    #[error("Bad Request: {0}")]
+    BadRequest(dyn Display),
     #[error("Unauthorized.")]
     Unauthorized,
     #[error("Forbidden.")]
@@ -46,7 +48,7 @@ impl From<ServerError> for Error {
             ServerError::RedisError(_)
             | ServerError::DatabaseError(_)
             | ServerError::InternalServer(_) => InternalServerError(why),
-            ServerError::BadArgumentError(_, _) => BadRequest(why),
+            ServerError::BadArgumentError(_, _) | ServerError::BadRequest(_) => BadRequest(why),
             ServerError::Unauthorized => Unauthorized(why),
             ServerError::Forbidden => Forbidden(why),
             ServerError::BadType(_) => UnsupportedMediaType(why),

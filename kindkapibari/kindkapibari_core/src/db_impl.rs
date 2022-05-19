@@ -16,7 +16,7 @@ macro_rules! impl_redis {
                     match v {
                         redis::Value::Data(d) => pot::from_slice::<Self>(&d)?,
                         _ => {
-                            return Err(RedisError::from(eyre::Report::msg(
+                            return Err(redis::RedisError::from(eyre::Report::msg(
                                 "expected data in redis",
                             )))
                         }

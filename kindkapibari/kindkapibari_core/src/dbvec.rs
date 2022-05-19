@@ -119,9 +119,3 @@ impl<T> From<Vec<T>> for DBVec<T> {
         DBVec { internal: v }
     }
 }
-
-impl<T> From<DBVec<T>> for Vec<T> {
-    fn from(dbvec: DBVec<T>) -> Self {
-        dbvec.internal
-    }
-}

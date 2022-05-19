@@ -1,5 +1,4 @@
 use std::{
-    error::Error,
     fmt::{Debug, Display, Formatter},
     str::FromStr,
 };
@@ -12,7 +11,7 @@ const ALLOWED_CHARS: &[char] = &[
     '5', '6', '7', '8', '9',
 ];
 
-#[derive(Error)]
+#[derive(Debug, Error)]
 enum ParseTagError {
     #[error("Failed to parse {0}")]
     FailToParse(String),
@@ -682,7 +681,7 @@ pub enum Tags {
     Hrt(GenderMarker),
     // (based) politics
     AntiTerf,
-    AntiConservative,
+    Progressive,
     RecentEvents,
     //
     Other(String),
@@ -694,6 +693,7 @@ impl Debug for Tags {
             f,
             "{}",
             match self {
+                // TODO: is there a way to do these without these allocs?
                 Tags::Fem => "Feminine",
                 Tags::TransFem => "TransFem",
                 Tags::CisFem => "CisFem",
@@ -702,18 +702,18 @@ impl Debug for Tags {
                 Tags::CisMasc => "CisMasc",
                 Tags::NonBinary => "NonBinary",
                 Tags::Androgynous => "Androgynous",
-                Tags::XenoGender(gendr) => concat!("XenoGender(", gendr, ")"),
-                Tags::VoiceTraining(gm) => concat!("VoiceTraining(", gm.to_string(), ")"),
-                Tags::Dysphoria(gm) => concat!("Dysphoria(", gm.to_string(), ")"),
-                Tags::Profession(job) => concat!("Profession(", job.to_string(), ")"),
-                Tags::Transition(gm) => concat!("Transition(", gm.to_string(), ")"),
-                Tags::Presentation(gm) => concat!("Presentation(", gm.to_string(), ")"),
+                Tags::XenoGender(gendr) => &format!("XenoGender({gendr})"),
+                Tags::VoiceTraining(gm) => &format!("VoiceTraining({gm})"),
+                Tags::Dysphoria(gm) => &format!("Dysphoria({gm})"),
+                Tags::Profession(job) => &format!("Profession({job})"),
+                Tags::Transition(gm) => &format!("Transition({gm})"),
+                Tags::Presentation(gm) => &format!("Presentation({gm})"),
                 Tags::AntiTerf => "AntiTerf",
-                Tags::AntiConservative => "AntiConservative",
-                Tags::Pets(pet) => concat!("Pets(", pet.to_string(), ")"),
+                Tags::Progressive => "Progressive",
+                Tags::Pets(pet) => &format!("Pets({pet})"),
                 Tags::Advice => "Advice",
                 Tags::Wholesome => "Wholesome",
-                Tags::Interests(i) => concat!("Interests(", i.to_string(), ")"),
+                Tags::Interests(i) => &format!("Interests({i})"),
                 Tags::Anime => "Anime",
                 Tags::Music => "Music",
                 Tags::Shows => "Shows",
@@ -727,13 +727,12 @@ impl Debug for Tags {
                 Tags::MentalHealth => "MentalHealth",
                 Tags::Femboy => "Femboy",
                 Tags::Tomboy => "Tomboy",
-                Tags::DiyHrt(gm) => concat!("DIYHRT(", gm.to_string(), ")"),
-                Tags::Hrt(gm) => concat!("HRT(", gm.to_string(), ")"),
+                Tags::DiyHrt(gm) => &format!("DIYHRT({gm})"),
+                Tags::Hrt(gm) => &format!("HRT({gm})"),
                 Tags::RecentEvents => "RecentEvents",
                 Tags::Cartoons => "Cartoons",
-                Tags::Other(o) => o,
-            }
-        )
+                Tags::Other(o) => &o,
+            })
     }
 }
 
@@ -772,7 +771,7 @@ impl FromStr for Tags {
                 "Androgynous" => Tags::Androgynous,
                 "Femboy" => Tags::Femboy,
                 "AntiTerf" => Tags::AntiTerf,
-                "AntiConservative" => Tags::AntiConservative,
+                "Progressive" => Tags::Progressive,
                 "RecentEvents" => Tags::RecentEvents,
                 tag => Tags::Other(tag.to_string()), //
             })

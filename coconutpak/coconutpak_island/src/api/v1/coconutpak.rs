@@ -10,7 +10,7 @@ use poem::{
 use poem_openapi::{
     param::{Path, Query},
     payload::{Attachment, Json, PlainText},
-    ApiExtractor, ApiResponse, Multipart, OpenApi,
+    ApiExtractor, ApiResponse, Multipart, Object, OpenApi,
 };
 use redis::{AsyncCommands, Commands};
 use sea_orm::{
@@ -20,13 +20,13 @@ use serde::{Deserialize, Serialize};
 use std::sync::Arc;
 use tokio::io::AsyncReadExt;
 
-#[derive(Debug, Multipart)]
+#[derive(Debug, Multipart, Object)]
 struct FileUpload {
     name: String,
     data: Vec<u8>,
 }
 
-#[derive(Copy, Clone, Debug, Ord, PartialOrd, Eq, PartialEq, Serialize, Deserialize)]
+#[derive(Copy, Clone, Debug, Ord, PartialOrd, Eq, PartialEq, Serialize, Deserialize, Object)]
 struct PakId {
     id: u64,
 }

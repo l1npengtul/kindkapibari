@@ -1,7 +1,8 @@
 use crate::access::TOKEN_SEPERATOR;
 use crate::roles::Roles;
+use crate::schema::applications;
 use crate::users::{oauth_authorizations, AuthorizedUser};
-use crate::{AResult, AppData, SResult, ServerError};
+use crate::{user, AResult, AppData, Report, SResult, Scope, ServerError};
 use chrono::{DateTime, Duration, Utc};
 use kindkapibari_core::secret::{decode_gotten_secret, DecodedSecret};
 use kindkapibari_core::{dbarray::DBArray, dbvec::DBVec, secret::generate_signed_key};
@@ -208,3 +209,6 @@ pub fn verify_access_token(state: Arc<AppData>, token: DecodedSecret) -> SResult
         },
     })
 }
+
+#[instrument]
+pub fn application_by_id(state: Arc<AppData>, id: u64) -> SResult<applications::Model> {}
