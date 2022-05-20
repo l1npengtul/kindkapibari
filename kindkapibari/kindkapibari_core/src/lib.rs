@@ -39,3 +39,5 @@ pub mod version;
 #[cfg(feature = "server")]
 #[macro_use]
 pub mod db_impl;
+pub mod reminder;
+pub mod sober;

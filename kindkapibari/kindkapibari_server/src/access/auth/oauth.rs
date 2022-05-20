@@ -211,4 +211,19 @@ pub fn verify_access_token(state: Arc<AppData>, token: DecodedSecret) -> SResult
 }
 
 #[instrument]
-pub fn application_by_id(state: Arc<AppData>, id: u64) -> SResult<applications::Model> {}
+pub async fn application_by_id(state: Arc<AppData>, id: u64) -> SResult<applications::Model> {
+    if let Ok(application) = state.caches.applications.get(&id) {
+        return Ok(application);
+    }
+
+    let application_query = applications::Entity::find_by_id(id)
+        .one(&state.database)
+        .await?
+        .ok_or(ServerError::NotFound("No application", "Not Found"))?;
+    // commit to cache
+    state
+        .caches
+        .applications
+        .insert(id, application_query.clone()); // rip alloc
+    Ok(application_query)
+}

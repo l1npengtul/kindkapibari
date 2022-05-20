@@ -6,19 +6,14 @@ use serde::{Deserialize, Serialize};
 )]
 pub enum Scope {
     PublicRead,
-    PublicWrite,
     BadgesRead,
     EmailRead,
-    EmailWrite,
     ConnectionsRead,
-    ConnectionsWrite,
     PreferencesRead,
-    PreferencesWrite,
-    UserdataDecryptRead,
+    UserdataRead,
     ApplicationsRead,
-    ApplicationsWrite,
     RecordsRead,
     OfflineRead,
-    // Only KindKapiBari itself can request this scope.
-    KKBApp,
+    // Danger Zone
+    Login, // Full login permissions
 }
