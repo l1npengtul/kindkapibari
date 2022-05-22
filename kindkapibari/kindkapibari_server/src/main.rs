@@ -26,7 +26,7 @@ const EPOCH_START: u64 = 1650125769; // haha nice
 type SResult<T> = Result<T, ServerError>;
 type AResult<T> = Result<T, Report>;
 
-pub const URL: &'static str = "https://kindkapibari.land";
+pub const THIS_SITE_URL: &'static str = "https://kindkapibari.land";
 
 pub struct AppData {
     pub redis: ConnectionManager,

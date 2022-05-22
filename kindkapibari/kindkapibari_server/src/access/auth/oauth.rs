@@ -1,11 +1,17 @@
-use crate::access::TOKEN_SEPERATOR;
-use crate::roles::Roles;
-use crate::schema::applications;
-use crate::users::{oauth_authorizations, AuthorizedUser};
-use crate::{user, AResult, AppData, Report, SResult, Scope, ServerError};
+use crate::{
+    access::TOKEN_SEPERATOR,
+    roles::Roles,
+    schema::applications,
+    user,
+    users::{oauth_authorizations, AuthorizedUser},
+    AResult, AppData, Report, SResult, Scope, ServerError,
+};
 use chrono::{DateTime, Duration, Utc};
-use kindkapibari_core::secret::{decode_gotten_secret, DecodedSecret};
-use kindkapibari_core::{dbarray::DBArray, dbvec::DBVec, secret::generate_signed_key};
+use kindkapibari_core::{
+    dbarray::DBArray,
+    dbvec::DBVec,
+    secret::{decode_gotten_secret, generate_signed_key, DecodedSecret},
+};
 use redis::AsyncCommands;
 use sea_orm::{
     ActiveValue, ColumnTrait, EntityTrait, FromQueryResult, JoinType, QueryFilter, QuerySelect,
@@ -20,6 +26,14 @@ pub const AUTH_REDIS_KEY_START_OAUTH_ACCESS: [u8; 2] = *b"oa";
 pub const AUTH_REDIS_KEY_START_OAUTH_REFRESH: [u8; 2] = *b"or";
 pub const OAUTH_ACCESS_PREFIX_NO_DASH: &'static str = "OA";
 pub const OAUTH_REFRESH_PREFIX_NO_DASH: &'static str = "OR";
+
+pub struct KKBOAuthState {}
+
+pub struct OAuthAuthorizer {}
+
+pub struct OAuthRegistrar {}
+
+pub struct OAuthIssuer {}
 
 #[derive(Clone, Debug, PartialOrd, PartialEq, Serialize, Deserialize)]
 pub struct OAuthWithRefresh {

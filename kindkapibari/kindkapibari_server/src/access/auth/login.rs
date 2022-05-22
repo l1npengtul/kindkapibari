@@ -1,8 +1,7 @@
-use crate::access::user;
 use crate::{
     access::TOKEN_SEPERATOR,
     roles::Roles,
-    users::{login_tokens, passwords},
+    users::{login_tokens, passwords, user},
     AppData, SResult, ServerError,
 };
 use argon2::{Algorithm, Argon2, Params, Version};
@@ -120,7 +119,7 @@ pub async fn verify_username_passwd(
 
     // create a new login token
     if user_input_hash_out == user_auth.password_hashed {
-        Ok(generate_login_token(
+        generate_login_token(
             state,
             user::Model {
                 id: user_auth.id,
@@ -131,7 +130,8 @@ pub async fn verify_username_passwd(
                 creation_date: user_auth.creation_date,
                 roles: user_auth.roles,
             },
-        )?)
+        )
+        .await
     } else {
         Err(ServerError::Unauthorized)
     }

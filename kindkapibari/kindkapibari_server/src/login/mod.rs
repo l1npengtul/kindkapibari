@@ -1,5 +1,6 @@
-mod oauth_thirdparty;
+mod login;
 mod oauth;
+mod oauth_thirdparty;
 
 use crate::roles::Roles;
 use crate::schema::{users::*, *};
@@ -22,32 +23,20 @@ use crate::access::{
 pub struct AuthorizedUser {
     pub user: user::Model,
     pub oauth_scopes: Vec<Scope>,
-    pub roles: Vec<Role>,
+    pub roles: Vec<Roles>,
 }
 
 // it ""works""
 // use the same auth fn for all login tokens and oauth tokens
 #[derive(SecurityScheme)]
-#[cfg_attr(
-    debug_assertions,
-    oai(
-        type = "oauth2",
-        flows(authorization_code(
-            authorization_url = "http://localhost:3003/authorize",
-            token_url = "http://localhost:3003/token",
-            scopes = "crate::scopes::Scope"
-        ))
-    )
-)]
-#[cfg_attr(
-    not(debug_assertions),
-    oai(
-        type = "oauth2",
-        flows(authorization_code(
-            authorization_url = "https://kindkapibari.land/authorize",
-            token_url = "https://kindkapibari.land/authorize",
-            scopes = "crate::scopes::Scope"
-        ))
-    )
+#[oai(
+    type = "bearer",
+    bearer_format = "`nonce`.`type`.salt-hash"
+    checker = "authorization_checker"
 )]
 pub struct KKBUserAuthorization(AuthorizedUser);
+
+#[instrument]
+async fn authorization_checker(_req: &Request, bearer: &Bearer) -> Option<AuthorizedUser> {
+    None
+}

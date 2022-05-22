@@ -1,13 +1,13 @@
-use crate::impl_redis;
 use crate::reseedingrng::AutoReseedingRng;
 use argon2::{Algorithm, Argon2, Params, PasswordHasher, Version};
-use chacha20poly1305::aead::{Aead, NewAead};
-use chacha20poly1305::{Key, XChaCha20Poly1305, XNonce};
+use chacha20poly1305::{
+    aead::{Aead, NewAead},
+    Key, XChaCha20Poly1305, XNonce,
+};
 use chrono::Utc;
 use eyre::Report;
 use once_cell::sync::Lazy;
-use std::io::BufRead;
-use std::sync::Arc;
+use std::{io::BufRead, sync::Arc};
 use tokio::sync::Mutex;
 
 static AUTO_RESEEDING_TOKEN_RNG: Lazy<Arc<Mutex<AutoReseedingRng<65535>>>> =
@@ -80,7 +80,7 @@ pub fn generate_signed_key(machine_id: u8, signing_key: &[u8]) -> Result<RawGene
         .await
         .generate_bytes::<16>();
     let mut nonce = Vec::with_capacity(24);
-    argon2_nonce.hash_password_into(&pre_nonce, &salting, &mut nonce);
+    argon2_nonce.hash_password_into(&pre_nonce, &salting, &mut nonce)?;
 
     // sign the key
     let key = Key::from_slice(signing_key);
@@ -104,7 +104,10 @@ pub struct DecodedSecret {
     pub salt: Vec<u8>,
 }
 
-impl_redis!(DecodedSecret);
+#[cfg(feature = "server")]
+crate::impl_redis!(DecodedSecret);
+#[cfg(feature = "server")]
+crate::impl_sea_orm!(DecodedSecret);
 
 pub fn decode_gotten_secret(
     gotten: impl AsRef<str>,

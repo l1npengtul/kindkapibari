@@ -47,8 +47,11 @@ features = ["server"]
 version = "0.8"
 features = ["with-uuid", "runtime-tokio-rustls", "sqlx-postgres", "with-chrono", "with-json", "macros"]
 
+[dependencies.oxide-auth-async]
+version = "0.1.0"
+
 [dependencies.oxide-auth-poem]
-git = "https://github.com/l1npengtul/oxide-auth"
+version = "0.1.0"
 
 [dependencies.moka]
 version = "0.8"

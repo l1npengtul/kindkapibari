@@ -15,5 +15,4 @@ pub enum Scope {
     RecordsRead,
     OfflineRead,
     // Danger Zone
-    Login, // Full login permissions
 }
