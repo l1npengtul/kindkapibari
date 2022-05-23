@@ -1,3 +1,4 @@
+use kindkapibari_proc::AttrString;
 use std::{
     fmt::{Debug, Display, Formatter},
     str::FromStr,
@@ -732,7 +733,8 @@ impl Debug for Tags {
                 Tags::RecentEvents => "RecentEvents",
                 Tags::Cartoons => "Cartoons",
                 Tags::Other(o) => &o,
-            })
+            }
+        )
     }
 }
 

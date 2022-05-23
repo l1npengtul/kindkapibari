@@ -4,7 +4,7 @@ use crate::{
     schema::applications,
     user,
     users::{oauth_authorizations, AuthorizedUser},
-    AResult, AppData, Report, SResult, Scope, ServerError,
+    AResult, AppData, KKBScope, Report, SResult, ServerError,
 };
 use chrono::{DateTime, Duration, Utc};
 use kindkapibari_core::{
@@ -12,6 +12,11 @@ use kindkapibari_core::{
     dbvec::DBVec,
     secret::{decode_gotten_secret, generate_signed_key, DecodedSecret},
 };
+use oxide_auth::endpoint::{Authorizer, Issuer, PreGrant, Registrar};
+use oxide_auth::primitives::grant::Grant;
+use oxide_auth::primitives::issuer::{IssuedToken, RefreshedToken};
+use oxide_auth::primitives::prelude::ClientUrl;
+use oxide_auth::primitives::registrar::{BoundClient, RegistrarError};
 use redis::AsyncCommands;
 use sea_orm::{
     ActiveValue, ColumnTrait, EntityTrait, FromQueryResult, JoinType, QueryFilter, QuerySelect,
@@ -31,9 +36,55 @@ pub struct KKBOAuthState {}
 
 pub struct OAuthAuthorizer {}
 
+impl Authorizer for OAuthAuthorizer {
+    fn authorize(&mut self, _: Grant) -> Result<String, ()> {
+        todo!()
+    }
+
+    fn extract(&mut self, token: &str) -> Result<Option<Grant>, ()> {
+        todo!()
+    }
+}
+
 pub struct OAuthRegistrar {}
 
+impl Registrar for OAuthRegistrar {
+    fn bound_redirect<'a>(&self, bound: ClientUrl<'a>) -> Result<BoundClient<'a>, RegistrarError> {
+        todo!()
+    }
+
+    fn negotiate(
+        &self,
+        client: BoundClient,
+        scope: Option<oxide_auth::endpoint::Scope>,
+    ) -> Result<PreGrant, RegistrarError> {
+        todo!()
+    }
+
+    fn check(&self, client_id: &str, passphrase: Option<&[u8]>) -> Result<(), RegistrarError> {
+        todo!()
+    }
+}
+
 pub struct OAuthIssuer {}
+
+impl Issuer for OAuthIssuer {
+    fn issue(&mut self, grant: Grant) -> Result<IssuedToken, ()> {
+        todo!()
+    }
+
+    fn refresh(&mut self, _refresh: &str, _grant: Grant) -> Result<RefreshedToken, ()> {
+        todo!()
+    }
+
+    fn recover_token<'a>(&'a self, _: &'a str) -> Result<Option<Grant>, ()> {
+        todo!()
+    }
+
+    fn recover_refresh<'a>(&'a self, _: &'a str) -> Result<Option<Grant>, ()> {
+        todo!()
+    }
+}
 
 #[derive(Clone, Debug, PartialOrd, PartialEq, Serialize, Deserialize)]
 pub struct OAuthWithRefresh {
@@ -46,12 +97,12 @@ pub async fn generate_oauth_with_refresh(
     state: Arc<AppData>,
     user_id: u64,
     application_id: u64,
-    requested_scopes: Vec<Scope>,
+    requested_scopes: Vec<KKBScope>,
 ) -> AResult<OAuthWithRefresh> {
     if !requested_scopes.is_empty() {
         return Err(Report::msg("Scopes must not be empty."));
     }
-    if !requested_scopes.contains(&Scope::OfflineRead) {
+    if !requested_scopes.contains(&KKBScope::OfflineRead) {
         return Err(Report::msg(
             "To have refresh token you must add the `OfflineRead` scope.",
         ));
@@ -124,12 +175,12 @@ pub async fn generate_oauth_no_refresh(
     state: Arc<AppData>,
     user_id: u64,
     application_id: u64,
-    requested_scopes: Vec<Scope>,
+    requested_scopes: Vec<KKBScope>,
 ) -> AResult<String> {
     if !requested_scopes.is_empty() {
         return Err(Report::msg("Scopes must not be empty."));
     }
-    if requested_scopes.contains(&Scope::OfflineRead) {
+    if requested_scopes.contains(&KKBScope::OfflineRead) {
         return Err(Report::msg(
             "To not have refresh token you must not request the `OfflineRead` scope.",
         ));
@@ -198,7 +249,7 @@ pub fn verify_access_token(state: Arc<AppData>, token: DecodedSecret) -> SResult
         pub profile_picture: Option<String>,
         pub creation_date: DateTime<Utc>,
         pub roles: DBVec<Roles>,
-        pub scopes: DBVec<Scope>,
+        pub scopes: DBVec<KKBScope>,
     }
 
     let access = oauth_authorizations::Entity::find()

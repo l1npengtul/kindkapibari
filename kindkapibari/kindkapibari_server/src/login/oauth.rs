@@ -1,7 +1,7 @@
 use crate::access::auth::login::verify_login_token;
 use crate::access::auth::oauth::{application_by_id, verify_access_token};
 use crate::access::{insert_into_cache, TOKEN_SEPERATOR};
-use crate::{AppData, SResult, Scope, ServerError, THIS_SITE_URL};
+use crate::{AppData, KKBScope, SResult, ServerError, THIS_SITE_URL};
 use chrono::{TimeZone, Utc};
 use kindkapibari_core::impl_redis;
 use kindkapibari_core::secret::{decode_gotten_secret, DecodedSecret};
@@ -32,7 +32,7 @@ struct AuthorizeRequest {
     client_id: String,
     client_secret: String,
     redirect_url: Option<String>,
-    scopes: Vec<Scope>,
+    scopes: Vec<KKBScope>,
     state: String,
 }
 

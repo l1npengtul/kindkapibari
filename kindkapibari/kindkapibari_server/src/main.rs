@@ -14,7 +14,7 @@ mod schema;
 mod scopes;
 
 use crate::schema::{applications, users};
-use crate::{config::Config, error::ServerError, schema::users::user, scopes::Scope};
+use crate::{config::Config, error::ServerError, schema::users::user, scopes::KKBScope};
 use color_eyre::Report;
 use kindkapibari_core::secret::DecodedSecret;
 use moka::future::Cache;

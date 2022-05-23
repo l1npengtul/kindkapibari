@@ -1,4 +1,4 @@
-use crate::Scope;
+use crate::KKBScope;
 use kindkapibari_core::impl_redis;
 use serde::{Deserialize, Serialize};
 
@@ -13,7 +13,7 @@ pub mod userdata;
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct AuthorizedUser {
-    pub scopes: Vec<Scope>,
+    pub scopes: Vec<KKBScope>,
     pub user: user::Model,
 }
 

@@ -41,3 +41,4 @@ pub mod version;
 pub mod db_impl;
 pub mod reminder;
 pub mod sober;
+pub use kindkapibari_proc::AttrString;

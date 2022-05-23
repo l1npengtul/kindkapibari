@@ -1,4 +1,4 @@
-use crate::scopes::Scope;
+use crate::scopes::KKBScope;
 use chrono::{DateTime, Utc};
 use kindkapibari_core::dbarray::DBArray;
 use kindkapibari_core::dbvec::DBVec;
@@ -25,7 +25,7 @@ pub struct Model {
     pub refresh_token_hashed: Option<Vec<u8>>,
     #[sea_orm(unique, indexed, nullable)]
     pub refresh_token_salt: Option<DBArray<u8, 32>>,
-    pub scopes: DBVec<Scope>,
+    pub scopes: DBVec<KKBScope>,
 }
 
 #[derive(Copy, Clone, Debug, EnumIter)]

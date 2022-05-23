@@ -4,7 +4,7 @@ mod oauth_thirdparty;
 
 use crate::roles::Roles;
 use crate::schema::{users::*, *};
-use crate::scopes::Scope;
+use crate::scopes::KKBScope;
 use crate::AppData;
 use kindkapibari_core::secret::decode_gotten_secret;
 use poem::web::Data;
@@ -22,7 +22,7 @@ use crate::access::{
 
 pub struct AuthorizedUser {
     pub user: user::Model,
-    pub oauth_scopes: Vec<Scope>,
+    pub oauth_scopes: Vec<KKBScope>,
     pub roles: Vec<Roles>,
 }
 
