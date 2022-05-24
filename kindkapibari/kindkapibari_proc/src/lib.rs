@@ -33,9 +33,7 @@ pub fn attr_string(input: TokenStream) -> TokenStream {
                         }
                     });
                 }
-                syn::Fields::Unnamed(u) => {
-                    let flds = u.unnamed.into_iter().next().unwrap();
-
+                syn::Fields::Unnamed(_) => {
                     parse_onearg.push(quote! {
                         {
                             <variant>(subtag.parse()?)
@@ -97,12 +95,14 @@ pub fn attr_string(input: TokenStream) -> TokenStream {
                 if splitted.len() == 1 {
                     Ok(match splitted[0].as_str() {
                         #(#parse_plain_string_from_noarg => #parse_noarg),*
+                        _ => return Self::Err::from("uncaught".to_string()),
                     })
-                } else splitted.len() == 2 {
+                } else if splitted.len() == 2 {
                     let subtag = splitted[1];
 
                     Ok(match splitted[0].as_str() {
                         #(#parse_plain_string_from_onearg => #parse_onearg),*
+                        _ => return Self::Err::from("uncaught".to_string()),
                     })
                 } else {
                     return Err(Self::Err::from("not found".to_string()));
