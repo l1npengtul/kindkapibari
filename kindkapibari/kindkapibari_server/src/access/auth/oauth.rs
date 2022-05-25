@@ -6,48 +6,131 @@ use crate::{
     users::{oauth_authorizations, AuthorizedUser},
     AResult, AppData, KKBScope, Report, SResult, ServerError,
 };
-use chrono::{DateTime, Duration, Utc};
+use async_trait::async_trait;
+use chrono::{DateTime, Duration, NaiveTime, Utc};
 use kindkapibari_core::{
     dbarray::DBArray,
     dbvec::DBVec,
+    impl_redis,
+    reseedingrng::AutoReseedingRng,
     secret::{decode_gotten_secret, generate_signed_key, DecodedSecret},
+    snowflake::SnowflakeIdGenerator,
 };
-use oxide_auth::endpoint::{Authorizer, Issuer, PreGrant, Registrar};
-use oxide_auth::primitives::grant::Grant;
-use oxide_auth::primitives::issuer::{IssuedToken, RefreshedToken};
-use oxide_auth::primitives::prelude::ClientUrl;
-use oxide_auth::primitives::registrar::{BoundClient, RegistrarError};
-use redis::AsyncCommands;
+use oauth2::url::Url;
+use oxide_auth::endpoint::PreGrant;
+use oxide_auth::primitives::{
+    grant::{Extensions, Grant, Scope},
+    issuer::{IssuedToken, RefreshedToken},
+    prelude::ClientUrl,
+    registrar::{BoundClient, RegistrarError},
+};
+use oxide_auth_async::primitives::{Authorizer, Issuer, Registrar};
+use redis::{aio::ConnectionManager, AsyncCommands};
 use sea_orm::{
     ActiveValue, ColumnTrait, EntityTrait, FromQueryResult, JoinType, QueryFilter, QuerySelect,
     RelationTrait,
 };
 use serde::{Deserialize, Serialize};
-use std::ops::Add;
-use std::sync::Arc;
+use std::{
+    ops::{Add, Deref},
+    sync::Arc,
+};
+use tokio::sync::Mutex;
 use tracing::instrument;
 
 pub const AUTH_REDIS_KEY_START_OAUTH_ACCESS: [u8; 2] = *b"oa";
 pub const AUTH_REDIS_KEY_START_OAUTH_REFRESH: [u8; 2] = *b"or";
+pub const AUTH_REDIS_KEY_START_OAUTH_AUTHORIZER: [u8; 4] = *b"oaut";
 pub const OAUTH_ACCESS_PREFIX_NO_DASH: &'static str = "OA";
 pub const OAUTH_REFRESH_PREFIX_NO_DASH: &'static str = "OR";
 
 pub struct KKBOAuthState {}
 
-pub struct OAuthAuthorizer {}
+struct RedisHolder(pub ConnectionManager);
 
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+struct KKBGrant {
+    pub owner_id: String,
+    pub client_id: String,
+    pub scope: Scope,
+    pub redirect_uri: Url,
+    pub until: DateTime<Utc>,
+    pub extensions: Extensions,
+}
+
+impl From<Grant> for KKBGrant {
+    fn from(grant: Grant) -> Self {
+        Self {
+            owner_id: grant.owner_id,
+            client_id: grant.client_id,
+            scope: grant.scope,
+            redirect_uri: grant.redirect_uri,
+            until: grant.until,
+            extensions: grant.extensions,
+        }
+    }
+}
+
+impl From<KKBGrant> for Grant {
+    fn from(kkbgrant: KKBGrant) -> Self {
+        Self {
+            owner_id: kkbgrant.owner_id,
+            client_id: kkbgrant.client_id,
+            scope: kkbgrant.scope,
+            redirect_uri: kkbgrant.redirect_uri,
+            until: kkbgrant.until,
+            extensions: kkbgrant.extensions,
+        }
+    }
+}
+
+impl_redis!(KKBGrant);
+
+pub struct OAuthAuthorizer {
+    redis: Arc<RedisHolder>,
+    rng: Arc<Mutex<AutoReseedingRng<65535>>>,
+    id: Arc<Mutex<SnowflakeIdGenerator>>,
+    machine_id: u8,
+}
+
+#[async_trait]
 impl Authorizer for OAuthAuthorizer {
-    fn authorize(&mut self, _: Grant) -> Result<String, ()> {
-        todo!()
+    async fn authorize(&mut self, grant: Grant) -> Result<String, ()> {
+        let id: [u8; 8] = self
+            .id
+            .lock()
+            .await
+            .generate_id(self.machine_id)
+            .to_le_bytes();
+        let rng: [u8; 56] = self.rng.lock().await.generate_bytes();
+        let hashed = format!(
+            "{AUTH_REDIS_KEY_START_OAUTH_AUTHORIZER}:{}",
+            base64::encode(blake3::hash([&rng, &id].concat()).as_bytes())
+        );
+        let kkbgrant: KKBGrant = grant.into();
+        // check with redis
+        if let Ok(_) = self.redis.0.get::<&str, KKBGrant>(&hashed).await {
+            return Err(());
+        }
+        match self.redis.0.set::<&str, KKBGrant>(&hashed, kkbgrant).await {
+            Ok(_) => Ok(hashed),
+            Err(_) => Err(()),
+        }
     }
 
-    fn extract(&mut self, token: &str) -> Result<Option<Grant>, ()> {
-        todo!()
+    async fn extract(&mut self, token: &str) -> Result<Option<Grant>, ()> {
+        if let Ok(kkbgrant) = self.redis.0.get::<&str, KKBGrant>(token).await {
+            self.redis.0.del::<&str>(token).await;
+            Ok(Some(kkbgrant))
+        } else {
+            Err(())
+        }
     }
 }
 
 pub struct OAuthRegistrar {}
 
+#[async_trait]
 impl Registrar for OAuthRegistrar {
     fn bound_redirect<'a>(&self, bound: ClientUrl<'a>) -> Result<BoundClient<'a>, RegistrarError> {
         todo!()
@@ -56,7 +139,7 @@ impl Registrar for OAuthRegistrar {
     fn negotiate(
         &self,
         client: BoundClient,
-        scope: Option<oxide_auth::endpoint::Scope>,
+        scope: Option<Scope>,
     ) -> Result<PreGrant, RegistrarError> {
         todo!()
     }
@@ -68,6 +151,7 @@ impl Registrar for OAuthRegistrar {
 
 pub struct OAuthIssuer {}
 
+#[async_trait]
 impl Issuer for OAuthIssuer {
     fn issue(&mut self, grant: Grant) -> Result<IssuedToken, ()> {
         todo!()

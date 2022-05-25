@@ -1,10 +1,21 @@
+use kindkapibari_core::{impl_attr_err, AttrString};
 use poem_openapi::OAuthScopes;
 use serde::{Deserialize, Serialize};
 use std::fmt::{Display, Formatter};
-use std::thread::Scope;
 
 #[derive(
-    Copy, Clone, Debug, Default, Ord, PartialOrd, Eq, PartialEq, Serialize, Deserialize, OAuthScopes,
+    Copy,
+    Clone,
+    Debug,
+    Default,
+    Ord,
+    PartialOrd,
+    Eq,
+    PartialEq,
+    Serialize,
+    Deserialize,
+    OAuthScopes,
+    AttrString,
 )]
 pub enum KKBScope {
     PublicRead,
@@ -19,24 +30,4 @@ pub enum KKBScope {
     // Danger Zone
 }
 
-impl Display for KKBScope {
-    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
-        match self {
-            KKBScope::PublicRead => {}
-            KKBScope::BadgesRead => {}
-            KKBScope::EmailRead => {}
-            KKBScope::ConnectionsRead => {}
-            KKBScope::PreferencesRead => {}
-            KKBScope::UserdataRead => {}
-            KKBScope::ApplicationsRead => {}
-            KKBScope::RecordsRead => {}
-            KKBScope::OfflineRead => {}
-        }
-    }
-}
-
-impl From<KKBScope> for Scope {
-    fn from(kkbscope: KKBScope) -> Self {
-        todo!()
-    }
-}
+impl_attr_err!(KKBScope);

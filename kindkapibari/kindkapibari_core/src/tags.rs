@@ -12,33 +12,6 @@ const ALLOWED_CHARS: &[char] = &[
     '5', '6', '7', '8', '9',
 ];
 
-pub trait AttrErr {
-    type ParseError;
-}
-
-#[macro_export]
-macro_rules! impl_attr_err {
-    ($($toimpl:ty),*) => {
-        $(
-            impl AttrError for $toimpl {
-                type ParseError = ParseTagError;
-            }
-        )*
-    };
-}
-
-#[derive(Debug, Error)]
-pub enum ParseTagError {
-    #[error("Failed to parse {0}")]
-    FailToParse(String),
-}
-
-impl From<String> for ParseTagError {
-    fn from(s: String) -> Self {
-        ParseTagError::FailToParse(s)
-    }
-}
-
 #[derive(Clone, Hash, PartialOrd, PartialEq, Serialize, Deserialize, AttrString)]
 pub enum GenderMarker {
     General,

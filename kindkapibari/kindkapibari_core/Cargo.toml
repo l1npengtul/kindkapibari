@@ -25,6 +25,9 @@ path = "../kindkapibari_proc"
 version = "0.8.5"
 features = ["small_rng", "getrandom"]
 
+[dependencies.rdrand]
+version = "0.8.2"
+
 [dependencies.serde]
 version = "1.0"
 features = ["derive"]

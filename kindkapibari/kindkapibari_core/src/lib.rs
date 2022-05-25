@@ -42,3 +42,30 @@ pub mod db_impl;
 pub mod reminder;
 pub mod sober;
 pub use kindkapibari_proc::AttrString;
+
+pub trait AttrErr {
+    type ParseError;
+}
+
+#[macro_export]
+macro_rules! impl_attr_err {
+    ($($toimpl:ty),*) => {
+        $(
+            impl kindkapibari_core::AttrErr for $toimpl {
+                type ParseError = kindkapibari_core::ParseEnumError;
+            }
+        )*
+    };
+}
+
+#[derive(Debug, thiserror::Error)]
+pub enum ParseEnumError {
+    #[error("Failed to parse {0}")]
+    FailToParse(String),
+}
+
+impl From<String> for ParseEnumError {
+    fn from(s: String) -> Self {
+        ParseEnumError::FailToParse(s)
+    }
+}
