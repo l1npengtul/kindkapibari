@@ -95,6 +95,7 @@ pub struct OAuthAuthorizer {
 
 #[async_trait]
 impl Authorizer for OAuthAuthorizer {
+    #[instrument]
     async fn authorize(&mut self, grant: Grant) -> Result<String, ()> {
         let id: [u8; 8] = self
             .id
@@ -112,16 +113,26 @@ impl Authorizer for OAuthAuthorizer {
         if let Ok(_) = self.redis.0.get::<&str, KKBGrant>(&hashed).await {
             return Err(());
         }
-        match self.redis.0.set::<&str, KKBGrant>(&hashed, kkbgrant).await {
+        match self
+            .redis
+            .0
+            .set::<&str, KKBGrant, _>(&hashed, kkbgrant)
+            .await
+        {
             Ok(_) => Ok(hashed),
             Err(_) => Err(()),
         }
     }
 
+    #[instrument]
     async fn extract(&mut self, token: &str) -> Result<Option<Grant>, ()> {
         if let Ok(kkbgrant) = self.redis.0.get::<&str, KKBGrant>(token).await {
-            self.redis.0.del::<&str>(token).await;
-            Ok(Some(kkbgrant))
+            self.redis
+                .0
+                .del::<&str, KKBGrant>(token, kkbgrant.clone())
+                .await
+                .map_err(())?;
+            Ok(Some(kkbgrant.into()))
         } else {
             Err(())
         }
