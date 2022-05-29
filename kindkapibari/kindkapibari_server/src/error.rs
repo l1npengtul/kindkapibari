@@ -1,3 +1,4 @@
+use crate::SResult;
 use poem::error::{
     BadRequest, Forbidden, InternalServerError, NotFound, NotImplemented, PayloadTooLarge,
     ServiceUnavailable, TooManyRequests, Unauthorized, UnavailableForLegalReasons,

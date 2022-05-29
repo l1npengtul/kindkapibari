@@ -1,5 +1,5 @@
-use crate::AppData;
-use redis::{AsyncCommands, ToRedisArgs};
+use crate::{AppData, SResult};
+use redis::{AsyncCommands, FromRedisValue, ToRedisArgs};
 use std::sync::Arc;
 use tracing::{error, instrument};
 
@@ -17,33 +17,27 @@ pub async fn insert_into_cache(
     key: impl ToRedisArgs,
     value: impl ToRedisArgs,
     timeout: Option<usize>,
-) {
-    tokio::task::spawn(async move {
-        if let Err(why) = state.redis.set(&key, value).await {
-            error!(
-                format!("redis timeout error: {key}"),
-                argument = %key,
-                error = ?why,
-            );
-        }
-        if !timeout.is_none() {
-            ref_red_cac_raw(state, key, timeout).await;
-        }
-    });
-}
-
-#[instrument]
-pub async fn ref_red_cac_raw(state: Arc<AppData>, arg: impl ToRedisArgs, timeout: Option<usize>) {
-    if let Err(why) = state.redis.expire(&arg, timeout.unwrap_or(360)).await {
-        error!(
-            format!("redis timeout error: {arg}"),
-            argument = %arg,
-            error = ?why,
-        );
+) -> SResult<()> {
+    state.redis.set(&key, value).await?;
+    if !timeout.is_none() {
+        ref_red_cac_raw(state, key, timeout).await?;
     }
+    Ok(())
 }
 
 #[instrument]
-pub async fn delet_dis(state: Arc<AppData>, arg: impl ToRedisArgs) {
-    state.redis.del(arg)?
+pub async fn ref_red_cac_raw(
+    state: Arc<AppData>,
+    arg: impl ToRedisArgs,
+    timeout: Option<usize>,
+) -> SResult<()> {
+    Ok(state.redis.expire(&arg, timeout.unwrap_or(360)).await?)
+}
+
+#[instrument]
+pub async fn delet_dis<F: FromRedisValue>(
+    state: Arc<AppData>,
+    arg: impl ToRedisArgs,
+) -> SResult<F> {
+    Ok(state.redis.del(arg)?)
 }

@@ -1,3 +1,4 @@
+use crate::access::{delet_dis, insert_into_cache};
 use crate::{
     access::TOKEN_SEPERATOR,
     roles::Roles,
@@ -86,8 +87,9 @@ impl From<KKBGrant> for Grant {
 
 impl_redis!(KKBGrant);
 
+#[derive(Clone, Debug)]
 pub struct OAuthAuthorizer {
-    redis: Arc<RedisHolder>,
+    state: Arc<AppData>,
     rng: Arc<Mutex<AutoReseedingRng<65535>>>,
     id: Arc<Mutex<SnowflakeIdGenerator>>,
     machine_id: u8,
@@ -110,15 +112,11 @@ impl Authorizer for OAuthAuthorizer {
         );
         let kkbgrant: KKBGrant = grant.into();
         // check with redis
-        if let Ok(_) = self.redis.0.get::<&str, KKBGrant>(&hashed).await {
+
+        if let Ok(_) = kkbgrant_from_id(self.state.clone(), hashed.as_str()) {
             return Err(());
         }
-        match self
-            .redis
-            .0
-            .set::<&str, KKBGrant, _>(&hashed, kkbgrant)
-            .await
-        {
+        match insert_kkbgrant_with_id(self.state.clone(), hashed.as_str(), &kkbgrant) {
             Ok(_) => Ok(hashed),
             Err(_) => Err(()),
         }
@@ -126,25 +124,27 @@ impl Authorizer for OAuthAuthorizer {
 
     #[instrument]
     async fn extract(&mut self, token: &str) -> Result<Option<Grant>, ()> {
-        if let Ok(kkbgrant) = self.redis.0.get::<&str, KKBGrant>(token).await {
-            self.redis
-                .0
-                .del::<&str, KKBGrant>(token, kkbgrant.clone())
-                .await
-                .map_err(())?;
-            Ok(Some(kkbgrant.into()))
+        if let Ok(kkbgrant) = kkbgrant_from_id(self.state.clone(), token) {
+            let grant = delete_kkbgrant(self.state.clone(), token).await?;
+            if kkbgrant == grant {
+                Ok(Some(grant.into()))
+            }
+            Err(())
         } else {
             Err(())
         }
     }
 }
 
-pub struct OAuthRegistrar {}
+#[derive(Clone, Debug)]
+pub struct OAuthRegistrar {
+    state: Arc<AppData>
+}
 
 #[async_trait]
 impl Registrar for OAuthRegistrar {
     fn bound_redirect<'a>(&self, bound: ClientUrl<'a>) -> Result<BoundClient<'a>, RegistrarError> {
-        todo!()
+        let client = match
     }
 
     fn negotiate(
@@ -386,4 +386,23 @@ pub async fn application_by_id(state: Arc<AppData>, id: u64) -> SResult<applicat
         .applications
         .insert(id, application_query.clone()); // rip alloc
     Ok(application_query)
+}
+
+#[instrument]
+pub async fn kkbgrant_from_id(state: Arc<AppData>, id: &str) -> SResult<KKBGrant> {
+    Ok(state.redis.get(id).await?)
+}
+
+#[instrument]
+pub async fn insert_kkbgrant_with_id(
+    state: Arc<AppData>,
+    id: &str,
+    grant: &KKBGrant,
+) -> SResult<()> {
+    insert_into_cache(state, id, grant.clone(), None).await
+}
+
+#[instrument]
+pub async fn delete_kkbgrant(state: Arc<AppData>, id: &str) -> SResult<KKBGrant> {
+    Ok(delet_dis(state, id).await?)
 }
