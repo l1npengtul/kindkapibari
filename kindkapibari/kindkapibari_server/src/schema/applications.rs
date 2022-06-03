@@ -1,5 +1,7 @@
 use sea_orm::prelude::*;
 use serde::{Deserialize, Serialize};
+use kindkapibari_core::dbvec::DBVec;
+use crate::KKBScope;
 
 #[derive(Clone, Debug, Hash, PartialOrd, PartialEq, Serialize, Deserialize, DeriveEntityModel)]
 #[sea_orm(table_name = "applications")]
@@ -16,6 +18,7 @@ pub struct Model {
     pub logo: String,
     #[sea_orm(column_type = "Text", indexed, nullable)]
     pub signed_secret: Option<String>,
+    pub scopes: DBVec<KKBScope>,
 }
 
 #[derive(Copy, Clone, Debug, EnumIter)]

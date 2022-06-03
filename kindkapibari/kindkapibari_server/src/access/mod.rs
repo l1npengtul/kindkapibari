@@ -5,6 +5,7 @@ use tracing::{error, instrument};
 
 pub mod auth;
 pub mod user;
+pub mod application;
 
 pub const TOKEN_SEPERATOR: &'static str = "-";
 

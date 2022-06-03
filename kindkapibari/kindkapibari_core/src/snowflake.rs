@@ -6,10 +6,11 @@ pub struct SnowflakeIdGenerator {
     epoch: DateTime<Utc>,
     last: AtomicCell<DateTime<Utc>>,
     sequence: AtomicU16,
+    machine_id: u8,
 }
 
 impl SnowflakeIdGenerator {
-    pub fn new(epoch: DateTime<Utc>) -> Option<Self> {
+    pub fn new(epoch: DateTime<Utc>, machine_id: u8) -> Option<Self> {
         let now = Utc::now();
         if epoch >= now {
             return None;
@@ -18,10 +19,11 @@ impl SnowflakeIdGenerator {
             epoch,
             last: AtomicCell::new(epoch),
             sequence: Default::default(),
+            machine_id,
         })
     }
 
-    pub fn generate_id(&self, machine: u8) -> u64 {
+    pub fn generate_id(&self) -> u64 {
         let sequence = self.sequence.load(Ordering::SeqCst);
         let now = Utc::now();
         let epoch = self.epoch;
@@ -38,7 +40,7 @@ impl SnowflakeIdGenerator {
 
         // store 44 bits of time, 7 bits of machine ID, 16 bits of sequence
         (difference.num_milliseconds() as u64) << 22
-            | (machine as u64) << 16 // FIXME: Check if this is right (i am dumb shit)
+            | (self.machine_id as u64) << 16 // FIXME: Check if this is right (i am dumb shit)
             | (sequence as u64)
     }
 }

@@ -21,6 +21,7 @@ use moka::future::Cache;
 use redis::aio::ConnectionManager;
 use sea_orm::DatabaseConnection;
 use tokio::{io::AsyncReadExt, sync::RwLock};
+use kindkapibari_core::snowflake::SnowflakeIdGenerator;
 
 const EPOCH_START: u64 = 1650125769; // haha nice
 type SResult<T> = Result<T, ServerError>;
@@ -33,12 +34,14 @@ pub struct AppData {
     pub database: DatabaseConnection,
     pub config: RwLock<Config>,
     pub caches: Caches,
+    pub id_generator: SnowflakeIdGenerator,
 }
 
 pub struct Caches {
-    pub login_token: Cache<DecodedSecret, user::Model>,
-    pub oauth_token: Cache<DecodedSecret, users::AuthorizedUser>,
-    pub applications: Cache<u64, applications::Model>,
+    pub users: Cache<u64, Option<user::Model>>,
+    pub login_token: Cache<DecodedSecret, Option<user::Model>>,
+    pub oauth_token: Cache<DecodedSecret, Option<users::AuthorizedUser>>,
+    pub applications: Cache<u64, Option<applications::Model>>,
 }
 
 #[tokio::main]

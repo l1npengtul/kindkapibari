@@ -61,7 +61,7 @@ pub async fn generate_login_token(state: Arc<AppData>, user: user::Model) -> SRe
     // cache
     if let Ok(secret) = decode_gotten_secret(&token, TOKEN_SEPERATOR, config.signing_key.as_bytes())
     {
-        state.caches.login_token.insert(secret, user);
+        state.caches.login_token.insert(secret, Some(user));
     }
 
     Ok(token)

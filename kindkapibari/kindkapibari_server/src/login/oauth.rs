@@ -21,12 +21,6 @@ use tracing::instrument;
 
 const REDIS_AUTHORIZE_LOGIN_REDIRECT_ID_HEADER: &'static str = "kkb:au_lg_rdr:";
 
-static ID_GENERATOR: Lazy<Arc<SnowflakeIdGenerator>> = Lazy::new(|| {
-    Arc::new(SnowflakeIdGenerator::new(
-        Utc.timestamp_millis(16502056_420_69), // nice
-    ))
-});
-
 #[derive(Serialize, Deserialize)]
 struct AuthorizeRequest {
     client_id: String,

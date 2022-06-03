@@ -1,11 +1,20 @@
-use crate::access::{delet_dis, insert_into_cache};
 use crate::{
-    access::TOKEN_SEPERATOR,
+    access::{
+        delet_dis,
+        insert_into_cache,
+        TOKEN_SEPERATOR,
+        user::get_user_by_id
+    },
     roles::Roles,
     schema::applications,
     user,
     users::{oauth_authorizations, AuthorizedUser},
-    AResult, AppData, KKBScope, Report, SResult, ServerError,
+    AResult,
+    AppData,
+    KKBScope,
+    Report,
+    SResult,
+    ServerError,
 };
 use async_trait::async_trait;
 use chrono::{DateTime, Duration, NaiveTime, Utc};
@@ -36,56 +45,23 @@ use std::{
     ops::{Add, Deref},
     sync::Arc,
 };
+use std::borrow::Cow;
+use std::str::FromStr;
+use oauth2::http::Uri;
+use oxide_auth::primitives::registrar::{ClientType, ExactUrl, RegisteredUrl};
 use tokio::sync::Mutex;
 use tracing::instrument;
 
 pub const AUTH_REDIS_KEY_START_OAUTH_ACCESS: [u8; 2] = *b"oa";
 pub const AUTH_REDIS_KEY_START_OAUTH_REFRESH: [u8; 2] = *b"or";
 pub const AUTH_REDIS_KEY_START_OAUTH_AUTHORIZER: [u8; 4] = *b"oaut";
+const OAUTH_GRANT_REDIS_KEY: [u8; 14] = *b"kkboauthgrant:";
 pub const OAUTH_ACCESS_PREFIX_NO_DASH: &'static str = "OA";
 pub const OAUTH_REFRESH_PREFIX_NO_DASH: &'static str = "OR";
 
 pub struct KKBOAuthState {}
 
 struct RedisHolder(pub ConnectionManager);
-
-#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
-struct KKBGrant {
-    pub owner_id: String,
-    pub client_id: String,
-    pub scope: Scope,
-    pub redirect_uri: Url,
-    pub until: DateTime<Utc>,
-    pub extensions: Extensions,
-}
-
-impl From<Grant> for KKBGrant {
-    fn from(grant: Grant) -> Self {
-        Self {
-            owner_id: grant.owner_id,
-            client_id: grant.client_id,
-            scope: grant.scope,
-            redirect_uri: grant.redirect_uri,
-            until: grant.until,
-            extensions: grant.extensions,
-        }
-    }
-}
-
-impl From<KKBGrant> for Grant {
-    fn from(kkbgrant: KKBGrant) -> Self {
-        Self {
-            owner_id: kkbgrant.owner_id,
-            client_id: kkbgrant.client_id,
-            scope: kkbgrant.scope,
-            redirect_uri: kkbgrant.redirect_uri,
-            until: kkbgrant.until,
-            extensions: kkbgrant.extensions,
-        }
-    }
-}
-
-impl_redis!(KKBGrant);
 
 #[derive(Clone, Debug)]
 pub struct OAuthAuthorizer {
@@ -113,10 +89,10 @@ impl Authorizer for OAuthAuthorizer {
         let kkbgrant: KKBGrant = grant.into();
         // check with redis
 
-        if let Ok(_) = kkbgrant_from_id(self.state.clone(), hashed.as_str()) {
+        if let Ok(_) = grant_from_id(self.state.clone(), hashed.as_str()) {
             return Err(());
         }
-        match insert_kkbgrant_with_id(self.state.clone(), hashed.as_str(), &kkbgrant) {
+        match insert_grant_with_id(self.state.clone(), hashed.as_str(), &kkbgrant) {
             Ok(_) => Ok(hashed),
             Err(_) => Err(()),
         }
@@ -124,8 +100,8 @@ impl Authorizer for OAuthAuthorizer {
 
     #[instrument]
     async fn extract(&mut self, token: &str) -> Result<Option<Grant>, ()> {
-        if let Ok(kkbgrant) = kkbgrant_from_id(self.state.clone(), token) {
-            let grant = delete_kkbgrant(self.state.clone(), token).await?;
+        if let Ok(kkbgrant) = grant_from_id(self.state.clone(), token) {
+            let grant = delete_grant(self.state.clone(), token).await?;
             if kkbgrant == grant {
                 Ok(Some(grant.into()))
             }
@@ -141,21 +117,66 @@ pub struct OAuthRegistrar {
     state: Arc<AppData>
 }
 
+// The "clients" here are the OAuth clients not our users!
 #[async_trait]
 impl Registrar for OAuthRegistrar {
-    fn bound_redirect<'a>(&self, bound: ClientUrl<'a>) -> Result<BoundClient<'a>, RegistrarError> {
-        let client = match
+    #[instrument]
+    async fn bound_redirect<'a>(&self, bound: ClientUrl<'a>) -> Result<BoundClient<'a>, RegistrarError> {
+        let client = match application_by_id(self.state.clone(), bound.client_id.parse::<u64>()?).await {
+            Ok(app) => app,
+            Err(_) => return Err(RegistrarError::Unspecified),
+        };
+
+        let registered_url = match bound.redirect_uri {
+            Some(ref uri) => {
+                if &client.callback == uri.as_str() {
+                    RegisteredUrl::from(ExactUrl::from_str(&client.callback).map_err(RegistrarError::PrimitiveError)?)
+                } else {
+                    return Err(RegistrarError::PrimitiveError)
+                }
+            }
+            None => {
+                RegisteredUrl::from(ExactUrl::from_str(&client.callback).map_err(RegistrarError::PrimitiveError)?)
+            },
+         };
+
+        Ok(
+            BoundClient {
+                client_id: bound.client_id,
+                redirect_uri: Cow::Owned(registered_url),
+            }
+        )
     }
 
-    fn negotiate(
+    #[instrument]
+    async fn negotiate(
         &self,
         client: BoundClient,
-        scope: Option<Scope>,
+        _: Option<Scope>,
     ) -> Result<PreGrant, RegistrarError> {
-        todo!()
+        let app = match application_by_id(self.state.clone(), client.client_id.parse::<u64>()?).await {
+            Ok(app) => app,
+            Err(_) => return Err(RegistrarError::Unspecified),
+        };
+
+        // TODO: faster way to do this
+        let mut scopes_str = String::new();
+        for scope in app.scopes.iter() {
+            scopes_str += &scope.to_attr_string();
+        }
+        let scopes = scopes_str.parse::<Scope>()?;
+
+        Ok(
+            PreGrant {
+                client_id: client.client_id.into_owned(),
+                redirect_uri: client.redirect_uri.into_owned(),
+                scope: scopes
+            }
+        )
     }
 
-    fn check(&self, client_id: &str, passphrase: Option<&[u8]>) -> Result<(), RegistrarError> {
+    #[instrument]
+    async fn check(&self, client_id: &str, passphrase: Option<&[u8]>) -> Result<(), RegistrarError> {
         todo!()
     }
 }
@@ -244,18 +265,26 @@ pub async fn generate_oauth_with_refresh(
     tokio::task::spawn(async {
         let user = user::Entity::find_by_id(user_id)
             .one(&state.database)
-            .await?
-            .ok_or(ServerError::NotFound("user", "database"))?;
+            .await?;
 
-        let authorized_user = AuthorizedUser {
-            scopes: requested_scopes,
-            user,
-        };
+        if user.is_none() {
+            if let Ok(secret) =
+                decode_gotten_secret(&token, TOKEN_SEPERATOR, config.signing_key.as_bytes())
+            {
+                state.caches.oauth_token.insert(secret, None);
+            }
+        } else {
+            let user = user.ok_or(ServerError::NotFound("user", "database"))?;
+            let authorized_user = AuthorizedUser {
+                scopes: requested_scopes,
+                user,
+            };
 
-        if let Ok(secret) =
+            if let Ok(secret) =
             decode_gotten_secret(&token, TOKEN_SEPERATOR, config.signing_key.as_bytes())
-        {
-            state.caches.oauth_token.insert(secret, authorized_user);
+            {
+                state.caches.oauth_token.insert(secret, Some(authorized_user));
+            }
         }
     });
 
@@ -311,18 +340,26 @@ pub async fn generate_oauth_no_refresh(
     tokio::task::spawn(async {
         let user = user::Entity::find_by_id(user_id)
             .one(&state.database)
-            .await?
-            .ok_or(ServerError::NotFound("user", "database"))?;
+            .await?;
 
-        let authorized_user = AuthorizedUser {
-            scopes: requested_scopes,
-            user,
-        };
-
-        if let Ok(secret) =
+        if user.is_none() {
+            if let Ok(secret) =
             decode_gotten_secret(&token, TOKEN_SEPERATOR, config.signing_key.as_bytes())
-        {
-            state.caches.oauth_token.insert(secret, authorized_user);
+            {
+                state.caches.oauth_token.insert(secret, None);
+            }
+        } else {
+            let user = user.ok_or(ServerError::NotFound("user", "database"))?;
+            let authorized_user = AuthorizedUser {
+                scopes: requested_scopes,
+                user,
+            };
+
+            if let Ok(secret) =
+            decode_gotten_secret(&token, TOKEN_SEPERATOR, config.signing_key.as_bytes())
+            {
+                state.caches.oauth_token.insert(secret, Some(authorized_user));
+            }
         }
     });
 
@@ -371,38 +408,23 @@ pub fn verify_access_token(state: Arc<AppData>, token: DecodedSecret) -> SResult
 }
 
 #[instrument]
-pub async fn application_by_id(state: Arc<AppData>, id: u64) -> SResult<applications::Model> {
-    if let Ok(application) = state.caches.applications.get(&id) {
-        return Ok(application);
-    }
-
-    let application_query = applications::Entity::find_by_id(id)
-        .one(&state.database)
-        .await?
-        .ok_or(ServerError::NotFound("No application", "Not Found"))?;
-    // commit to cache
-    state
-        .caches
-        .applications
-        .insert(id, application_query.clone()); // rip alloc
-    Ok(application_query)
+pub async fn grant_from_id(state: Arc<AppData>, id: &str) -> SResult<Grant> {
+    let new_id = format!("kkb:oauthgrant:{id}");
+    let grant = pot::from_slice::<Grant>(&state.redis.get::<String, Vec<u8>>(new_id).await?)?;
+    Ok(grant)
 }
 
 #[instrument]
-pub async fn kkbgrant_from_id(state: Arc<AppData>, id: &str) -> SResult<KKBGrant> {
-    Ok(state.redis.get(id).await?)
-}
-
-#[instrument]
-pub async fn insert_kkbgrant_with_id(
+pub async fn insert_grant_with_id(
     state: Arc<AppData>,
     id: &str,
-    grant: &KKBGrant,
+    grant: &Grant,
 ) -> SResult<()> {
-    insert_into_cache(state, id, grant.clone(), None).await
+    let grant_as_bytes = pot::to_vec(grant)?;
+    insert_into_cache(state, id, grant_as_bytes, None).await
 }
 
 #[instrument]
-pub async fn delete_kkbgrant(state: Arc<AppData>, id: &str) -> SResult<KKBGrant> {
-    Ok(delet_dis(state, id).await?)
+pub async fn delete_grant(state: Arc<AppData>, id: &str) -> SResult<Grant> {
+    Ok(pot::from_slice::<Grant>(delet_dis(state, id).await?)?)
 }
