@@ -1,4 +1,4 @@
-# KindKapiBari - Affirmations for the Silenced
+# KindKapiBari - Let's Not Die (together) <3!
 
 ## License
 All code/config/documentation files (usually ending in `.svelte`, `.ts`, `.rs`, `.toml`, etc) are licensed under the GNU AGPL v3+ as defined in LICENSE.md
