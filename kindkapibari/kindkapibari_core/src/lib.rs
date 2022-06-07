@@ -21,6 +21,7 @@ pub mod output;
 pub mod permissions;
 pub mod preferences;
 pub mod pronouns;
+#[cfg(feature = "server")]
 pub mod reseedingrng;
 pub mod responses;
 #[cfg(feature = "server")]
@@ -41,6 +42,9 @@ pub mod version;
 pub mod db_impl;
 pub mod reminder;
 pub mod sober;
+#[cfg(feature = "server")]
+#[macro_use]
+pub mod mokacaches;
 pub use kindkapibari_proc::AttrString;
 
 pub trait AttrErr {
@@ -51,8 +55,8 @@ pub trait AttrErr {
 macro_rules! impl_attr_err {
     ($($toimpl:ty),*) => {
         $(
-            impl kindkapibari_core::AttrErr for $toimpl {
-                type ParseError = kindkapibari_core::ParseEnumError;
+            impl $crate::AttrErr for $toimpl {
+                type ParseError = $crate::ParseEnumError;
             }
         )*
     };

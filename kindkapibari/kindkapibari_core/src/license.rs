@@ -1,6 +1,8 @@
-use crate::gender::Gender;
-use sea_orm::sea_query::{ValueType, ValueTypeErr};
-use sea_orm::{ColumnType, QueryResult, TryGetError, TryGetable, Value};
+#[cfg(feature = "server")]
+use sea_orm::{
+    sea_query::{ValueType, ValueTypeErr},
+    ColumnType, QueryResult, TryGetError, TryGetable, Value,
+};
 use std::string::ParseError;
 
 #[derive(Clone, Debug, Hash, PartialOrd, PartialEq, Serialize, Deserialize)]

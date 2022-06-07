@@ -18,8 +18,9 @@ pub const SUNDAY: u32 = 6;
 
 #[derive(Copy, Clone, Debug, Default, PartialEq, PartialOrd, Serialize, Deserialize)]
 pub enum Weekdays {
-    Weekdays([bool; 7]),
+    #[default]
     Everyday,
+    Days([bool; 7]),
 }
 
 // inspired by the alarm app on my phone

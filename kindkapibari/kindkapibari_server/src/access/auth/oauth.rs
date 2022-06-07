@@ -3,10 +3,8 @@ use crate::{
         delet_dis,
         insert_into_cache,
         TOKEN_SEPERATOR,
-        user::get_user_by_id
     },
     roles::Roles,
-    schema::applications,
     user,
     users::{oauth_authorizations, AuthorizedUser},
     AResult,
@@ -17,22 +15,23 @@ use crate::{
     ServerError,
 };
 use async_trait::async_trait;
-use chrono::{DateTime, Duration, NaiveTime, Utc};
+use chrono::{DateTime, Duration, Utc};
 use kindkapibari_core::{
     dbarray::DBArray,
     dbvec::DBVec,
-    impl_redis,
     reseedingrng::AutoReseedingRng,
     secret::{decode_gotten_secret, generate_signed_key, DecodedSecret},
     snowflake::SnowflakeIdGenerator,
 };
-use oauth2::url::Url;
-use oxide_auth::endpoint::PreGrant;
-use oxide_auth::primitives::{
-    grant::{Extensions, Grant, Scope},
-    issuer::{IssuedToken, RefreshedToken},
-    prelude::ClientUrl,
-    registrar::{BoundClient, RegistrarError},
+use oxide_auth::{
+    endpoint::PreGrant,
+    primitives::{
+        grant::{Extensions, Grant, Scope},
+        issuer::{IssuedToken, RefreshedToken},
+        prelude::ClientUrl,
+        registrar::{BoundClient, RegistrarError},
+    },
+    primitives::registrar::{ClientType, ExactUrl, RegisteredUrl}
 };
 use oxide_auth_async::primitives::{Authorizer, Issuer, Registrar};
 use redis::{aio::ConnectionManager, AsyncCommands};
@@ -48,9 +47,9 @@ use std::{
 use std::borrow::Cow;
 use std::str::FromStr;
 use oauth2::http::Uri;
-use oxide_auth::primitives::registrar::{ClientType, ExactUrl, RegisteredUrl};
 use tokio::sync::Mutex;
 use tracing::instrument;
+use crate::access::application::application_by_id;
 
 pub const AUTH_REDIS_KEY_START_OAUTH_ACCESS: [u8; 2] = *b"oa";
 pub const AUTH_REDIS_KEY_START_OAUTH_REFRESH: [u8; 2] = *b"or";
@@ -79,7 +78,7 @@ impl Authorizer for OAuthAuthorizer {
             .id
             .lock()
             .await
-            .generate_id(self.machine_id)
+            .generate_id()
             .to_le_bytes();
         let rng: [u8; 56] = self.rng.lock().await.generate_bytes();
         let hashed = format!(

@@ -1,8 +1,6 @@
 #[cfg(feature = "server")]
 use sea_orm::{DbErr, QueryResult, TryGetError, TryGetable, Value};
 use std::collections::HashMap;
-use url::Url;
-use uuid::Uuid;
 
 const V1: u32 = 0;
 

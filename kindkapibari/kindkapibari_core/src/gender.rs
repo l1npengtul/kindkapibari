@@ -1,7 +1,8 @@
-use sea_orm::sea_query::{ColumnType, ValueType, ValueTypeErr};
-use sea_orm::Value;
 #[cfg(feature = "server")]
-use sea_orm::{QueryResult, TryGetError, TryGetable};
+use sea_orm::{
+    sea_query::{ColumnType, ValueType, ValueTypeErr},
+    QueryResult, TryGetError, TryGetable, Value,
+};
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
 use std::fmt::{Debug, Display, Formatter};
 

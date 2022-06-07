@@ -1,4 +1,3 @@
-use crate::license::SPDXLicense;
 use crate::version::Version;
 use serde::*;
 use staticvec::StaticVec;

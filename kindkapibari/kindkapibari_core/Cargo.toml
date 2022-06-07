@@ -11,7 +11,7 @@ client = ["chrono/wasmbind", "wasm-bindgen"]
 # I apologize to anyone reading this
 server = ["pot", "sea-orm",
     "redis", "flume", "tokio",
-    "futures-core", "crossbeam", "poem", "base64", "chacha20poly1305", "argon2", "blake3", "eyre", "once_cell"]
+    "futures-core", "crossbeam", "poem", "base64", "chacha20poly1305", "argon2", "blake3", "eyre", "once_cell", "moka", "paste", "tokio-native-tls"]
 
 [dependencies]
 serde_json = "^1.0"
@@ -124,4 +124,17 @@ optional = true
 
 [dependencies.once_cell]
 version = "1.10.0"
+optional = true
+
+[dependencies.tokio-native-tls]
+version = "0.3.0"
+optional = true
+
+[dependencies.moka]
+version = "0.8.5"
+features = ["future"]
+optional = true
+
+[dependencies.paste]
+version = "1.0.7"
 optional = true

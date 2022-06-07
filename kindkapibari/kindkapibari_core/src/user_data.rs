@@ -1,5 +1,5 @@
 use crate::{gender::Gender, pronouns::Pronouns, reminder::Reminders, sober::Sobers};
-use chrono::{Date, DateTime, Utc};
+use chrono::{Date, Utc};
 use language_tags::LanguageTag;
 
 const CURRENT_SCHEMA: u64 = 0;

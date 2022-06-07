@@ -1,3 +1,5 @@
+#![allow(unused_variables)]
+
 use proc_macro::TokenStream;
 use quote::quote;
 use syn::{parse_macro_input, DataEnum, DeriveInput};
@@ -17,47 +19,52 @@ pub fn attr_string(input: TokenStream) -> TokenStream {
         variants.into_iter().for_each(|variant| {
             // Enum -> String
             match variant.fields {
-                syn::Fields::Named(n) => {
-                    let flds = n.named.into_iter().next().unwrap();
+                syn::Fields::Named(ref n) => {
+                    let flds = n.named.iter().next().unwrap();
+                    let flds_ident = flds.ident.as_ref().unwrap();
+                    let flds_str = format!("{flds:?}");
+                    let flds_typ = &flds.ty;
 
                     parse_onearg.push(quote! {
                         {
-                            <variant>{flds.ident.unwrap(): subtag.parse()?}
+                            #variant(Result::map_err(<#flds_typ>::parse(subtag), || ())?)
                         }
                     });
                     parse_plain_string_from_onearg.push(variant.ident.to_string());
                     fields.push(quote! {
                         {
-                            let mut base_str = <variant.ident>::to_string();
-                            format!("{base_str}({})", flds.to_string())
+                            format!("{}({})", core::stringify!(#variant), #flds_str)
                         }
                     });
                 }
-                syn::Fields::Unnamed(_) => {
+                syn::Fields::Unnamed(ref u) => {
+                    let flds = u.unnamed.iter().next().unwrap();
+                    let flds_str = format!("{flds:?}");
+                    let flds_typ = &flds.ty;
+
                     parse_onearg.push(quote! {
                         {
-                            <variant>(subtag.parse()?)
+                            #variant(Result::map_err(<#flds_typ>::parse(subtag), || ())?)
                         }
                     });
                     parse_plain_string_from_onearg.push(variant.ident.to_string());
 
                     fields.push(quote! {
                         {
-                            let mut base_str = <variant.ident>::to_string();
-                            format!("{base_str}({})", flds.to_string())
+                            format!("{}({})", core::stringify!(#variant), #flds_str)
                         }
                     });
                 }
                 syn::Fields::Unit => {
                     parse_noarg.push(quote! {
                         {
-                            variant
+                            #variant
                         }
                     });
                     parse_plain_string_from_noarg.push(variant.ident.to_string());
                     fields.push(quote! {
                         {
-                            <variant.ident>::to_string()
+                            core::stringify!(#variant)
                         }
                     });
                 }
@@ -67,45 +74,52 @@ pub fn attr_string(input: TokenStream) -> TokenStream {
     }
 
     let out = quote! {
-        impl Debug for #ident {
-            fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        impl core::fmt::Debug for #ident {
+            fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> std::fmt::Result {
                 write!(
                     f,
                     "{}",
-                    self.to_attr_string()
+                    Self::to_attr_string(self)
                 )
             }
         }
 
-        impl Display for #ident {
-            fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
-                write!(f, "{self:?}")
+        impl core::fmt::Display for #ident {
+            fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> std::fmt::Result {
+                write!(f, "{:?}", self)
             }
         }
 
-        impl FromStr for #ident {
-            type Err = Self::ParseError;
+        impl core::str::FromStr for #ident {
+            type Err = ();
 
             fn from_str(s: &str) -> Result<Self, Self::Err> {
-                let s.replace([ALLOWED_CHARS, &['(', ')']].concat(), "") != "" {
-                    return Err(Self::Err::from("not allowed characters".to_string()));
+                const ALLOWED_CHARS: &[char] = &[
+                    'a', 'b', 'c', 'd', 'e', 'f', 'g', 'h', 'i', 'j', 'k', 'l', 'm', 'n', 'o', 'p', 'q', 'r', 's',
+                    't', 'u', 'v', 'w', 'x', 'y', 'z', 'A', 'B', 'C', 'D', 'E', 'F', 'G', 'H', 'I', 'J', 'K', 'L',
+                    'M', 'N', 'O', 'P', 'Q', 'R', 'S', 'T', 'U', 'V', 'W', 'X', 'Y', 'Z', '0', '1', '2', '3', '4',
+                    '5', '6', '7', '8', '9',
+                ];
+
+                let std::str::replace(s, std::slice::concat([ALLOWED_CHARS, &['(', ')']])) != "" {
+                    _ => return Err(()),
                 }
 
-                let splitted = s.split(&['(', ')']).collect::<Vec<String>>();
-                if splitted.len() == 1 {
-                    Ok(match splitted[0].as_str() {
+                let splitted = std::iter::Iterator::collect::<Vec<String>>(std::str::replace(s, &['(', ')']));
+                if Vec::len(splitted) == 1 {
+                    Ok(String::from(match String::as_ref(splitted[0]) {
                         #(#parse_plain_string_from_noarg => #parse_noarg),*
-                        _ => return Self::Err::from("uncaught".to_string()),
-                    })
-                } else if splitted.len() == 2 {
+                        _ => return Err(()),
+                    }))
+                } else if Vec::len(splitted) == 2 {
                     let subtag = splitted[1];
 
-                    Ok(match splitted[0].as_str() {
+                    Ok(String::from(match String::as_ref(splitted[0]) {
                         #(#parse_plain_string_from_onearg => #parse_onearg),*
-                        _ => return Self::Err::from("uncaught".to_string()),
-                    })
+                        _ => return Err(()),
+                    }))
                 } else {
-                    return Err(Self::Err::from("not found".to_string()));
+                    _ => return Err(()),
                 }
             }
         }
@@ -114,31 +128,28 @@ pub fn attr_string(input: TokenStream) -> TokenStream {
             pub fn to_attr_string(&self) -> String {
                 match &self {
                     #(#field => #fields),*
+                    _ => String::from(""),
                 }
             }
 
             pub fn to_snake_case(&self) -> String {
                 use convert_case::{Case, Casing};
-
-                self.to_attr_string().to_case(Case::Snake)
+                <Self::to_attr_string(self) as Casing>::to_case(Case::Snake)
             }
 
             pub fn to_camel_case(&self) -> String {
                 use convert_case::{Case, Casing};
-
-                self.to_attr_string().to_case(Case::Camel)
+                <Self::to_attr_string(self) as Casing>::to_case(Case::Camel)
             }
 
             pub fn to_pascal_case(&self) -> String {
                 use convert_case::{Case, Casing};
-
-                self.to_attr_string().to_case(Case::Pascal)
+                <Self::to_attr_string(self) as Casing>::to_case(Case::Pascal)
             }
 
             pub fn to_kebab_case(&self) -> String {
                 use convert_case::{Case, Casing};
-
-                self.to_attr_string().to_case(Case::Kebab)
+                <Self::to_attr_string(self) as Casing>::to_case(Case::Kebab)
             }
         }
     };

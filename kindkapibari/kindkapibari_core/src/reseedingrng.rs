@@ -1,4 +1,5 @@
-use rand::{RngCore, SeedableRng};
+use rand::RngCore;
+#[cfg(feature = "server")]
 use rand_chacha::ChaCha20Rng;
 
 pub struct AutoReseedingRng<const MAX_BYTES: usize> {

@@ -1,8 +1,10 @@
-use sea_orm::sea_query::{ColumnType, ValueType, ValueTypeErr};
-use sea_orm::{DbErr, QueryResult, TryGetError, TryGetable, Value};
+#[cfg(feature = "server")]
+use sea_orm::{
+    sea_query::{ColumnType, ValueType, ValueTypeErr},
+    DbErr, QueryResult, TryGetError, TryGetable, Value,
+};
 use semver::{BuildMetadata, Prerelease, Version as SemVer};
 use std::ops::{Deref, DerefMut};
-use std::str::FromStr;
 
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 pub struct Version {
