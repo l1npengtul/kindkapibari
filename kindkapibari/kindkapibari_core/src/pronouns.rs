@@ -85,8 +85,10 @@ impl Pronouns {
             Pronouns::AeAers => PronounProfileStr::AE_AERS,
             Pronouns::AnyAll => {
                 // RNG! RNG! RNG! RNG!
-                let mut rng = SmallRng::from_seed(Utc::now().timestamp_millis().to_ne_bytes());
-                PRONOUNS_CONST_BUILTIN.choose(&mut rng)
+                let mut rng = SmallRng::seed_from_u64(Utc::now().timestamp_millis() as u64);
+                *(PRONOUNS_CONST_BUILTIN
+                    .choose(&mut rng)
+                    .unwrap_or(&PRONOUNS_CONST_BUILTIN[0]))
             }
             Pronouns::Custom(c) => *c.as_ref(),
         }

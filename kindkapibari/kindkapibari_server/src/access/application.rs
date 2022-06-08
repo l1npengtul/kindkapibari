@@ -1,13 +1,13 @@
-use std::sync::Arc;
+use crate::applications::Model;
+use crate::{schema::applications, AppData, SResult, ServerError};
 use redis::{AsyncCommands, ControlFlow, Msg};
 use sea_orm::{ActiveValue, EntityTrait};
+use std::fmt::Display;
+use std::sync::Arc;
 use tracing::instrument;
-use crate::{AppData, schema::applications, ServerError, SResult};
 
 #[instrument]
 pub async fn application_by_id(state: Arc<AppData>, id: u64) -> SResult<applications::Model> {
-    state.caches.
-
     let application_query = applications::Entity::find_by_id(id)
         .one(&state.database)
         .await?;
@@ -16,7 +16,7 @@ pub async fn application_by_id(state: Arc<AppData>, id: u64) -> SResult<applicat
         .caches
         .applications
         .insert(id, application_query.clone()); // rip alloc
-    Ok(application_query.ok_or(ServerError::NotFound("No application", "Not Found"))?)
+    Ok(application_query.ok_or(ServerError::NotFound("No application" as dyn Display, "Not Found" as dyn Display))?)
 }
 
 pub fn invalidate_application_cache(state: Arc<AppData>, msg: Msg) -> ControlFlow<()> {
@@ -27,7 +27,10 @@ pub fn invalidate_application_cache(state: Arc<AppData>, msg: Msg) -> ControlFlo
 }
 
 #[instrument]
-pub async fn new_application(state: Arc<AppData>, application: applications::ActiveModel) -> SResult<u64> {
+pub async fn new_application(
+    state: Arc<AppData>,
+    application: applications::ActiveModel,
+) -> SResult<u64> {
     let mut application = application;
     let new_id = state.id_generator.generate_id();
     application.id = ActiveValue::Set(new_id);

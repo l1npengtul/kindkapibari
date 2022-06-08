@@ -1,7 +1,7 @@
 #![allow(unused_variables)]
 
 use proc_macro::TokenStream;
-use quote::quote;
+use quote::{quote, format_ident};
 use syn::{parse_macro_input, DataEnum, DeriveInput};
 
 #[proc_macro_derive(AttrString)]
@@ -17,48 +17,59 @@ pub fn attr_string(input: TokenStream) -> TokenStream {
     let mut parse_plain_string_from_onearg = vec![];
     if let syn::Data::Enum(DataEnum { variants, .. }) = data {
         variants.into_iter().for_each(|variant| {
+            let subtag = format_ident!("subtag");
             // Enum -> String
             match variant.fields {
                 syn::Fields::Named(ref n) => {
                     let flds = n.named.iter().next().unwrap();
                     let flds_ident = flds.ident.as_ref().unwrap();
                     let flds_str = format!("{flds:?}");
+                    let flds_ident_str = format!("{flds_ident:?}");
                     let flds_typ = &flds.ty;
 
-                    parse_onearg.push(quote! {
-                        {
-                            #variant(Result::map_err(<#flds_typ>::parse(subtag), || ())?)
-                        }
-                    });
-                    parse_plain_string_from_onearg.push(variant.ident.to_string());
-                    fields.push(quote! {
-                        {
-                            format!("{}({})", core::stringify!(#variant), #flds_str)
-                        }
-                    });
+                    if let syn::Type::Path(p) = flds_typ {
+                        let flds_typ_ident = p.path.get_ident().unwrap();
+
+                        parse_onearg.push(quote! {
+                            {
+                                Result::map_err(#ident::#variant{ #flds_ident : <#flds_typ_ident as core::str::FromStr>::from_str(#subtag) }, || -> () { () })? 
+                            }
+                        });
+                        parse_plain_string_from_onearg.push(variant.ident.to_string());
+                        fields.push(quote! {
+                            {
+                                format!("{}({}: {})", core::stringify!(#variant), #flds_ident_str, #flds_str)
+                            }
+                        });
+                    }
                 }
                 syn::Fields::Unnamed(ref u) => {
                     let flds = u.unnamed.iter().next().unwrap();
                     let flds_str = format!("{flds:?}");
                     let flds_typ = &flds.ty;
 
-                    parse_onearg.push(quote! {
-                        {
-                            #variant(Result::map_err(<#flds_typ>::parse(subtag), || ())?)
-                        }
-                    });
-                    parse_plain_string_from_onearg.push(variant.ident.to_string());
-
-                    fields.push(quote! {
-                        {
-                            format!("{}({})", core::stringify!(#variant), #flds_str)
-                        }
-                    });
+                    if let syn::Type::Path(p) = flds_typ {
+                        let flds_typ_ident = p.path.get_ident().unwrap();
+                        println!("{flds_typ_ident:?}");
+                        let variant_typ_ident = &variant.ident;
+                        parse_onearg.push(quote! {
+                            {
+                                Result::map_err(#ident::#variant_typ_ident(<#flds_typ_ident as core::str::FromStr>::from_str(#subtag), || -> () { () }))?
+                            }
+                        });
+                        parse_plain_string_from_onearg.push(variant.ident.to_string());
+    
+                        fields.push(quote! {
+                            {
+                                format!("{}({})", core::stringify!(#variant), #flds_str)
+                            }
+                        });
+                    }
                 }
                 syn::Fields::Unit => {
                     parse_noarg.push(quote! {
                         {
-                            #variant
+                            #ident::#variant
                         }
                     });
                     parse_plain_string_from_noarg.push(variant.ident.to_string());
@@ -79,14 +90,14 @@ pub fn attr_string(input: TokenStream) -> TokenStream {
                 write!(
                     f,
                     "{}",
-                    Self::to_attr_string(self)
+                    #ident::to_attr_string(&self)
                 )
             }
         }
 
         impl core::fmt::Display for #ident {
             fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> std::fmt::Result {
-                write!(f, "{:?}", self)
+                write!(f, "{:?}", &self)
             }
         }
 
@@ -101,25 +112,25 @@ pub fn attr_string(input: TokenStream) -> TokenStream {
                     '5', '6', '7', '8', '9',
                 ];
 
-                let std::str::replace(s, std::slice::concat([ALLOWED_CHARS, &['(', ')']])) != "" {
-                    _ => return Err(()),
+                if str::replace(s, [ALLOWED_CHARS, &['(', ')']].concat()) != "" {
+                    return Err(())
                 }
 
-                let splitted = std::iter::Iterator::collect::<Vec<String>>(std::str::replace(s, &['(', ')']));
+                let splitted = s.replace(&['(', ')']).collect::<Vec<String>>();
                 if Vec::len(splitted) == 1 {
-                    Ok(String::from(match String::as_ref(splitted[0]) {
+                    Ok(match splitted[0] {
                         #(#parse_plain_string_from_noarg => #parse_noarg),*
                         _ => return Err(()),
-                    }))
+                    })
                 } else if Vec::len(splitted) == 2 {
                     let subtag = splitted[1];
 
-                    Ok(String::from(match String::as_ref(splitted[0]) {
+                    Ok(match splitted[0] {
                         #(#parse_plain_string_from_onearg => #parse_onearg),*
                         _ => return Err(()),
-                    }))
+                    })
                 } else {
-                    _ => return Err(()),
+                    return Err(())
                 }
             }
         }
@@ -134,22 +145,22 @@ pub fn attr_string(input: TokenStream) -> TokenStream {
 
             pub fn to_snake_case(&self) -> String {
                 use convert_case::{Case, Casing};
-                <Self::to_attr_string(self) as Casing>::to_case(Case::Snake)
+                self.to_attr_string().to_case(Case::Kebab)
             }
 
             pub fn to_camel_case(&self) -> String {
                 use convert_case::{Case, Casing};
-                <Self::to_attr_string(self) as Casing>::to_case(Case::Camel)
+                self.to_attr_string().to_case(Case::Kebab)
             }
 
             pub fn to_pascal_case(&self) -> String {
                 use convert_case::{Case, Casing};
-                <Self::to_attr_string(self) as Casing>::to_case(Case::Pascal)
+                self.to_attr_string().to_case(Case::Kebab)
             }
 
             pub fn to_kebab_case(&self) -> String {
                 use convert_case::{Case, Casing};
-                <Self::to_attr_string(self) as Casing>::to_case(Case::Kebab)
+                self.to_attr_string().to_case(Case::Kebab)
             }
         }
     };

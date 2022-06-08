@@ -5,7 +5,7 @@ use url::Url;
 
 pub const CURRENT_MANIFEST_VERSION: Version = Version::new(0, 1, 0);
 
-#[derive(Clone, Debug, Hash, PartialEq, Serialize, Deserialize)]
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 pub struct CoconutPakManifest {
     pub author: Vec<String>,
     pub name: String,

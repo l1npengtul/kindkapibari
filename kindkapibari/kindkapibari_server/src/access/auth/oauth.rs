@@ -1,18 +1,10 @@
+use crate::access::application::application_by_id;
 use crate::{
-    access::{
-        delet_dis,
-        insert_into_cache,
-        TOKEN_SEPERATOR,
-    },
+    access::{delet_dis, insert_into_cache, TOKEN_SEPERATOR},
     roles::Roles,
     user,
     users::{oauth_authorizations, AuthorizedUser},
-    AResult,
-    AppData,
-    KKBScope,
-    Report,
-    SResult,
-    ServerError,
+    AResult, AppData, KKBScope, Report, SResult, ServerError,
 };
 use async_trait::async_trait;
 use chrono::{DateTime, Duration, Utc};
@@ -23,15 +15,16 @@ use kindkapibari_core::{
     secret::{decode_gotten_secret, generate_signed_key, DecodedSecret},
     snowflake::SnowflakeIdGenerator,
 };
+use oauth2::http::Uri;
 use oxide_auth::{
     endpoint::PreGrant,
+    primitives::registrar::{ClientType, ExactUrl, RegisteredUrl},
     primitives::{
         grant::{Extensions, Grant, Scope},
         issuer::{IssuedToken, RefreshedToken},
         prelude::ClientUrl,
         registrar::{BoundClient, RegistrarError},
     },
-    primitives::registrar::{ClientType, ExactUrl, RegisteredUrl}
 };
 use oxide_auth_async::primitives::{Authorizer, Issuer, Registrar};
 use redis::{aio::ConnectionManager, AsyncCommands};
@@ -40,16 +33,14 @@ use sea_orm::{
     RelationTrait,
 };
 use serde::{Deserialize, Serialize};
+use std::borrow::Cow;
+use std::str::FromStr;
 use std::{
     ops::{Add, Deref},
     sync::Arc,
 };
-use std::borrow::Cow;
-use std::str::FromStr;
-use oauth2::http::Uri;
 use tokio::sync::Mutex;
 use tracing::instrument;
-use crate::access::application::application_by_id;
 
 pub const AUTH_REDIS_KEY_START_OAUTH_ACCESS: [u8; 2] = *b"oa";
 pub const AUTH_REDIS_KEY_START_OAUTH_REFRESH: [u8; 2] = *b"or";
@@ -74,12 +65,7 @@ pub struct OAuthAuthorizer {
 impl Authorizer for OAuthAuthorizer {
     #[instrument]
     async fn authorize(&mut self, grant: Grant) -> Result<String, ()> {
-        let id: [u8; 8] = self
-            .id
-            .lock()
-            .await
-            .generate_id()
-            .to_le_bytes();
+        let id: [u8; 8] = self.id.lock().await.generate_id().to_le_bytes();
         let rng: [u8; 56] = self.rng.lock().await.generate_bytes();
         let hashed = format!(
             "{AUTH_REDIS_KEY_START_OAUTH_AUTHORIZER}:{}",
@@ -113,38 +99,43 @@ impl Authorizer for OAuthAuthorizer {
 
 #[derive(Clone, Debug)]
 pub struct OAuthRegistrar {
-    state: Arc<AppData>
+    state: Arc<AppData>,
 }
 
 // The "clients" here are the OAuth clients not our users!
 #[async_trait]
 impl Registrar for OAuthRegistrar {
     #[instrument]
-    async fn bound_redirect<'a>(&self, bound: ClientUrl<'a>) -> Result<BoundClient<'a>, RegistrarError> {
-        let client = match application_by_id(self.state.clone(), bound.client_id.parse::<u64>()?).await {
-            Ok(app) => app,
-            Err(_) => return Err(RegistrarError::Unspecified),
-        };
+    async fn bound_redirect<'a>(
+        &self,
+        bound: ClientUrl<'a>,
+    ) -> Result<BoundClient<'a>, RegistrarError> {
+        let client =
+            match application_by_id(self.state.clone(), bound.client_id.parse::<u64>()?).await {
+                Ok(app) => app,
+                Err(_) => return Err(RegistrarError::Unspecified),
+            };
 
         let registered_url = match bound.redirect_uri {
             Some(ref uri) => {
                 if &client.callback == uri.as_str() {
-                    RegisteredUrl::from(ExactUrl::from_str(&client.callback).map_err(RegistrarError::PrimitiveError)?)
+                    RegisteredUrl::from(
+                        ExactUrl::from_str(&client.callback)
+                            .map_err(RegistrarError::PrimitiveError)?,
+                    )
                 } else {
-                    return Err(RegistrarError::PrimitiveError)
+                    return Err(RegistrarError::PrimitiveError);
                 }
             }
-            None => {
-                RegisteredUrl::from(ExactUrl::from_str(&client.callback).map_err(RegistrarError::PrimitiveError)?)
-            },
-         };
+            None => RegisteredUrl::from(
+                ExactUrl::from_str(&client.callback).map_err(RegistrarError::PrimitiveError)?,
+            ),
+        };
 
-        Ok(
-            BoundClient {
-                client_id: bound.client_id,
-                redirect_uri: Cow::Owned(registered_url),
-            }
-        )
+        Ok(BoundClient {
+            client_id: bound.client_id,
+            redirect_uri: Cow::Owned(registered_url),
+        })
     }
 
     #[instrument]
@@ -153,10 +144,11 @@ impl Registrar for OAuthRegistrar {
         client: BoundClient,
         _: Option<Scope>,
     ) -> Result<PreGrant, RegistrarError> {
-        let app = match application_by_id(self.state.clone(), client.client_id.parse::<u64>()?).await {
-            Ok(app) => app,
-            Err(_) => return Err(RegistrarError::Unspecified),
-        };
+        let app =
+            match application_by_id(self.state.clone(), client.client_id.parse::<u64>()?).await {
+                Ok(app) => app,
+                Err(_) => return Err(RegistrarError::Unspecified),
+            };
 
         // TODO: faster way to do this
         let mut scopes_str = String::new();
@@ -165,18 +157,27 @@ impl Registrar for OAuthRegistrar {
         }
         let scopes = scopes_str.parse::<Scope>()?;
 
-        Ok(
-            PreGrant {
-                client_id: client.client_id.into_owned(),
-                redirect_uri: client.redirect_uri.into_owned(),
-                scope: scopes
-            }
-        )
+        Ok(PreGrant {
+            client_id: client.client_id.into_owned(),
+            redirect_uri: client.redirect_uri.into_owned(),
+            scope: scopes,
+        })
     }
 
     #[instrument]
-    async fn check(&self, client_id: &str, passphrase: Option<&[u8]>) -> Result<(), RegistrarError> {
-        todo!()
+    async fn check(
+        &self,
+        client_id: &str,
+        passphrase: Option<&[u8]>,
+    ) -> Result<(), RegistrarError> {
+        let application = application_by_id(
+            self.state.clone(),
+            client_id
+                .parse::<u64>()
+                .map_err(RegistrarError::PrimitiveError)?,
+        )
+        .await
+        .map_err(RegistratError::PrimitiveError)?;
     }
 }
 
@@ -280,9 +281,12 @@ pub async fn generate_oauth_with_refresh(
             };
 
             if let Ok(secret) =
-            decode_gotten_secret(&token, TOKEN_SEPERATOR, config.signing_key.as_bytes())
+                decode_gotten_secret(&token, TOKEN_SEPERATOR, config.signing_key.as_bytes())
             {
-                state.caches.oauth_token.insert(secret, Some(authorized_user));
+                state
+                    .caches
+                    .oauth_token
+                    .insert(secret, Some(authorized_user));
             }
         }
     });
@@ -343,7 +347,7 @@ pub async fn generate_oauth_no_refresh(
 
         if user.is_none() {
             if let Ok(secret) =
-            decode_gotten_secret(&token, TOKEN_SEPERATOR, config.signing_key.as_bytes())
+                decode_gotten_secret(&token, TOKEN_SEPERATOR, config.signing_key.as_bytes())
             {
                 state.caches.oauth_token.insert(secret, None);
             }
@@ -355,9 +359,12 @@ pub async fn generate_oauth_no_refresh(
             };
 
             if let Ok(secret) =
-            decode_gotten_secret(&token, TOKEN_SEPERATOR, config.signing_key.as_bytes())
+                decode_gotten_secret(&token, TOKEN_SEPERATOR, config.signing_key.as_bytes())
             {
-                state.caches.oauth_token.insert(secret, Some(authorized_user));
+                state
+                    .caches
+                    .oauth_token
+                    .insert(secret, Some(authorized_user));
             }
         }
     });
@@ -414,11 +421,7 @@ pub async fn grant_from_id(state: Arc<AppData>, id: &str) -> SResult<Grant> {
 }
 
 #[instrument]
-pub async fn insert_grant_with_id(
-    state: Arc<AppData>,
-    id: &str,
-    grant: &Grant,
-) -> SResult<()> {
+pub async fn insert_grant_with_id(state: Arc<AppData>, id: &str, grant: &Grant) -> SResult<()> {
     let grant_as_bytes = pot::to_vec(grant)?;
     insert_into_cache(state, id, grant_as_bytes, None).await
 }

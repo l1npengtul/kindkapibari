@@ -17,6 +17,7 @@ server = ["pot", "sea-orm",
 serde_json = "^1.0"
 thiserror = "1.0"
 convert_case = "0.5"
+license = "2.0.1"
 
 [dependencies.kindkapibari_proc]
 path = "../kindkapibari_proc"
