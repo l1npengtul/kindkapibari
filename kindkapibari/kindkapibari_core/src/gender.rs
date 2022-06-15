@@ -63,10 +63,11 @@ impl<'de> Deserialize<'de> for AsThree {
 }
 
 // reduction meant for coconutpak
-#[derive(Clone, Hash, Ord, PartialOrd, Eq, PartialEq)]
+#[derive(Clone, Default, Hash, Ord, PartialOrd, Eq, PartialEq)]
 pub enum Gender {
     Man,
     Woman,
+    #[default]
     NonBinary,
     Custom(String), // upload custom gender. max 10 MB /s
 }

@@ -15,15 +15,14 @@ use kindkapibari_core::{
     secret::{decode_gotten_secret, generate_signed_key, DecodedSecret},
     snowflake::SnowflakeIdGenerator,
 };
-use oauth2::http::Uri;
+use oxide_auth::primitives::issuer::TokenType;
 use oxide_auth::{
     endpoint::PreGrant,
-    primitives::registrar::{ClientType, ExactUrl, RegisteredUrl},
     primitives::{
-        grant::{Extensions, Grant, Scope},
+        grant::{Grant, Scope},
         issuer::{IssuedToken, RefreshedToken},
         prelude::ClientUrl,
-        registrar::{BoundClient, RegistrarError},
+        registrar::{BoundClient, ExactUrl, RegisteredUrl, RegistrarError},
     },
 };
 use oxide_auth_async::primitives::{Authorizer, Issuer, Registrar};
@@ -33,12 +32,8 @@ use sea_orm::{
     RelationTrait,
 };
 use serde::{Deserialize, Serialize};
-use std::borrow::Cow;
-use std::str::FromStr;
-use std::{
-    ops::{Add, Deref},
-    sync::Arc,
-};
+use std::ops::Add;
+use std::{borrow::Cow, str::FromStr, sync::Arc};
 use tokio::sync::Mutex;
 use tracing::instrument;
 
@@ -177,28 +172,86 @@ impl Registrar for OAuthRegistrar {
                 .map_err(RegistrarError::PrimitiveError)?,
         )
         .await
-        .map_err(RegistratError::PrimitiveError)?;
+        .map_err(RegistrarError::PrimitiveError)?;
+        match passphrase {
+            Some(secret) => {
+                let secret_str =
+                    String::from_utf8(Vec::from(secret)).map_err(RegistrarError::PrimitiveError)?;
+                let decoded = Some(decode_gotten_secret(
+                    secret_str,
+                    TOKEN_SEPERATOR,
+                    self.state.config.read().await.signing_key.as_bytes(),
+                )?);
+
+                if application.signed_secret == decoded {
+                    Ok(())
+                } else {
+                    Err(RegistrarError::Unspecified)
+                }
+            }
+            None => Ok(()),
+        }
     }
 }
 
-pub struct OAuthIssuer {}
+#[derive(Clone, Debug)]
+pub struct OAuthIssuer {
+    state: Arc<AppData>,
+}
+
+impl OAuthIssuer {
+    fn set_duration(&self, grant: &mut Grant) {
+        grant.until = Utc::now() + self.state.config.read().await.oauth.default_time;
+    }
+}
 
 #[async_trait]
 impl Issuer for OAuthIssuer {
-    fn issue(&mut self, grant: Grant) -> Result<IssuedToken, ()> {
-        todo!()
+    #[instrument]
+    async fn issue(&mut self, grant: Grant) -> Result<IssuedToken, ()> {
+        let mut grant = grant;
+        self.set_duration(&mut grant);
+
+        let scopes = grant
+            .scope
+            .iter()
+            .map(|scope| KKBScope::from_str(scope))
+            .collect::<Result<Vec<KKBScope>, ()>>()?;
+
+        let generated = generate_oauth_no_refresh(
+            self.state.clone(),
+            grant.owner_id.parse().map_err(|| ())?,
+            grant.client_id.parse().map_err(|| ())?,
+            scopes,
+        )
+        .await
+        .map_err(|| ())?;
+
+        Ok(IssuedToken {
+            token: generated,
+            refresh: None,
+            until: grant.until,
+            token_type: TokenType::Bearer,
+        })
     }
 
-    fn refresh(&mut self, _refresh: &str, _grant: Grant) -> Result<RefreshedToken, ()> {
-        todo!()
+    #[instrument]
+    async fn refresh(&mut self, _refresh: &str, _grant: Grant) -> Result<RefreshedToken, ()> {
+        // see if exist
+        // TODO
+        Err(())
     }
 
-    fn recover_token<'a>(&'a self, _: &'a str) -> Result<Option<Grant>, ()> {
-        todo!()
+    #[instrument]
+    async fn recover_token<'a>(&'a self, access: &'a str) -> Result<Option<Grant>, ()> {
+        // query database
+        
     }
 
-    fn recover_refresh<'a>(&'a self, _: &'a str) -> Result<Option<Grant>, ()> {
-        todo!()
+    #[instrument]
+    async fn recover_refresh<'a>(&'a self, _: &'a str) -> Result<Option<Grant>, ()> {
+        // TODO
+        Err(())
     }
 }
 
@@ -274,7 +327,7 @@ pub async fn generate_oauth_with_refresh(
                 state.caches.oauth_token.insert(secret, None);
             }
         } else {
-            let user = user.ok_or(ServerError::NotFound("user", "database"))?;
+            let user = user.ok_or(ServerError::NotFound("user".into(), "database".into()))?;
             let authorized_user = AuthorizedUser {
                 scopes: requested_scopes,
                 user,
@@ -352,7 +405,7 @@ pub async fn generate_oauth_no_refresh(
                 state.caches.oauth_token.insert(secret, None);
             }
         } else {
-            let user = user.ok_or(ServerError::NotFound("user", "database"))?;
+            let user = user.ok_or(ServerError::NotFound("user".into(), "database".into()))?;
             let authorized_user = AuthorizedUser {
                 scopes: requested_scopes,
                 user,

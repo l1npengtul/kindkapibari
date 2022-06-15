@@ -1,4 +1,3 @@
-use crate::applications::Model;
 use crate::{schema::applications, AppData, SResult, ServerError};
 use redis::{AsyncCommands, ControlFlow, Msg};
 use sea_orm::{ActiveValue, EntityTrait};
@@ -8,15 +7,26 @@ use tracing::instrument;
 
 #[instrument]
 pub async fn application_by_id(state: Arc<AppData>, id: u64) -> SResult<applications::Model> {
+    // from_cache
+    if let Some(app) = state.caches.applications_cache.get(&id) {
+        return app.ok_or(ServerError::NotFound(
+            format!("{id}").into(),
+            "Not Found".into(),
+        ));
+    }
+
     let application_query = applications::Entity::find_by_id(id)
         .one(&state.database)
         .await?;
     // commit to cache
     state
         .caches
-        .applications
+        .applications_cache
         .insert(id, application_query.clone()); // rip alloc
-    Ok(application_query.ok_or(ServerError::NotFound("No application" as dyn Display, "Not Found" as dyn Display))?)
+    application_query.ok_or(ServerError::NotFound(
+        format!("{id}").into(),
+        "Not Found".into(),
+    ))
 }
 
 pub fn invalidate_application_cache(state: Arc<AppData>, msg: Msg) -> ControlFlow<()> {

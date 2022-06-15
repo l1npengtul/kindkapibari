@@ -2,7 +2,7 @@ use crate::responses::Response;
 use crate::tags::Tags;
 use language_tags::LanguageTag;
 
-#[derive(Clone, Debug, PartialOrd, PartialEq, Serialize, Deserialize)]
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 pub struct TextContainer {
     sub_namespace: String,
     tags: Tags,

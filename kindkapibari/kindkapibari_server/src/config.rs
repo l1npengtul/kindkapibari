@@ -1,3 +1,4 @@
+use chrono::Duration;
 use color_eyre::eyre::Result;
 use serde::{Deserialize, Serialize};
 use std::fs::File;
@@ -57,6 +58,7 @@ pub struct CoconutPak {
 
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 pub struct OAuthProviders {
+    pub default_time: Duration,
     pub redirect_url: String,
     pub twitter: OAuth,
     pub github: OAuth,

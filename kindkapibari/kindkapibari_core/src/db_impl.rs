@@ -33,22 +33,22 @@ macro_rules! impl_sea_orm {
         $(
         impl From<$to_impl> for sea_orm::Value {
             fn from(v: $to_impl) -> Self {
-                Value::Bytes(pot::to_vec(&v).ok().map(Box::new))
+                sea_orm::Value::Bytes(pot::to_vec(&v).ok().map(Box::new))
             }
         }
 
         impl sea_orm::TryGetable for $to_impl {
-            fn try_get(res: &QueryResult, pre: &str, col: &str) -> Result<Self, TryGetError> {
+            fn try_get(res: &sea_orm::QueryResult, pre: &str, col: &str) -> Result<Self, sea_orm::error::TryGetError> {
                 pot::from_slice(&Vec::<u8>::try_get(res, pre, col)?)
-                    .map_err(|why| TryGetError::DbErr(DbErr::Custom(why.to_string())))
+                    .map_err(|why| sea_orm::error::TryGetError::DbErr(sea_orm::error::DbErr::Custom(why.to_string())))
             }
         }
 
         impl sea_orm::ValueType for $to_impl {
-            fn try_from(v: Value) -> Result<Self, ValueTypeErr> {
+            fn try_from(v: Value) -> Result<Self, sea_orm::error::ValueTypeErr> {
                 match v {
-                    Value::Bytes(Some(bytes)) => pot::from_slice::<Self>(&bytes).map_err(|_| ValueTypeErr),
-                    _ => Err(ValueTypeErr),
+                    sea_orm::Value::Bytes(Some(bytes)) => pot::from_slice::<Self>(&bytes).map_err(|_| sea_orm::error::ValueTypeErr),
+                    _ => Err(sea_orm::error::ValueTypeErr),
                 }
             }
 
@@ -56,14 +56,14 @@ macro_rules! impl_sea_orm {
                 stringify!($to_impl).to_string()
             }
 
-            fn column_type() -> ColumnType {
-                ColumnType::Binary(None)
+            fn column_type() -> sea_orm::ColumnType {
+                sea_orm::ColumnType::Binary(None)
             }
         }
 
         impl Nullable for $to_impl {
-            fn null() -> Value {
-                Value::Bytes(None)
+            fn null() -> sea_orm::Value {
+                sea_orm::Value::Bytes(None)
             }
         }
         )+

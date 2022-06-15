@@ -13,7 +13,7 @@ pub fn attr_string(input: TokenStream) -> TokenStream {
 
     let mut parse_noarg = vec![];
     let mut parse_onearg = vec![];
-    let mut parse_plain_string_from_noarg = vec![];
+    let mut parse_plain_string_from_noarg: Vec<&str> = vec![];
     let mut parse_plain_string_from_onearg = vec![];
     if let syn::Data::Enum(DataEnum { variants, .. }) = data {
         variants.into_iter().for_each(|variant| {
@@ -32,10 +32,13 @@ pub fn attr_string(input: TokenStream) -> TokenStream {
 
                         parse_onearg.push(quote! {
                             {
-                                Result::map_err(#ident::#variant{ #flds_ident : <#flds_typ_ident as core::str::FromStr>::from_str(#subtag) }, || -> () { () })? 
+                                #ident::#variant{ #flds_ident : match <#flds_typ_ident as core::str::FromStr>::from_str(#subtag.as_str()) {
+                                    Ok(v) => v,
+                                    Err(_) => return Err(()),
+                                } } 
                             }
                         });
-                        parse_plain_string_from_onearg.push(variant.ident.to_string());
+                        parse_plain_string_from_onearg.push(stringify!(#variant.ident));
                         fields.push(quote! {
                             {
                                 format!("{}({}: {})", core::stringify!(#variant), #flds_ident_str, #flds_str)
@@ -50,14 +53,16 @@ pub fn attr_string(input: TokenStream) -> TokenStream {
 
                     if let syn::Type::Path(p) = flds_typ {
                         let flds_typ_ident = p.path.get_ident().unwrap();
-                        println!("{flds_typ_ident:?}");
                         let variant_typ_ident = &variant.ident;
                         parse_onearg.push(quote! {
                             {
-                                Result::map_err(#ident::#variant_typ_ident(<#flds_typ_ident as core::str::FromStr>::from_str(#subtag), || -> () { () }))?
+                                #ident::#variant_typ_ident(match <#flds_typ_ident as core::str::FromStr>::from_str(#subtag.as_str()) {
+                                    Ok(v) => v,
+                                    Err(_) => return Err(()),
+                                })
                             }
                         });
-                        parse_plain_string_from_onearg.push(variant.ident.to_string());
+                        parse_plain_string_from_onearg.push(stringify!(#variant.ident));
     
                         fields.push(quote! {
                             {
@@ -72,15 +77,15 @@ pub fn attr_string(input: TokenStream) -> TokenStream {
                             #ident::#variant
                         }
                     });
-                    parse_plain_string_from_noarg.push(variant.ident.to_string());
+                    parse_plain_string_from_noarg.push(stringify!(#variant.ident));
                     fields.push(quote! {
                         {
-                            core::stringify!(#variant)
+                            core::stringify!(#variant).to_string()
                         }
                     });
                 }
             }
-            field.push(variant.ident);
+            field.push(quote! { #ident::#variant });
         })
     }
 
@@ -112,20 +117,20 @@ pub fn attr_string(input: TokenStream) -> TokenStream {
                     '5', '6', '7', '8', '9',
                 ];
 
-                if str::replace(s, [ALLOWED_CHARS, &['(', ')']].concat()) != "" {
+                if str::replace(s, [ALLOWED_CHARS, &['(', ')']].concat().as_slice() , "") != "" {
                     return Err(())
                 }
 
-                let splitted = s.replace(&['(', ')']).collect::<Vec<String>>();
-                if Vec::len(splitted) == 1 {
-                    Ok(match splitted[0] {
+                let splitted = s.split(&['(', ')']).map(ToString::to_string).collect::<Vec<String>>();
+                if splitted.len() == 1 {
+                    Ok(match splitted[0].as_str() {
                         #(#parse_plain_string_from_noarg => #parse_noarg),*
                         _ => return Err(()),
                     })
-                } else if Vec::len(splitted) == 2 {
-                    let subtag = splitted[1];
+                } else if splitted.len() == 2 {
+                    let subtag = splitted[1].clone();
 
-                    Ok(match splitted[0] {
+                    Ok(match splitted[0].as_str() {
                         #(#parse_plain_string_from_onearg => #parse_onearg),*
                         _ => return Err(()),
                     })

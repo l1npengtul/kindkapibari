@@ -7,6 +7,7 @@ use sea_orm::{
     RelationTrait,
 };
 use serde::{Deserialize, Serialize};
+use kindkapibari_core::secret::DecodedSecret;
 
 #[derive(Clone, Debug, Hash, PartialOrd, PartialEq, Serialize, Deserialize, DeriveEntityModel)]
 #[sea_orm(table_name = "oauth_authorizations")]
@@ -18,13 +19,9 @@ pub struct Model {
     pub expire: DateTime<Utc>,
     pub created: DateTime<Utc>,
     #[sea_orm(unique, indexed)]
-    pub access_token_hashed: Vec<u8>,
-    #[sea_orm(unique, indexed)]
-    pub access_token_salt: DBArray<u8, 32>,
+    pub access_token: DecodedSecret,
     #[sea_orm(unique, indexed, nullable)]
-    pub refresh_token_hashed: Option<Vec<u8>>,
-    #[sea_orm(unique, indexed, nullable)]
-    pub refresh_token_salt: Option<DBArray<u8, 32>>,
+    pub refresh_token: DecodedSecret,
     pub scopes: DBVec<KKBScope>,
 }
 

@@ -7,13 +7,14 @@ use poem::error::{
 use poem::{Error, IntoResponse, Response};
 use redis::RedisError;
 use sea_orm::error::DbErr;
+use std::borrow::Cow;
 use std::fmt::Display;
 use thiserror::Error;
 
 #[derive(Error, Debug)]
 pub enum ServerError {
     #[error("Could not find {0} with {1}")]
-    NotFound(dyn Display, dyn Display),
+    NotFound(Cow<'static, str>, Cow<'static, str>),
     #[error(transparent)]
     RedisError(#[from] RedisError),
     #[error(transparent)]
@@ -21,21 +22,21 @@ pub enum ServerError {
     #[error(transparent)]
     InternalServer(#[from] dyn std::error::Error),
     #[error("Bad Argument {0}: {1}")]
-    BadArgumentError(dyn Display, #[from] dyn std::error::Error),
+    BadArgumentError(Cow<'static, str>, #[from] dyn std::error::Error),
     #[error("Bad Request: {0}")]
-    BadRequest(dyn Display),
+    BadRequest(Cow<'static, str>),
     #[error("Unauthorized.")]
     Unauthorized,
     #[error("Forbidden.")]
     Forbidden,
     #[error("Bad Media Type: {0}")]
-    BadType(dyn Display),
+    BadType(Cow<'static, str>),
     #[error("Too Large!")]
     TooLarge,
     #[error("Stop trying to DDoS me you little shit!")]
     RateLimited,
     #[error("Unavailable for legal reasons. See more here: {0}")]
-    LegalReasons(dyn Display),
+    LegalReasons(Cow<'static, str>),
     #[error("peng pls fix :ccc (tell her to stop being a lazy shite >:ccc)")]
     NotImplemented,
     #[error("AHHHHHHHHHHHHHHHHHHHHH")]
