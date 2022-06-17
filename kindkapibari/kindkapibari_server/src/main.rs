@@ -13,16 +13,19 @@ mod roles;
 mod schema;
 mod scopes;
 
-use crate::schema::{applications, users};
-use crate::{config::Config, error::ServerError, schema::users::user, scopes::KKBScope};
+use crate::{
+    config::Config,
+    error::ServerError,
+    schema::{
+        applications, users,
+        users::{oauth_authorizations, user},
+    },
+    scopes::KKBScope,
+};
 use color_eyre::Report;
-use kindkapibari_core::make_caches;
-use kindkapibari_core::secret::DecodedSecret;
-use kindkapibari_core::snowflake::SnowflakeIdGenerator;
-use moka::future::Cache;
+use kindkapibari_core::{make_caches, secret::SentSecret, snowflake::SnowflakeIdGenerator};
 use redis::aio::ConnectionManager;
 use sea_orm::DatabaseConnection;
-use std::sync::Arc;
 use tokio::{io::AsyncReadExt, sync::RwLock};
 
 const EPOCH_START: u64 = 1650125769; // haha nice
@@ -48,8 +51,8 @@ pub struct AppData {
 
 make_caches! {
     users: u64: user::Model,
-    login_token: DecodedSecret: user::Model,
-    oauth_token: DecodedSecret: users::AuthorizedUser,
+    login_token: SentSecret: u64,
+    access_tokens: SentSecret: oauth_authorizations::Model,
     applications: u64: applications::Model
 }
 

@@ -1,6 +1,7 @@
 use chrono::{DateTime, Utc};
 use kindkapibari_core::dbarray::DBArray;
 use kindkapibari_core::preferences::Preferences;
+use kindkapibari_core::secret::StoredSecret;
 use sea_orm::{
     prelude::{DeriveEntityModel, EntityTrait, PrimaryKeyTrait, RelationTrait},
     sea_query::ValueType,
@@ -16,9 +17,7 @@ pub struct Model {
     pub id: u64,
     pub last_changed: DateTime<Utc>,
     #[sea_orm(unique, indexed)]
-    pub password_hashed: Vec<u8>,
-    #[sea_orm(unique, indexed)]
-    pub salt: DBArray<u8, 32>,
+    pub stored: StoredSecret,
 }
 
 #[derive(Copy, Clone, Debug, EnumIter)]

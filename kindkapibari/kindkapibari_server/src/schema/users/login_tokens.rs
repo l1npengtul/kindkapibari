@@ -1,5 +1,6 @@
 use chrono::{DateTime, Utc};
 use kindkapibari_core::dbarray::DBArray;
+use kindkapibari_core::secret::StoredSecret;
 use sea_orm::{
     ActiveModelBehavior, DeriveEntityModel, EntityTrait, EnumIter, Related, RelationDef,
     RelationTrait,
@@ -15,9 +16,7 @@ pub struct Model {
     pub expire: DateTime<Utc>,
     pub created: DateTime<Utc>,
     #[sea_orm(unique, indexed)]
-    pub session_hashed: Vec<u8>,
-    #[sea_orm(unique, indexed)]
-    pub salt: DBArray<u8, 32>,
+    pub stored_secret: StoredSecret,
 }
 
 #[derive(Copy, Clone, Debug, EnumIter)]

@@ -8,6 +8,7 @@ use chrono::Utc;
 use eyre::Report;
 use once_cell::sync::Lazy;
 use staticvec::StaticVec;
+use std::fmt::{Display, Formatter};
 use std::sync::Arc;
 use tokio::sync::Mutex;
 
@@ -15,8 +16,8 @@ static AUTO_RESEEDING_TOKEN_RNG: Lazy<Arc<Mutex<AutoReseedingRng<65535>>>> =
     Lazy::new(|| Arc::new(Mutex::new(AutoReseedingRng::new())));
 static AUTO_RESEEDING_NONCE_RNG: Lazy<Arc<Mutex<AutoReseedingRng<65535>>>> =
     Lazy::new(|| Arc::new(Mutex::new(AutoReseedingRng::new())));
+// i love shaking salts all over my hash~~browns~~
 static AUTO_RESEEDING_SALT_SHAKER_RNG: Lazy<Arc<Mutex<AutoReseedingRng<65535>>>> =
-    // i love shaking salts all over my hash~~browns~~
     Lazy::new(|| Arc::new(Mutex::new(AutoReseedingRng::new())));
 
 // Issue Flow
@@ -26,75 +27,76 @@ static AUTO_RESEEDING_SALT_SHAKER_RNG: Lazy<Arc<Mutex<AutoReseedingRng<65535>>>>
 // Receive [{}.{{}.{}}] -> SentSecret -> StoredSecret::verify_secret(StoredSecret, SentSecret
 #[derive(Clone, Debug, Hash, PartialOrd, PartialEq, Serialize, Deserialize)]
 pub struct GeneratedToken {
-    sent: SentSecret,
-    store: StoredSecret,
+    pub sent: SentSecret,
+    pub store: StoredSecret,
 }
 
-pub fn generate_signed_key(machine_id: u8, signing_key: &[u8]) -> Result<RawGenerated, Report> {
-    let now_slice: [u8; 8] = Utc::now().timestamp_millis().to_ne_bytes();
-    let mut base = Vec::with_capacity(73);
-    base.extend_from_slice(&AUTO_RESEEDING_TOKEN_RNG.lock().await.generate_bytes::<64>());
-    base.extend_from_slice(&now_slice);
-    base.push(machine_id);
+impl GeneratedToken {
+    pub fn new(user_id: u64, signing_key: &[u8]) -> Result<Self, Box<dyn std::error::Error>> {
+        let now_slice: [u8; 8] = Utc::now().timestamp_millis().to_ne_bytes();
+        let mut base = Vec::with_capacity(73);
+        base.extend_from_slice(&AUTO_RESEEDING_TOKEN_RNG.lock().await.generate_bytes::<64>());
+        base.extend_from_slice(&now_slice);
+        base.extend_from_slice(format!(".{user_id}").as_bytes());
 
-    let argon2_key = Argon2::new(
-        Algorithm::Argon2id,
-        Version::default(),
-        Params::new(
-            Params::DEFAULT_M_COST,
-            Params::DEFAULT_T_COST,
-            Params::DEFAULT_P_COST,
-            Some(64),
-        )?,
-    );
+        let argon2_key = Argon2::new(
+            Algorithm::Argon2id,
+            Version::default(),
+            Params::new(
+                Params::DEFAULT_M_COST,
+                Params::DEFAULT_T_COST,
+                Params::DEFAULT_P_COST,
+                Some(64),
+            )?,
+        );
 
-    let mut hash: StaticVec<u8, 64> = StaticVec::new();
-    let salt = *blake3::hash(
-        [
-            &AUTO_RESEEDING_SALT_SHAKER_RNG
-                .lock()
-                .await
-                .generate_bytes::<23>(),
-            &now_slice,
-            &[machine_id],
-        ]
-        .concat(),
-    )
-    .as_bytes();
-    argon2_key.hash_password_into(&base, &salt, &mut hash)?;
+        let mut hash: StaticVec<u8, 64> = StaticVec::new();
+        let salt = *blake3::hash(
+            [
+                &AUTO_RESEEDING_SALT_SHAKER_RNG
+                    .lock()
+                    .await
+                    .generate_bytes::<23>(),
+                &now_slice,
+                &[user_id],
+            ]
+            .concat(),
+        )
+        .as_bytes();
+        argon2_key.hash_password_into(&base, &salt, &mut hash)?;
 
-    let argon2_nonce = Argon2::new(
-        Algorithm::Argon2id,
-        Version::default(),
-        Params::new(
-            Params::DEFAULT_M_COST,
-            Params::DEFAULT_T_COST,
-            Params::DEFAULT_P_COST,
-            Some(24),
-        )?,
-    );
+        let argon2_nonce = Argon2::new(
+            Algorithm::Argon2id,
+            Version::default(),
+            Params::new(
+                Params::DEFAULT_M_COST,
+                Params::DEFAULT_T_COST,
+                Params::DEFAULT_P_COST,
+                Some(24),
+            )?,
+        );
 
-    let mut pre_nonce = Vec::with_capacity(33);
-    pre_nonce.extend_from_slice(&AUTO_RESEEDING_NONCE_RNG.lock().await.generate_bytes::<24>());
-    pre_nonce.extend_from_slice(Utc::now().timestamp_millis().to_ne_bytes().as_bytes());
-    pre_nonce.push(machine_id);
-    let nonce_salt = AUTO_RESEEDING_SALT_SHAKER_RNG
-        .lock()
-        .await
-        .generate_bytes::<16>();
-    let mut nonce: StaticVec<u8, 24> = StaticVec::new();
-    argon2_nonce.hash_password_into(&pre_nonce, &nonce_salt, &mut nonce)?;
+        let mut pre_nonce = Vec::with_capacity(33);
+        pre_nonce.extend_from_slice(&AUTO_RESEEDING_NONCE_RNG.lock().await.generate_bytes::<24>());
+        pre_nonce.extend_from_slice(Utc::now().timestamp_millis().to_ne_bytes().as_bytes());
+        pre_nonce.push(machine_id);
+        let nonce_salt = AUTO_RESEEDING_SALT_SHAKER_RNG
+            .lock()
+            .await
+            .generate_bytes::<16>();
+        let mut nonce: StaticVec<u8, 24> = StaticVec::new();
+        argon2_nonce.hash_password_into(&pre_nonce, &nonce_salt, &mut nonce)?;
 
-    // sign the key
-    let key = Key::from_slice(signing_key);
-    let aead = XChaCha20Poly1305::new(key);
-    let nonce_generic = XNonce::from_slice(&nonce);
-    let signed = aead.encrypt(nonce_generic, &base)?;
+        // sign the key
+        let aead = aead(signing_key);
+        let nonce_generic = XNonce::from_slice(&nonce);
+        let signed = aead.encrypt(nonce_generic, &base)?;
 
-    Ok(Self {
-        sent: SentSecret { signed },
-        store: StoredSecret { hash, salt, nonce },
-    })
+        Ok(Self {
+            sent: SentSecret { signed },
+            store: StoredSecret { hash, salt, nonce },
+        })
+    }
 }
 
 #[derive(Clone, Debug, Hash, PartialOrd, PartialEq, Eq, Serialize, Deserialize)]
@@ -108,9 +110,23 @@ impl SentSecret {
 
         Some(Self { signed })
     }
+    
+    pub fn user_id(&self, signing_key: impl AsRef<[u8]>) -> Option<u64> {
+        if let Ok(data) = aead(signing_key).decrypt(self.nonce(), &sent.signed) {
+            return String::from_utf8(data).ok().map(|x| x.split(".").next()).flatten()?.parse::<u64>().ok()
+        }
+        
+        return None
+    }
 
     pub fn to_str_token(&self) -> String {
         base64::encode(&self.signed)
+    }
+}
+
+impl Display for SentSecret {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{}", self.to_str_token())
     }
 }
 

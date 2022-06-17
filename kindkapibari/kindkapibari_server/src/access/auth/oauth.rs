@@ -1,7 +1,7 @@
-use crate::access::application::application_by_id;
 use crate::{
-    access::{delet_dis, insert_into_cache, TOKEN_SEPERATOR},
+    access::{application::application_by_id, delet_dis, insert_into_cache, TOKEN_SEPERATOR},
     roles::Roles,
+    scopes::make_kkbscope_scope,
     user,
     users::{oauth_authorizations, AuthorizedUser},
     AResult, AppData, KKBScope, Report, SResult, ServerError,
@@ -9,18 +9,18 @@ use crate::{
 use async_trait::async_trait;
 use chrono::{DateTime, Duration, Utc};
 use kindkapibari_core::{
-    dbarray::DBArray,
     dbvec::DBVec,
     reseedingrng::AutoReseedingRng,
-    secret::{decode_gotten_secret, generate_signed_key, DecodedSecret},
+    secret::{GeneratedToken, SentSecret},
     snowflake::SnowflakeIdGenerator,
 };
-use oxide_auth::primitives::issuer::TokenType;
+use oauth2::Scope;
 use oxide_auth::{
     endpoint::PreGrant,
+    frontends::dev::Url,
     primitives::{
-        grant::{Grant, Scope},
-        issuer::{IssuedToken, RefreshedToken},
+        grant::Grant,
+        issuer::{IssuedToken, RefreshedToken, TokenType},
         prelude::ClientUrl,
         registrar::{BoundClient, ExactUrl, RegisteredUrl, RegistrarError},
     },
@@ -32,8 +32,7 @@ use sea_orm::{
     RelationTrait,
 };
 use serde::{Deserialize, Serialize};
-use std::ops::Add;
-use std::{borrow::Cow, str::FromStr, sync::Arc};
+use std::{borrow::Cow, ops::Add, str::FromStr, sync::Arc};
 use tokio::sync::Mutex;
 use tracing::instrument;
 
@@ -145,17 +144,10 @@ impl Registrar for OAuthRegistrar {
                 Err(_) => return Err(RegistrarError::Unspecified),
             };
 
-        // TODO: faster way to do this
-        let mut scopes_str = String::new();
-        for scope in app.scopes.iter() {
-            scopes_str += &scope.to_attr_string();
-        }
-        let scopes = scopes_str.parse::<Scope>()?;
-
         Ok(PreGrant {
             client_id: client.client_id.into_owned(),
             redirect_uri: client.redirect_uri.into_owned(),
-            scope: scopes,
+            scope: make_kkbscope_scope(app.scopes.as_slice()),
         })
     }
 
@@ -245,7 +237,52 @@ impl Issuer for OAuthIssuer {
     #[instrument]
     async fn recover_token<'a>(&'a self, access: &'a str) -> Result<Option<Grant>, ()> {
         // query database
-        
+        // see if the cache has our token
+        let sent = match SentSecret::from_str_token(access) {
+            Some(s) => s,
+            None => return Ok(None),
+        };
+        let config = self.state.config.read().await;
+        let oauth_auth = match self.state.caches.access_tokens_cache.get(&sent) {
+            Some(s) => match s {
+                Some(m) => m,
+                None => return Ok(None),
+            },
+            None => {
+                // query database
+                let user_id = match sent.user_id(config.signing_key.as_bytes()) {
+                    Some(uid) => uid,
+                    None => return Ok(None),
+                };
+                match oauth_authorizations_by_user(self.state.clone(), user_id).await {
+                    Ok(auths) => match auths
+                        .into_iter()
+                        .filter(|x| x.access_token.verify(&sent, config.signing_key.as_bytes()))
+                        .nth(0)
+                    {
+                        Some(a) => a,
+                        None => return Ok(None),
+                    },
+                    Err(_) => return Ok(None),
+                }
+            }
+        };
+
+        // query application
+        let application = match application_by_id(self.state.clone(), oauth_auth.application).await
+        {
+            Ok(app) => app,
+            Err(_) => return Ok(None),
+        };
+
+        Ok(Some(Grant {
+            owner_id: format!("{}", oauth_auth.owner),
+            client_id: format!("{}", oauth_auth.application),
+            scope: make_kkbscope_scope(application.scopes.as_slice()),
+            redirect_uri: Url::parse(&application.callback).unwrap(),
+            until: oauth_auth.expire,
+            extensions: Default::default(),
+        }))
     }
 
     #[instrument]
@@ -278,26 +315,8 @@ pub async fn generate_oauth_with_refresh(
     }
 
     let config = state.config.read().await;
-    let access = generate_signed_key(config.machine_id, config.signing_key.as_bytes())?;
-    let refresh = generate_signed_key(config.machine_id, config.signing_key.as_bytes())?;
-
-    let access_token = format!(
-        "{}.{}.{}{}{}",
-        base64::encode(access.nonce),
-        OAUTH_ACCESS_PREFIX_NO_DASH,
-        base64::encode(&access.salt),
-        TOKEN_SEPERATOR,
-        base64::encode(&access.signed)
-    );
-    let refresh_token = format!(
-        "{}.{}.{}{}{}",
-        base64::encode(refresh.nonce),
-        OAUTH_REFRESH_PREFIX_NO_DASH,
-        base64::encode(&refresh.salt),
-        TOKEN_SEPERATOR,
-        base64::encode(&refresh.signed)
-    );
-
+    let access = GeneratedToken::new(user_id, config.signing_key.as_bytes())?;
+    let refresh = GeneratedToken::new(user_id, config.signing_key.as_bytes())?;
     let now = Utc::now();
 
     let oauth_token_active = oauth_authorizations::ActiveModel {
@@ -305,48 +324,16 @@ pub async fn generate_oauth_with_refresh(
         application: ActiveValue::Set(application_id),
         expire: ActiveValue::Set(now.add(Duration::hours(3))),
         created: ActiveValue::Set(now),
-        access_token_hashed: ActiveValue::Set(access.signed),
-        access_token_salt: ActiveValue::Set(DBArray::from(access.salt)),
-        refresh_token_hashed: ActiveValue::Set(Some(refresh.signed)),
-        refresh_token_salt: ActiveValue::Set(Some(DBArray::from(refresh.salt))),
-        scopes: ActiveValue::Set(DBVec::from(requested_scopes.clone())),
+        access_token: ActiveValue::Set(access.store),
+        refresh_token: ActiveValue::Set(Some(refresh.store)),
         ..Default::default()
     };
 
     oauth_token_active.insert(&state.database).await?;
 
-    tokio::task::spawn(async {
-        let user = user::Entity::find_by_id(user_id)
-            .one(&state.database)
-            .await?;
-
-        if user.is_none() {
-            if let Ok(secret) =
-                decode_gotten_secret(&token, TOKEN_SEPERATOR, config.signing_key.as_bytes())
-            {
-                state.caches.oauth_token.insert(secret, None);
-            }
-        } else {
-            let user = user.ok_or(ServerError::NotFound("user".into(), "database".into()))?;
-            let authorized_user = AuthorizedUser {
-                scopes: requested_scopes,
-                user,
-            };
-
-            if let Ok(secret) =
-                decode_gotten_secret(&token, TOKEN_SEPERATOR, config.signing_key.as_bytes())
-            {
-                state
-                    .caches
-                    .oauth_token
-                    .insert(secret, Some(authorized_user));
-            }
-        }
-    });
-
     Ok(OAuthWithRefresh {
-        access: access_token,
-        refresh: refresh_token,
+        access: access.sent.to_string(),
+        refresh: access.sent.to_string(),
     })
 }
 
@@ -367,17 +354,7 @@ pub async fn generate_oauth_no_refresh(
     }
 
     let config = state.config.read().await;
-    let access = generate_signed_key(config.machine_id, config.signing_key.as_bytes())?;
-
-    let access_token = format!(
-        "{}.{}.{}{}{}",
-        base64::encode(access.nonce),
-        OAUTH_ACCESS_PREFIX_NO_DASH,
-        base64::encode(&access.salt),
-        TOKEN_SEPERATOR,
-        base64::encode(&access.signed)
-    );
-
+    let access = GeneratedToken::new(user_id, config.signing_key.as_bytes())?;
     let now = Utc::now();
 
     let oauth_token_active = oauth_authorizations::ActiveModel {
@@ -385,44 +362,12 @@ pub async fn generate_oauth_no_refresh(
         application: ActiveValue::Set(application_id),
         expire: ActiveValue::Set(now.add(Duration::hours(3))),
         created: ActiveValue::Set(now),
-        access_token_hashed: ActiveValue::Set(access.signed),
-        access_token_salt: ActiveValue::Set(DBArray::from(access.salt)),
-        scopes: ActiveValue::Set(DBVec::from(requested_scopes.clone())),
+        access_token: ActiveValue::Set(access.store),
         ..Default::default()
     };
 
     oauth_token_active.insert(&state.database).await?;
-
-    tokio::task::spawn(async {
-        let user = user::Entity::find_by_id(user_id)
-            .one(&state.database)
-            .await?;
-
-        if user.is_none() {
-            if let Ok(secret) =
-                decode_gotten_secret(&token, TOKEN_SEPERATOR, config.signing_key.as_bytes())
-            {
-                state.caches.oauth_token.insert(secret, None);
-            }
-        } else {
-            let user = user.ok_or(ServerError::NotFound("user".into(), "database".into()))?;
-            let authorized_user = AuthorizedUser {
-                scopes: requested_scopes,
-                user,
-            };
-
-            if let Ok(secret) =
-                decode_gotten_secret(&token, TOKEN_SEPERATOR, config.signing_key.as_bytes())
-            {
-                state
-                    .caches
-                    .oauth_token
-                    .insert(secret, Some(authorized_user));
-            }
-        }
-    });
-
-    Ok(access_token)
+    Ok(access.sent.to_string())
 }
 
 #[instrument]
@@ -464,6 +409,18 @@ pub fn verify_access_token(state: Arc<AppData>, token: DecodedSecret) -> SResult
             roles: access.roles,
         },
     })
+}
+
+#[instrument]
+pub async fn oauth_authorizations_by_user(
+    state: Arc<AppData>,
+    id: u64,
+) -> SResult<Vec<oauth_authorizations::Model>> {
+    let authorizations = oauth_authorizations::Entity::find()
+        .filter(oauth_authorizations::Column::Owner.eq(id))
+        .all(&state.database)
+        .await?;
+    Ok(authorizations)
 }
 
 #[instrument]

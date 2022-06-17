@@ -1,13 +1,12 @@
 use crate::scopes::KKBScope;
 use chrono::{DateTime, Utc};
-use kindkapibari_core::dbarray::DBArray;
 use kindkapibari_core::dbvec::DBVec;
+use kindkapibari_core::secret::StoredSecret;
 use sea_orm::{
     ActiveModelBehavior, DeriveEntityModel, EntityTrait, EnumIter, Related, RelationDef,
     RelationTrait,
 };
 use serde::{Deserialize, Serialize};
-use kindkapibari_core::secret::DecodedSecret;
 
 #[derive(Clone, Debug, Hash, PartialOrd, PartialEq, Serialize, Deserialize, DeriveEntityModel)]
 #[sea_orm(table_name = "oauth_authorizations")]
@@ -19,10 +18,9 @@ pub struct Model {
     pub expire: DateTime<Utc>,
     pub created: DateTime<Utc>,
     #[sea_orm(unique, indexed)]
-    pub access_token: DecodedSecret,
+    pub access_token: StoredSecret,
     #[sea_orm(unique, indexed, nullable)]
-    pub refresh_token: DecodedSecret,
-    pub scopes: DBVec<KKBScope>,
+    pub refresh_token: Option<StoredSecret>,
 }
 
 #[derive(Copy, Clone, Debug, EnumIter)]
