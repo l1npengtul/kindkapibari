@@ -170,7 +170,7 @@ pub async fn get_user_data(
         "github" => Ok(AuthorizationProviders::Github(
             get_github_info(token).await?,
         )),
-        _ => Err(Report::msg("must be twitter or github")),
+        _ => Err(Report::msg("unsupported")),
     }
 }
 

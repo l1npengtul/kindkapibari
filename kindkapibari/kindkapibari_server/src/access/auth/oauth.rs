@@ -1,22 +1,18 @@
 use crate::{
-    access::{application::application_by_id, delet_dis, insert_into_cache, TOKEN_SEPERATOR},
-    roles::Roles,
+    access::{application::application_by_id, delet_dis, insert_into_cache},
     scopes::make_kkbscope_scope,
-    user,
-    users::{oauth_authorizations, AuthorizedUser},
-    AResult, AppData, KKBScope, Report, SResult, ServerError,
+    users::oauth_authorizations,
+    AResult, AppData, KKBScope, Report, SResult,
 };
 use async_trait::async_trait;
-use chrono::{DateTime, Duration, Utc};
+use chrono::{Duration, Utc};
 use kindkapibari_core::{
-    dbvec::DBVec,
     reseedingrng::AutoReseedingRng,
     secret::{GeneratedToken, SentSecret},
     snowflake::SnowflakeIdGenerator,
 };
-use oauth2::Scope;
 use oxide_auth::{
-    endpoint::PreGrant,
+    endpoint::{PreGrant, Scope},
     frontends::dev::Url,
     primitives::{
         grant::Grant,
@@ -27,10 +23,7 @@ use oxide_auth::{
 };
 use oxide_auth_async::primitives::{Authorizer, Issuer, Registrar};
 use redis::{aio::ConnectionManager, AsyncCommands};
-use sea_orm::{
-    ActiveValue, ColumnTrait, EntityTrait, FromQueryResult, JoinType, QueryFilter, QuerySelect,
-    RelationTrait,
-};
+use sea_orm::{ActiveValue, ColumnTrait, EntityTrait, QueryFilter, QuerySelect};
 use serde::{Deserialize, Serialize};
 use std::{borrow::Cow, ops::Add, str::FromStr, sync::Arc};
 use tokio::sync::Mutex;
@@ -65,13 +58,11 @@ impl Authorizer for OAuthAuthorizer {
             "{AUTH_REDIS_KEY_START_OAUTH_AUTHORIZER}:{}",
             base64::encode(blake3::hash([&rng, &id].concat()).as_bytes())
         );
-        let kkbgrant: KKBGrant = grant.into();
-        // check with redis
 
         if let Ok(_) = grant_from_id(self.state.clone(), hashed.as_str()) {
             return Err(());
         }
-        match insert_grant_with_id(self.state.clone(), hashed.as_str(), &kkbgrant) {
+        match insert_grant_with_id(self.state.clone(), hashed.as_str(), &grant) {
             Ok(_) => Ok(hashed),
             Err(_) => Err(()),
         }
@@ -161,27 +152,37 @@ impl Registrar for OAuthRegistrar {
             self.state.clone(),
             client_id
                 .parse::<u64>()
-                .map_err(RegistrarError::PrimitiveError)?,
+                .map_err(RegistrarError::Unspecified)?,
         )
         .await
-        .map_err(RegistrarError::PrimitiveError)?;
-        match passphrase {
-            Some(secret) => {
-                let secret_str =
-                    String::from_utf8(Vec::from(secret)).map_err(RegistrarError::PrimitiveError)?;
-                let decoded = Some(decode_gotten_secret(
-                    secret_str,
-                    TOKEN_SEPERATOR,
-                    self.state.config.read().await.signing_key.as_bytes(),
-                )?);
+        .map_err(RegistrarError::Unspecified)?;
 
-                if application.signed_secret == decoded {
-                    Ok(())
-                } else {
+        if application.confidential {
+            match passphrase.map(|x| String::from_utf8_lossy(x)) {
+                Some(secret) => {
+                    let sentsecret =
+                        SentSecret::from_str_token(secret).ok_or(RegistrarError::Unspecified)?;
+                    // check against stored
+                    if let Some(stored) = application.signed_secret {
+                        if stored.verify(
+                            &sentsecret,
+                            self.state
+                                .config
+                                .read()
+                                .await
+                                .signing_keys
+                                .oauth_key
+                                .as_bytes(),
+                        ) {
+                            return Ok(());
+                        }
+                    }
                     Err(RegistrarError::Unspecified)
                 }
+                None => Err(RegistrarError::Unspecified),
             }
-            None => Ok(()),
+        } else {
+            Ok(())
         }
     }
 }
@@ -250,14 +251,17 @@ impl Issuer for OAuthIssuer {
             },
             None => {
                 // query database
-                let user_id = match sent.user_id(config.signing_key.as_bytes()) {
+                let user_id = match sent.user_id(config.signing_key_oauth.as_bytes()) {
                     Some(uid) => uid,
                     None => return Ok(None),
                 };
                 match oauth_authorizations_by_user(self.state.clone(), user_id).await {
                     Ok(auths) => match auths
                         .into_iter()
-                        .filter(|x| x.access_token.verify(&sent, config.signing_key.as_bytes()))
+                        .filter(|x| {
+                            x.access_token
+                                .verify(&sent, config.signing_key_oauth.as_bytes())
+                        })
                         .nth(0)
                     {
                         Some(a) => a,
@@ -314,9 +318,9 @@ pub async fn generate_oauth_with_refresh(
         ));
     }
 
-    let config = state.config.read().await;
-    let access = GeneratedToken::new(user_id, config.signing_key.as_bytes())?;
-    let refresh = GeneratedToken::new(user_id, config.signing_key.as_bytes())?;
+    let keys = &state.config.read().await.signing_keys;
+    let access = GeneratedToken::new(user_id, keys.oauth_key.as_bytes())?;
+    let refresh = GeneratedToken::new(user_id, keys.oauth_key.as_bytes())?;
     let now = Utc::now();
 
     let oauth_token_active = oauth_authorizations::ActiveModel {
@@ -353,8 +357,8 @@ pub async fn generate_oauth_no_refresh(
         ));
     }
 
-    let config = state.config.read().await;
-    let access = GeneratedToken::new(user_id, config.signing_key.as_bytes())?;
+    let keys = &state.config.read().await.signing_keys;
+    let access = GeneratedToken::new(user_id, keys.oauth_key.as_bytes())?;
     let now = Utc::now();
 
     let oauth_token_active = oauth_authorizations::ActiveModel {
@@ -370,46 +374,46 @@ pub async fn generate_oauth_no_refresh(
     Ok(access.sent.to_string())
 }
 
-#[instrument]
-pub fn verify_access_token(state: Arc<AppData>, token: DecodedSecret) -> SResult<AuthorizedUser> {
-    if let Ok(user) = state.caches.oauth_token.get(&token) {
-        return Ok(user);
-    }
-
-    #[derive(FromQueryResult)]
-    struct AuthorizedUserQuery {
-        pub id: u64,
-        pub username: String,
-        pub handle: String,
-        pub email: Option<String>,
-        pub profile_picture: Option<String>,
-        pub creation_date: DateTime<Utc>,
-        pub roles: DBVec<Roles>,
-        pub scopes: DBVec<KKBScope>,
-    }
-
-    let access = oauth_authorizations::Entity::find()
-        .filter(oauth_authorizations::Column::AccessTokenSalt.eq(&token.salt))
-        .filter(oauth_authorizations::Column::Expire.gt(Utc::now()))
-        .join(JoinType::Join, oauth_authorizations::Relation::User.def())
-        .into_model::<AuthorizedUserQuery>()
-        .one(&state.database)
-        .await?
-        .ok_or(ServerError::Unauthorized)?;
-
-    Ok(AuthorizedUser {
-        scopes: access.scopes.to_vec(),
-        user: user::Model {
-            id: access.id,
-            username: access.username,
-            handle: access.handle,
-            email: access.email,
-            profile_picture: access.profile_picture,
-            creation_date: access.creation_date,
-            roles: access.roles,
-        },
-    })
-}
+// #[instrument]
+// pub async fn verify_access_token(state: Arc<AppData>, token: SentSecret) -> SResult<AuthorizedUser> {
+//     if let Ok(user) = state.caches.access_tokens_cache.get(&token) {
+//         return Ok(user);
+//     }
+//
+//     #[derive(FromQueryResult)]
+//     struct AuthorizedUserQuery {
+//         pub id: u64,
+//         pub username: String,
+//         pub handle: String,
+//         pub email: Option<String>,
+//         pub profile_picture: Option<String>,
+//         pub creation_date: DateTime<Utc>,
+//         pub roles: DBVec<Roles>,
+//         pub scopes: DBVec<KKBScope>,
+//     }
+//
+//     let access = oauth_authorizations::Entity::find()
+//         .filter(oauth_authorizations::Column::AccessTokenSalt.eq(&token.salt))
+//         .filter(oauth_authorizations::Column::Expire.gt(Utc::now()))
+//         .join(JoinType::Join, oauth_authorizations::Relation::User.def())
+//         .into_model::<AuthorizedUserQuery>()
+//         .one(&state.database)
+//         .await?
+//         .ok_or(ServerError::Unauthorized)?;
+//
+//     Ok(AuthorizedUser {
+//         scopes: access.scopes.to_vec(),
+//         user: user::Model {
+//             id: access.id,
+//             username: access.username,
+//             handle: access.handle,
+//             email: access.email,
+//             profile_picture: access.profile_picture,
+//             creation_date: access.creation_date,
+//             roles: access.roles,
+//         },
+//     })
+// }
 
 #[instrument]
 pub async fn oauth_authorizations_by_user(
@@ -423,6 +427,10 @@ pub async fn oauth_authorizations_by_user(
     Ok(authorizations)
 }
 
+// INTELLIJ-RUST STFU!!!!!!
+// THE VARIABLE IS BEING USED
+// AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
+#[allow(unused_variables)]
 #[instrument]
 pub async fn grant_from_id(state: Arc<AppData>, id: &str) -> SResult<Grant> {
     let new_id = format!("kkb:oauthgrant:{id}");

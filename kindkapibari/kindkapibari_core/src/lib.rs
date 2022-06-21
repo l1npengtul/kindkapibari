@@ -44,7 +44,7 @@ pub mod reminder;
 pub mod sober;
 #[cfg(feature = "server")]
 #[macro_use]
-pub mod mokacaches;
+pub mod makeconfig_macros;
 pub use kindkapibari_proc::AttrString;
 
 pub trait AttrErr {

@@ -11,7 +11,7 @@ pub struct Config {
     pub port: u16,
     pub database: Database,
     pub host_url: String,
-    pub signing_key: String,
+    pub signing_keys: SigningKeys,
     pub oauth: OAuthProviders,
     pub coconutpak: CoconutPak,
 }
@@ -70,6 +70,13 @@ pub struct OAuth {
     pub secret: String,
     pub authorize_url: String,
     pub token_url: String,
+}
+
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+pub struct SigningKeys {
+    pub oauth_key: String,
+    pub oauth_thirdparty_key: String,
+    pub login_key: String,
 }
 
 const fn default_port() -> u16 {

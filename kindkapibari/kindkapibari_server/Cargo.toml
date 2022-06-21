@@ -56,8 +56,7 @@ version = "0.1.0"
 version = "0.1.0"
 
 [dependencies.oxide-auth]
-git = "https://github.com/l1npengtul/oxide-auth"
-branch = "serde"
+version = "0.5"
 
 [dependencies.moka]
 version = "0.8"

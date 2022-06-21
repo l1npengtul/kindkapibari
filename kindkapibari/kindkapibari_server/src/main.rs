@@ -13,6 +13,7 @@ mod roles;
 mod schema;
 mod scopes;
 
+use crate::access::auth::oauth::{OAuthAuthorizer, OAuthIssuer, OAuthRegistrar};
 use crate::{
     config::Config,
     error::ServerError,
@@ -24,9 +25,14 @@ use crate::{
 };
 use color_eyre::Report;
 use kindkapibari_core::{make_caches, secret::SentSecret, snowflake::SnowflakeIdGenerator};
+use oxide_auth::frontends::simple::endpoint::{Generic, Vacant};
+use oxide_auth_async::primitives::{Authorizer, Issuer, Registrar};
 use redis::aio::ConnectionManager;
 use sea_orm::DatabaseConnection;
-use tokio::{io::AsyncReadExt, sync::RwLock};
+use tokio::{
+    io::AsyncReadExt,
+    sync::{Mutex, RwLock},
+};
 
 const EPOCH_START: u64 = 1650125769; // haha nice
 type SResult<T> = Result<T, ServerError>;
@@ -34,20 +40,40 @@ type AResult<T> = Result<T, Report>;
 
 pub const THIS_SITE_URL: &'static str = "https://kindkapibari.land";
 
+pub struct OAuthState {
+    registrar: Mutex<OAuthRegistrar>,
+    authorizer: Mutex<OAuthAuthorizer>,
+    issuer: Mutex<OAuthIssuer>,
+}
+
+impl OAuthState {
+    pub async fn endpoint(
+        &self,
+    ) -> Generic<impl Registrar + '_, impl Authorizer + '_, impl Issuer + '_> {
+        Generic {
+            registrar: self.registrar.lock().await,
+            authorizer: self.authorizer.lock().await,
+            issuer: self.issuer.lock().await,
+            solicitor: Vacant,
+            scopes: Vacant,
+            response: Vacant,
+        }
+    }
+}
+
 pub struct AppData {
     pub redis: ConnectionManager,
     pub database: DatabaseConnection,
     pub config: RwLock<Config>,
     pub caches: Caches,
-    pub id_generator: SnowflakeIdGenerator,
+    pub id_generator: IdGenerators,
+    pub oauth: OAuthState,
 }
 
-// pub struct Caches {
-//     pub users: Cache<u64, Arc<Option<user::Model>>>,
-//     pub login_token: Cache<DecodedSecret, Arc<Option<user::Model>>>,
-//     pub oauth_token: Cache<DecodedSecret, Arc<Option<users::AuthorizedUser>>>,
-//     pub applications: Cache<u64, Arc<Option<applications::Model>>>,
-// }
+pub struct IdGenerators {
+    most_ids: SnowflakeIdGenerator,
+    redirect_ids: SnowflakeIdGenerator,
+}
 
 make_caches! {
     users: u64: user::Model,

@@ -1,9 +1,9 @@
 use crate::KKBScope;
 use kindkapibari_core::dbvec::DBVec;
+use kindkapibari_core::secret::StoredSecret;
 use sea_orm::prelude::*;
 use sea_orm::EnumIter;
 use serde::{Deserialize, Serialize};
-use kindkapibari_core::secret::DecodedSecret;
 
 #[derive(Clone, Debug, Hash, PartialOrd, PartialEq, Serialize, Deserialize, DeriveEntityModel)]
 #[sea_orm(table_name = "applications")]
@@ -19,7 +19,7 @@ pub struct Model {
     pub callback: String,
     pub logo: String,
     #[sea_orm(column_type = "Text", indexed, nullable)]
-    pub signed_secret: Option<DecodedSecret>,
+    pub signed_secret: Option<StoredSecret>,
     pub scopes: DBVec<KKBScope>,
     pub confidential: bool,
 }

@@ -20,6 +20,7 @@ use sea_orm::{
 };
 use std::{ops::Add, sync::Arc};
 use tracing::instrument;
+use kindkapibari_core::secret::GeneratedToken;
 
 pub const AUTH_REDIS_KEY_START_SESSION: [u8; 2] = *b"se";
 pub const LOGIN_TOKEN_PREFIX_NO_DASH: &'static str = "LT";
@@ -34,36 +35,7 @@ static ID_GENERATOR: Lazy<Arc<SnowflakeIdGenerator>> = Lazy::new(|| {
 #[instrument]
 pub async fn generate_login_token(state: Arc<AppData>, user: user::Model) -> SResult<String> {
     let config = state.config.read().await;
-    let key = generate_signed_key(config.machine_id, config.signing_key.as_bytes())
-        .map_err(|why| ServerError::InternalServer(why))?;
-
-    let token = format!(
-        "{}.{}.{}{}{}",
-        base64::encode(key.nonce),
-        LOGIN_TOKEN_PREFIX_NO_DASH,
-        base64::encode(key.salt),
-        TOKEN_SEPERATOR,
-        base64::encode(&key.signed)
-    );
-
-    let now = Utc::now();
-
-    let login_token_active = login_tokens::ActiveModel {
-        owner: ActiveValue::Set(user_id),
-        expire: ActiveValue::Set(now.add(Duration::days(69))),
-        created: ActiveValue::Set(now),
-        session_hashed: ActiveValue::Set(key.signed),
-        salt: ActiveValue::Set(DBArray::from(key.salt)),
-        ..Default::default()
-    };
-    login_token_active.insert(&state.database).await?;
-
-    // cache
-    if let Ok(secret) = decode_gotten_secret(&token, TOKEN_SEPERATOR, config.signing_key.as_bytes())
-    {
-        state.caches.login_token.insert(secret, Some(user));
-    }
-
+    let gen_token = GeneratedToken::new(user.id, state.config.)
     Ok(token)
 }
 

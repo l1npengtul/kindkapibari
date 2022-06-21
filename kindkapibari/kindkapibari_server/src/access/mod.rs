@@ -3,9 +3,9 @@ use redis::{AsyncCommands, FromRedisValue, ToRedisArgs};
 use std::sync::Arc;
 use tracing::{error, instrument};
 
+pub mod application;
 pub mod auth;
 pub mod user;
-pub mod application;
 
 pub const TOKEN_SEPERATOR: &'static str = "-";
 
@@ -41,4 +41,9 @@ pub async fn delet_dis<F: FromRedisValue>(
     arg: impl ToRedisArgs,
 ) -> SResult<F> {
     Ok(state.redis.del(arg)?)
+}
+
+#[instrument]
+pub async fn check_if_exists_cache(state: Arc<AppData>, data: impl ToRedisArgs) -> bool {
+    state.redis.get(data).await.is_ok()
 }
