@@ -1,9 +1,8 @@
-use crate::{access::insert_into_cache, AResult, AppData, SResult};
+use crate::{AResult, AppData, SResult};
 use color_eyre::Report;
 use kindkapibari_core::{impl_redis, impl_sea_orm};
 use oauth2::{
     basic::{BasicClient, BasicTokenResponse},
-    url::Url,
     AuthUrl, ClientId, ClientSecret, CsrfToken, PkceCodeChallenge, RedirectUrl, Scope,
     TokenResponse, TokenUrl,
 };
@@ -92,25 +91,42 @@ impl_sea_orm!(Twitter, Github, AuthorizationProviders);
 impl_redis!(Twitter, Github, AuthorizationProviders);
 
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
-struct OAuthAttempt<'a> {
+pub struct OAuthAttempt<'a> {
+    auth_url: String,
+    csrf_token: &'a String,
     pkce_verifier: &'a String,
     authorizer: &'static str,
 }
 
-fn get_oauth_client(
+impl<'a> OAuthAttempt<'a> {
+    pub fn auth_url(&self) -> &str {
+        &self.auth_url
+    }
+    pub fn csrf_token(&self) -> &'a str {
+        self.csrf_token
+    }
+    pub fn pkce_verifier(&self) -> &'a str {
+        self.pkce_verifier
+    }
+    pub fn authorizer(&self) -> &'static str {
+        self.authorizer
+    }
+}
+
+pub fn get_oauth_client(
     authorize_url: String,
     token_url: String,
     redirect_url: String,
     client_id: String,
     client_secret: String,
-) -> BasicClient {
-    return BasicClient::new(
+) -> Result<BasicClient, Box<dyn std::error::Error>> {
+    return Ok(BasicClient::new(
         ClientId::new(client_id),
         Some(ClientSecret::new(client_secret)),
         AuthUrl::new(authorize_url)?,
         Some(TokenUrl::new(token_url)?),
     )
-    .set_redirect_uri(RedirectUrl::new(redirect_url)?);
+    .set_redirect_uri(RedirectUrl::new(redirect_url)?));
 }
 
 macro_rules! oauth_providers {
@@ -118,15 +134,15 @@ macro_rules! oauth_providers {
         $(
             paste! {
                 #[instrument]
-                pub async fn [<oauth_login_ $provider>](state: Arc<AppData>) -> SResult<Url> {
+                pub async fn [<oauth_login_ $provider>](state: Arc<AppData> url: impl AsRef<str>) -> SResult<OAuthAttempt> {
                     let config = *state.config.read().await;
-                    let client = get_oauth_client(
+                    let mut client = get_oauth_client(
                         config.oauth.$provider.authorize_url,
                         config.oauth.$provider.token_url,
-                        config.oauth.redirect_url,
+                        format!("{}/redirect"),
                         config.oauth.$provider.client_id,
                         config.oauth.$provider.secret,
-                    );
+                    ).map_err(|x| ServerError::InternalServer(x));
                     let (pkce_challenge, pkce_verifier) = PkceCodeChallenge::new_random_sha256_len(96);
 
                     let (auth_url, csrf) = client
@@ -137,19 +153,14 @@ macro_rules! oauth_providers {
                         .set_pkce_challenge(pkce_challenge)
                         .url();
 
-                    // commit to RAM
-                    insert_into_cache(
-                        state,
-                        csrf.secret(),
+                    return Ok(
                         OAuthAttempt {
+                            auth_url,
+                            csrf_token: csrf.secret(),
                             pkce_verifier: pkce_verifier.secret(),
                             authorizer: stringify!($provider),
-                        },
-                        Some(120),
-                    )
-                    .await?;
-
-                    return auth_url;
+                        }
+                    );
                 }
             }
         )*
@@ -160,10 +171,10 @@ oauth_providers!([twitter {"users.read", "tweet.read"}], [github {"read:user", "
 
 #[instrument]
 pub async fn get_user_data(
-    authorizer: &'static str,
+    authorizer: impl AsRef<str>,
     token: BasicTokenResponse,
 ) -> AResult<AuthorizationProviders> {
-    match authorizer {
+    match authorizer.as_ref() {
         "twitter" => Ok(AuthorizationProviders::Twitter(
             get_twitter_info(token).await?,
         )),

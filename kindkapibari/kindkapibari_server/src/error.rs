@@ -21,6 +21,8 @@ pub enum ServerError {
     DatabaseError(#[from] DbErr),
     #[error(transparent)]
     InternalServer(#[from] dyn std::error::Error),
+    #[error("Internal Error: {0}")]
+    ISErr(Cow<'static, str>),
     #[error("Bad Argument {0}: {1}")]
     BadArgumentError(Cow<'static, str>, #[from] dyn std::error::Error),
     #[error("Bad Request: {0}")]
