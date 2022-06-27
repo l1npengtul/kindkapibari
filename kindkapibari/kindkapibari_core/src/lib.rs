@@ -45,6 +45,9 @@ pub mod sober;
 #[cfg(feature = "server")]
 #[macro_use]
 pub mod makeconfig_macros;
+#[cfg(feature = "server")]
+pub mod auth;
+
 pub use kindkapibari_proc::AttrString;
 
 pub trait AttrErr {

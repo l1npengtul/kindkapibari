@@ -5,7 +5,7 @@ members = [
     "coconutpak/coconutpak_island",
     "coconutpak/cnutpk",
     "kindkapibari/kindkapibari_core",
-    "kindkapibari/kindkapibari_server",
-    "kindkapibari/kindkapibari_client",
     "kindkapibari/kindkapibari_proc",
+    "kindkapibari/client/*",
+    "kindkapibari/servers/*",
 ]

@@ -172,34 +172,6 @@ impl PronounProfile {
     }
 }
 
-#[cfg(feature = "server")]
-impl TryGetable for PronounProfile {
-    fn try_get(res: &QueryResult, pre: &str, col: &str) -> Result<Self, TryGetError> {
-        match pot::from_slice::<PronounProfile>(&Vec::<u8>::try_get(res, pre, col)?) {
-            Ok(pp) => Ok(pp),
-            Err(why) => Err(TryGetError::DbErr(DbErr::Custom(why.to_string()))),
-        }
-    }
-}
-
-#[cfg(feature = "server")]
-impl From<PronounProfile> for sea_orm::Value {
-    fn from(pp: PronounProfile) -> Self {
-        sea_orm::Value::Bytes(Some(Box::new(pot::to_vec(&pp).unwrap_or_default())))
-    }
-}
-
-impl<'a> From<PronounProfile> for PronounProfileStr<'a> {
-    fn from(pp: PronounProfile) -> Self {
-        PronounProfileStr {
-            nominative: Cow::from(&pp.nominative),
-            accusative: Cow::from(&pp.accusative),
-            pronominal: Cow::from(&pp.pronominal),
-            predicative: Cow::from(&pp.predicative),
-            reflexive: Cow::from(&pp.reflexive),
-        }
-    }
-}
 //
 // #[macro_use]
 // macro_rules! define_const_ppstr {
@@ -316,3 +288,8 @@ impl<'a> From<PronounProfileStr<'a>> for PronounProfile {
         }
     }
 }
+
+#[cfg(feature = "server")]
+crate::impl_sea_orm!(Pronouns, PronounProfile);
+#[cfg(feature = "server")]
+crate::impl_redis!(Pronouns, PronounProfile);

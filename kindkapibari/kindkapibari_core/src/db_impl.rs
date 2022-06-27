@@ -27,6 +27,8 @@ macro_rules! impl_redis {
     };
 }
 
+// TODO: Consider using JSONB?
+
 #[macro_export]
 macro_rules! impl_sea_orm {
     ($($to_impl:ty),+) => {

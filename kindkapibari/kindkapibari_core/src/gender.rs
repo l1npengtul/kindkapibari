@@ -127,33 +127,6 @@ impl<'de> Deserialize<'de> for Gender {
 }
 
 #[cfg(feature = "server")]
-impl TryGetable for Gender {
-    fn try_get(res: &QueryResult, pre: &str, col: &str) -> Result<Self, TryGetError> {
-        Ok(Gender::from(String::try_get(res, pre, col)?))
-    }
-}
-
+crate::impl_sea_orm!(Gender, AsThree);
 #[cfg(feature = "server")]
-impl From<Gender> for sea_orm::Value {
-    fn from(g: Gender) -> Self {
-        sea_orm::Value::String(Some(Box::new(g.to_string())))
-    }
-}
-
-#[cfg(feature = "server")]
-impl ValueType for Gender {
-    fn try_from(v: Value) -> Result<Self, ValueTypeErr> {
-        match v {
-            Value::String(Some(gender_str)) => Ok(Gender::from(gender_str.as_ref().as_str())),
-            _ => Err(ValueTypeErr),
-        }
-    }
-
-    fn type_name() -> String {
-        stringify!(Gender).to_string()
-    }
-
-    fn column_type() -> ColumnType {
-        ColumnType::Text
-    }
-}
+crate::impl_redis!(Gender, AsThree);

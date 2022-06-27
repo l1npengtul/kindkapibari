@@ -11,13 +11,14 @@ client = ["chrono/wasmbind", "wasm-bindgen"]
 # I apologize to anyone reading this
 server = ["pot", "sea-orm",
     "redis", "flume", "tokio",
-    "futures-core", "crossbeam", "poem", "base64", "chacha20poly1305", "argon2", "blake3", "eyre", "once_cell", "moka", "paste", "tokio-native-tls"]
+    "futures-core", "crossbeam", "base64", "chacha20poly1305", "argon2", "blake3", "eyre", "once_cell", "moka", "paste", "tokio-native-tls", "axum-core", "async-trait", "serde_urlencoded", "http"]
 
 [dependencies]
 serde_json = "^1.0"
 thiserror = "1.0"
 convert_case = "0.5"
 license = "2.0.1"
+bytes = "1.1.0"
 
 [dependencies.kindkapibari_proc]
 path = "../kindkapibari_proc"
@@ -86,8 +87,24 @@ optional = true
 version = "0.10"
 optional = true
 
-[dependencies.poem]
-version = "1.3"
+[dependencies.axum-core]
+version = "0.2"
+optional = true
+
+[dependencies.axum]
+version = "0.5"
+optional = true
+
+[dependencies.http]
+version = "0.2"
+optional = true
+
+[dependencies.async-trait]
+version = "0.1"
+optional = true
+
+[dependencies.serde_urlencoded]
+version = "0.7"
 optional = true
 
 [dependencies.tokio]

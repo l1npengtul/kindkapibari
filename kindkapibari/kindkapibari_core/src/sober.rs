@@ -9,14 +9,14 @@ use serde::{Deserialize, Serialize};
 pub struct Sober {
     // pub schema: u64,
     pub name: String,
-    pub time: DateTime<Utc>,
+    pub start_time: DateTime<Utc>,
 }
 
 impl Default for Sober {
     fn default() -> Self {
         Self {
             name: "".to_string(),
-            time: Utc::now(),
+            start_time: Utc::now(),
         }
     }
 }
@@ -26,5 +26,7 @@ pub struct Sobers {
     pub sobers: Vec<Sober>,
 }
 
+#[cfg(feature = "server")]
+crate::impl_sea_orm!(Sober, Sobers);
 #[cfg(feature = "server")]
 crate::impl_sea_orm!(Sober, Sobers);

@@ -1,11 +1,11 @@
 use crate::reseedingrng::AutoReseedingRng;
 use argon2::{Algorithm, Argon2, Params, PasswordHasher, Version};
+use bytes::Buf;
 use chacha20poly1305::{
     aead::{consts::U24, generic_array::GenericArray, Aead, NewAead},
     Key, XChaCha20Poly1305, XNonce,
 };
 use chrono::Utc;
-use eyre::Report;
 use once_cell::sync::Lazy;
 use staticvec::StaticVec;
 use std::fmt::{Display, Formatter};
@@ -110,13 +110,18 @@ impl SentSecret {
 
         Some(Self { signed })
     }
-    
+
     pub fn user_id(&self, signing_key: impl AsRef<[u8]>) -> Option<u64> {
         if let Ok(data) = aead(signing_key).decrypt(self.nonce(), &sent.signed) {
-            return String::from_utf8(data).ok().map(|x| x.split(".").next()).flatten()?.parse::<u64>().ok()
+            return String::from_utf8(data)
+                .ok()
+                .map(|x| x.split(".").next())
+                .flatten()?
+                .parse::<u64>()
+                .ok();
         }
-        
-        return None
+
+        return None;
     }
 
     pub fn to_str_token(&self) -> String {
@@ -169,6 +174,16 @@ impl StoredSecret {
         }
 
         decoded_hash == self.hash
+    }
+
+    pub fn to_bin_str(&self) -> Result<String, ()> {
+        let stored_str = pot::to_vec(&self).map_err(())?;
+        Ok(base64::encode(stored_str))
+    }
+
+    pub fn from_bin_str(str: impl AsRef<str>) -> Result<Self, ()> {
+        let data = base64::decode(str.as_ref()).map_err(())?;
+        Ok(pot::from_slice(&data).map_err(())?)
     }
 }
 
