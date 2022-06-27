@@ -1,7 +1,8 @@
 use crate::access::auth::oauth_thirdparty::AuthorizationProviders;
 use crate::schema::users::connections;
-use crate::users::userdata;
+use crate::users::{sobers, userdata};
 use crate::{user, AppData, SResult, ServerError};
+use kindkapibari_core::sober::{Sober, Sobers};
 use kindkapibari_core::user_data::UserData;
 use sea_orm::{
     ActiveValue, ColumnTrait, EntityTrait, JoinType, QueryFilter, QuerySelect, RelationTrait,
@@ -120,13 +121,7 @@ pub async fn update_user_data_by_user_id(
     user: u64,
     userdata: UserData,
 ) -> SResult<()> {
-    let user = userdata::Entity::find_by_id(user)
-        .one(&state.database)
-        .await?
-        .ok_or(ServerError::NotFound(
-            Cow::from("userdata"),
-            Cow::from(user.to_string()),
-        ))?;
+    let user = user_by_id(state.clone(), user).await?;
     let mut user_data_active: userdata::ActiveModel = user.into();
     user_data_active.locale = ActiveValue::Set(userdata.locale);
     user_data_active.birthday = ActiveValue::Set(userdata.birthday);
@@ -137,4 +132,18 @@ pub async fn update_user_data_by_user_id(
 }
 
 #[instrument]
-pub async fn
+pub async fn get_sobers_by_user_id(state: Arc<AppData>, user: u64) -> SResult<Sobers> {
+    let user = user_by_id(state.clone(), user).await?;
+    let sobers: Vec<sobers::Model> = user
+        .find_related(sobers::Entity)
+        .all(&state.database)
+        .await?;
+    let sobers = sobers
+        .into_iter()
+        .map(|sober_mdl| Sober {
+            name: sober_mdl.name,
+            start_time: sober_mdl.time_since_reset,
+        })
+        .collect::<Vec<Sober>>();
+    Ok(Sobers { sobers })
+}

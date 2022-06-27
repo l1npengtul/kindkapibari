@@ -1,4 +1,6 @@
-use crate::access::user::{update_user_data_by_user_id, user_data_by_user_id};
+use crate::access::user::{
+    get_sobers_by_user_id, update_user_data_by_user_id, user_data_by_user_id,
+};
 use crate::api::auth::AuthedUser;
 use crate::{AppData, SResult};
 use axum::{Extension, Json};
@@ -32,4 +34,6 @@ pub async fn get_user_sobers(
     Extension(state): Extension<Arc<AppData>>,
     auth: Authentication<AuthedUser>,
 ) -> SResult<Json<Sobers>> {
+    let sobers = get_sobers_by_user_id(state, auth.0.id).await?;
+    Ok(Json(sobers))
 }
