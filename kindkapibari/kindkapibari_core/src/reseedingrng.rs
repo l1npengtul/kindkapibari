@@ -1,4 +1,4 @@
-use rand::RngCore;
+use rand::{RngCore, SeedableRng};
 #[cfg(feature = "server")]
 use rand_chacha::ChaCha20Rng;
 

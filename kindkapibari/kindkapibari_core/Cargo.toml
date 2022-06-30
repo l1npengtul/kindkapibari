@@ -9,16 +9,16 @@ edition = "2021"
 default = []
 client = ["chrono/wasmbind", "wasm-bindgen"]
 # I apologize to anyone reading this
-server = ["pot", "sea-orm",
+server = ["postcard", "sea-orm",
     "redis", "flume", "tokio",
-    "futures-core", "crossbeam", "base64", "chacha20poly1305", "argon2", "blake3", "eyre", "once_cell", "moka", "paste", "tokio-native-tls", "axum-core", "async-trait", "serde_urlencoded", "http"]
+    "futures-core", "crossbeam", "base64", "chacha20poly1305", "argon2", "blake3", "eyre", "once_cell", "moka", "paste", "tokio-native-tls", "axum-core", "axum", "async-trait", "serde_urlencoded", "http", "rand_chacha", "http-body"]
 
 [dependencies]
 serde_json = "^1.0"
 thiserror = "1.0"
 convert_case = "0.5"
-license = "2.0.1"
-bytes = "1.1.0"
+license = "2.0"
+bytes = "1.1"
 
 [dependencies.kindkapibari_proc]
 path = "../kindkapibari_proc"
@@ -35,7 +35,7 @@ version = "1.0"
 features = ["derive"]
 
 [dependencies.uuid]
-version = "1.0.0"
+version = "1.0"
 features = ["serde"]
 
 [dependencies.semver]
@@ -66,8 +66,9 @@ version = "0.21"
 features = ["tokio-comp", "tls", "cluster"]
 optional = true
 
-[dependencies.pot]
+[dependencies.postcard]
 version = "1.0"
+features = ["use-std"]
 optional = true
 
 [dependencies.sea-orm]
@@ -108,7 +109,7 @@ version = "0.7"
 optional = true
 
 [dependencies.tokio]
-version = "1.18"
+version = "1.19"
 features = ["rt", "time"]
 optional = true
 
@@ -126,33 +127,39 @@ optional = true
 
 [dependencies.chacha20poly1305]
 version = "0.10.0-pre"
+features = ["std"]
 optional = true
 
 [dependencies.argon2]
-version = "0.4.0"
+version = "0.4"
+features = ["std"]
 optional = true
 
 [dependencies.blake3]
-version = "1.3.1"
+version = "1.3"
 optional = true
 
 [dependencies.eyre]
-version = "0.6.8"
+version = "0.6"
 optional = true
 
 [dependencies.once_cell]
-version = "1.10.0"
+version = "1.12"
 optional = true
 
 [dependencies.tokio-native-tls]
-version = "0.3.0"
+version = "0.3"
 optional = true
 
 [dependencies.moka]
-version = "0.8.5"
+version = "0.8"
 features = ["future"]
 optional = true
 
 [dependencies.paste]
-version = "1.0.7"
+version = "1.0"
+optional = true
+
+[dependencies.http-body]
+version = "0.4"
 optional = true

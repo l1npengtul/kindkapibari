@@ -1,11 +1,13 @@
 use async_trait::async_trait;
 use axum::{headers::Cookie, TypedHeader};
+use axum_core::body::boxed;
 use axum_core::{
     extract::{FromRequest, RequestParts},
     response::{IntoResponse, Response},
 };
 use http::StatusCode;
-use serde::Deserialize;
+use http_body::Empty;
+use serde::de::DeserializeOwned;
 use std::borrow::Cow;
 
 pub enum Located {
@@ -15,7 +17,7 @@ pub enum Located {
 }
 
 #[async_trait]
-pub trait FromAuth {
+pub trait FromAuth: Sized {
     const LOCATION: Located;
 
     async fn from_auth(provided: String) -> Option<Self>;
@@ -33,12 +35,13 @@ impl IntoResponse for AuthenticationRejection {
         let statuscode = match self {
             AuthenticationRejection::BadQuery => StatusCode::UNPROCESSABLE_ENTITY,
             AuthenticationRejection::BadHeader => StatusCode::UNPROCESSABLE_ENTITY,
+            AuthenticationRejection::BadCookie => StatusCode::UNPROCESSABLE_ENTITY,
             AuthenticationRejection::BadAuthorization => StatusCode::UNAUTHORIZED,
         };
 
         Response::builder()
             .status(statuscode)
-            .body(())
+            .body(boxed(Empty::new()))
             .unwrap()
             .into()
     }
@@ -46,12 +49,12 @@ impl IntoResponse for AuthenticationRejection {
 
 pub struct Authentication<T>(pub T)
 where
-    T: Deserialize + FromAuth;
+    T: DeserializeOwned + FromAuth;
 
 #[async_trait]
 impl<T, B> FromRequest<B> for Authentication<T>
 where
-    T: Deserialize + FromAuth,
+    T: DeserializeOwned + FromAuth,
     B: Send,
 {
     type Rejection = AuthenticationRejection;
@@ -81,7 +84,7 @@ where
             Located::Cookie(cookie_key) => {
                 let cookie_value = Option::<TypedHeader<Cookie>>::from_request(req)
                     .await
-                    .map_err(|| AuthenticationRejection::BadHeader)?
+                    .map_err(|_| AuthenticationRejection::BadHeader)?
                     .map(|cookie| cookie.get(cookie_key.as_ref()))
                     .flatten()
                     .ok_or(AuthenticationRejection::BadCookie)?;
@@ -91,6 +94,6 @@ where
             }
         };
 
-        Ok(data)
+        Ok(Authentication(data))
     }
 }

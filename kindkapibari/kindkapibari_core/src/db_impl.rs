@@ -7,18 +7,19 @@ macro_rules! impl_redis {
                 where
                     W: ?Sized + redis::RedisWrite,
                 {
-                    let _err = pot::to_writer(self, out);
+                    let data = postcard::to_allocvec(&self).unwrap_or_default();
+                    out.write_arg(&data);
                 }
             }
 
             impl redis::FromRedisValue for $to_impl {
                 fn from_redis_value(v: &redis::Value) -> redis::RedisResult<Self> {
                     match v {
-                        redis::Value::Data(d) => pot::from_slice::<Self>(&d)?,
+                        redis::Value::Data(d) => {
+                            Ok(postcard::from_bytes(d).map_err(|_| redis::RedisError::from( (redis::ErrorKind::ResponseError, "data deserialize") ))?)
+                        }
                         _ => {
-                            return Err(redis::RedisError::from(eyre::Report::msg(
-                                "expected data in redis",
-                            )))
+                            return Err(redis::RedisError::from( (redis::ErrorKind::TypeError, "data deserialize") ))
                         }
                     }
                 }
@@ -27,47 +28,22 @@ macro_rules! impl_redis {
     };
 }
 
-// TODO: Consider using JSONB?
-
 #[macro_export]
 macro_rules! impl_sea_orm {
     ($($to_impl:ty),+) => {
         $(
-        impl From<$to_impl> for sea_orm::Value {
-            fn from(v: $to_impl) -> Self {
-                sea_orm::Value::Bytes(pot::to_vec(&v).ok().map(Box::new))
-            }
-        }
-
-        impl sea_orm::TryGetable for $to_impl {
-            fn try_get(res: &sea_orm::QueryResult, pre: &str, col: &str) -> Result<Self, sea_orm::error::TryGetError> {
-                pot::from_slice(&Vec::<u8>::try_get(res, pre, col)?)
-                    .map_err(|why| sea_orm::error::TryGetError::DbErr(sea_orm::error::DbErr::Custom(why.to_string())))
-            }
-        }
-
-        impl sea_orm::ValueType for $to_impl {
-            fn try_from(v: Value) -> Result<Self, sea_orm::error::ValueTypeErr> {
-                match v {
-                    sea_orm::Value::Bytes(Some(bytes)) => pot::from_slice::<Self>(&bytes).map_err(|_| sea_orm::error::ValueTypeErr),
-                    _ => Err(sea_orm::error::ValueTypeErr),
-                }
-            }
-
-            fn type_name() -> String {
-                stringify!($to_impl).to_string()
-            }
-
-            fn column_type() -> sea_orm::ColumnType {
-                sea_orm::ColumnType::Binary(None)
-            }
-        }
-
-        impl Nullable for $to_impl {
-            fn null() -> sea_orm::Value {
-                sea_orm::Value::Bytes(None)
-            }
-        }
+impl sea_orm::TryGetable for $to_impl {
+    fn try_get(
+        res: &sea_orm::QueryResult,
+        pre: &str,
+        col: &str,
+    ) -> Result<Self, sea_orm::TryGetError> {
+        let value = serde_json::to_value(sea_orm::entity::prelude::Json::try_get(res, pre, col)?)
+            .map_err(|why| sea_orm::TryGetError::DbErr(sea_orm::DbErr::Json(why.to_string())))?;
+        serde_json::from_value(value)
+            .map_err(|why| sea_orm::TryGetError::DbErr(sea_orm::DbErr::Json(why.to_string())))
+    }
+}
         )+
     };
 }

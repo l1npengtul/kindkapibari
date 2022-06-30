@@ -1,4 +1,4 @@
-use crate::{gender::Gender, pronouns::Pronouns, secret::SentSecret};
+use crate::{gender::Gender, pronouns::Pronouns};
 use chrono::{DateTime, Utc};
 use language_tags::LanguageTag;
 use std::{
@@ -45,12 +45,6 @@ impl Default for UserData {
             locale: LanguageTag::parse("en").unwrap().into(), // Panics: This is a valid locale and thus shouldn't crash.
         }
     }
-}
-
-#[derive(Clone, Debug, Hash, PartialEq, Serialize, Deserialize)]
-pub struct PostSignupSent {
-    pub id: u64,
-    pub login_secret: SentSecret,
 }
 
 #[derive(Clone, Debug, Hash, PartialEq, Serialize, Deserialize)]
@@ -109,6 +103,6 @@ pub struct UserSignupRequest {
 }
 
 #[cfg(feature = "server")]
-crate::impl_redis!(UserData, PostSignupSent, UserSignupRequest);
+crate::impl_redis!(UserData, UserSignupRequest);
 #[cfg(feature = "server")]
 crate::impl_sea_orm!(UserData, UserSignupRequest);

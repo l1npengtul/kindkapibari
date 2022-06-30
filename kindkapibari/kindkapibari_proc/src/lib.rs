@@ -106,6 +106,7 @@ pub fn attr_string(input: TokenStream) -> TokenStream {
             }
         }
 
+        #[allow(unreachable_code)]
         impl core::str::FromStr for #ident {
             type Err = ();
 

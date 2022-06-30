@@ -1,0 +1,45 @@
+[package]
+name = "kindkapibari_schema"
+version = "0.1.0"
+edition = "2021"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[dependencies]
+chrono = "0.4"
+async-trait = "0.1"
+tracing-subscriber = "0.3"
+tracing = "0.1"
+thiserror = "1.0"
+axum-core = "0.2"
+http = "0.2"
+oauth2 = "4.2"
+eyre = "0.6"
+
+[dependencies.tokio]
+version = "1.19"
+features = ["full"]
+
+[dependencies.serde]
+version = "1.0"
+features = ["derive"]
+
+[dependencies.kindkapibari_core]
+path = "../kindkapibari_core"
+features = ["server"]
+
+[dependencies.sea-orm]
+version = "0.8"
+features = ["with-uuid", "with-chrono", "with-json", "macros"]
+
+[dependencies.redis]
+version = "0.21"
+features = ["tokio-comp", "tokio-native-tls-comp", "cluster", "connection-manager"]
+
+[dependencies.moka]
+version = "0.8"
+features = ["future"]
+
+[dependencies.reqwest]
+version = "0.11"
+features = ["json", "rustls"]

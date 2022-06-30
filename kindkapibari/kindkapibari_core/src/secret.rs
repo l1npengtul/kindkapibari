@@ -1,6 +1,6 @@
 use crate::reseedingrng::AutoReseedingRng;
-use argon2::{Algorithm, Argon2, Params, PasswordHasher, Version};
-use bytes::Buf;
+use argon2::{Algorithm, Argon2, Params, Version};
+use base64::DecodeError;
 use chacha20poly1305::{
     aead::{consts::U24, generic_array::GenericArray, Aead, NewAead},
     Key, XChaCha20Poly1305, XNonce,
@@ -32,7 +32,11 @@ pub struct GeneratedToken {
 }
 
 impl GeneratedToken {
-    pub fn new(user_id: u64, signing_key: &[u8]) -> Result<Self, Box<dyn std::error::Error>> {
+    pub async fn new(
+        user_id: u64,
+        signing_key: &[u8],
+        machine_id: u8,
+    ) -> Result<Self, Box<dyn std::error::Error>> {
         let now_slice: [u8; 8] = Utc::now().timestamp_millis().to_ne_bytes();
         let mut base = Vec::with_capacity(73);
         base.extend_from_slice(&AUTO_RESEEDING_TOKEN_RNG.lock().await.generate_bytes::<64>());
@@ -52,13 +56,14 @@ impl GeneratedToken {
 
         let mut hash: StaticVec<u8, 64> = StaticVec::new();
         let salt = *blake3::hash(
-            [
-                &AUTO_RESEEDING_SALT_SHAKER_RNG
+            &[
+                AUTO_RESEEDING_SALT_SHAKER_RNG
                     .lock()
                     .await
-                    .generate_bytes::<23>(),
+                    .generate_bytes::<32>()
+                    .as_slice(),
                 &now_slice,
-                &[user_id],
+                &user_id.to_le_bytes(),
             ]
             .concat(),
         )
@@ -78,7 +83,7 @@ impl GeneratedToken {
 
         let mut pre_nonce = Vec::with_capacity(33);
         pre_nonce.extend_from_slice(&AUTO_RESEEDING_NONCE_RNG.lock().await.generate_bytes::<24>());
-        pre_nonce.extend_from_slice(Utc::now().timestamp_millis().to_ne_bytes().as_bytes());
+        pre_nonce.extend_from_slice(&Utc::now().timestamp_millis().to_ne_bytes());
         pre_nonce.push(machine_id);
         let nonce_salt = AUTO_RESEEDING_SALT_SHAKER_RNG
             .lock()
@@ -90,10 +95,13 @@ impl GeneratedToken {
         // sign the key
         let aead = aead(signing_key);
         let nonce_generic = XNonce::from_slice(&nonce);
-        let signed = aead.encrypt(nonce_generic, &base)?;
+        let signed = aead.encrypt(nonce_generic, base.as_slice())?;
 
         Ok(Self {
-            sent: SentSecret { signed },
+            sent: SentSecret {
+                iv: nonce_generic.to_vec(),
+                signed,
+            },
             store: StoredSecret { hash, salt, nonce },
         })
     }
@@ -101,18 +109,31 @@ impl GeneratedToken {
 
 #[derive(Clone, Debug, Hash, PartialOrd, PartialEq, Eq, Serialize, Deserialize)]
 pub struct SentSecret {
+    pub iv: Vec<u8>,
     pub signed: Vec<u8>,
 }
 
 impl SentSecret {
     pub fn from_str_token(token: impl AsRef<str>) -> Option<Self> {
-        let signed = base64::decode(token.as_ref()).ok()?;
+        let mut split = token
+            .as_ref()
+            .split(".")
+            .map(|x| base64::decode(x))
+            .collect::<Result<Vec<Vec<u8>>, DecodeError>>()
+            .ok()?;
+        if split.len() != 2 {
+            return None;
+        }
 
-        Some(Self { signed })
+        Some(Self {
+            iv: split.pop()?,
+            signed: split.pop()?,
+        })
     }
 
     pub fn user_id(&self, signing_key: impl AsRef<[u8]>) -> Option<u64> {
-        if let Ok(data) = aead(signing_key).decrypt(self.nonce(), &sent.signed) {
+        let nonce = XNonce::from_slice(self.iv.as_slice());
+        if let Ok(data) = aead(signing_key).decrypt(nonce, self.signed.as_slice()) {
             return String::from_utf8(data)
                 .ok()
                 .map(|x| x.split(".").next())
@@ -125,7 +146,11 @@ impl SentSecret {
     }
 
     pub fn to_str_token(&self) -> String {
-        base64::encode(&self.signed)
+        format!(
+            "{}.{}",
+            base64::encode(&self.iv),
+            base64::encode(&self.signed)
+        )
     }
 }
 
@@ -148,12 +173,15 @@ impl StoredSecret {
     }
 
     pub fn verify(&self, sent: &SentSecret, signing_key: impl AsRef<[u8]>) -> bool {
-        let decrypted = match aead(signing_key).decrypt(self.nonce(), &sent.signed) {
+        let decrypted = match aead(signing_key).decrypt(self.nonce(), sent.signed.as_slice()) {
             Ok(data) => data,
             Err(_) => return false,
         };
-
-        let raw = match base64::decode(String::from_utf8(decrypted).ok()?.as_ref()).ok() {
+        let decode_str = match String::from_utf8(decrypted).ok().as_ref() {
+            Some(s) => s,
+            None => return false,
+        };
+        let raw = match base64::decode(decode_str).ok() {
             Some(r) => r,
             None => return false,
         };
@@ -161,30 +189,48 @@ impl StoredSecret {
         let argon2 = Argon2::new(
             Algorithm::Argon2id,
             Version::default(),
-            Params::new(
+            match Params::new(
                 Params::DEFAULT_M_COST,
                 Params::DEFAULT_T_COST,
                 Params::DEFAULT_P_COST,
                 Some(64),
-            )?,
+            ) {
+                Ok(params) => params,
+                Err(_) => return false,
+            },
         );
         let mut decoded_hash = Vec::with_capacity(64);
-        if let Err(()) = argon2.hash_password_into(&raw, &self.salt, &mut decoded_hash) {
+        if let Err(_) = argon2.hash_password_into(&raw, &self.salt, &mut decoded_hash) {
             return false;
         }
 
-        decoded_hash == self.hash
+        decoded_hash.as_slice() == self.hash.as_slice()
     }
 
-    pub fn to_bin_str(&self) -> Result<String, ()> {
-        let stored_str = pot::to_vec(&self).map_err(())?;
-        Ok(base64::encode(stored_str))
+    pub fn to_bin_str(&self) -> String {
+        let stored_str = format!(
+            "{}.{}.{}",
+            base64::encode(&self.nonce),
+            base64::encode(&self.salt),
+            base64::encode(&self.hash)
+        );
+        stored_str
     }
 
-    pub fn from_bin_str(str: impl AsRef<str>) -> Result<Self, ()> {
-        let data = base64::decode(str.as_ref()).map_err(())?;
-        Ok(pot::from_slice(&data).map_err(())?)
-    }
+    // pub fn from_bin_str(str: impl AsRef<str>) -> Result<Self, ()> {
+    //     let mut data = str.as_ref().split(".").map(|x| base64::decode(x)).collect::<Result<Vec<Vec<u8>>, DecodeError>>().map_err(|_| ())?;
+    //     if data.len() != 3 {
+    //         return Err(())
+    //     }
+    //     let nonce = data.pop();
+    //     let salt = data.pop();
+    //     let hash = data.pop();
+    //     Ok(Self {
+    //         hash: ,
+    //         salt: [],
+    //         nonce: Default::default()
+    //     })
+    // }
 }
 
 #[cfg(feature = "server")]

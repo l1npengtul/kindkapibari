@@ -7,7 +7,7 @@ macro_rules! make_caches {
         $crate::makeconfig_macros::paste! {
             pub struct Caches {
                 $(
-                    pub  [<$name _cache>] : moka::future::Cache< $key , Option<$value> >,
+                    pub  [<$name _cache>] : moka::future::Cache< $key , $value >,
                 )*
             }
         }

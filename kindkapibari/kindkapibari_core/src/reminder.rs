@@ -19,13 +19,13 @@ impl Default for OneTimeReminder {
     }
 }
 
-pub const MONDAY: u8 = 0b00000001;
-pub const TUESDAY: u8 = 0b00000010;
-pub const WEDNESDAY: u8 = 0b00000100;
-pub const THURSDAY: u8 = 0b00001000;
-pub const FRIDAY: u8 = 0b00010000;
-pub const SATURDAY: u8 = 0b00100000;
-pub const SUNDAY: u8 = 0b01000000;
+pub const MONDAY: u8 = 0b0000_0001;
+pub const TUESDAY: u8 = 0b0000_0010;
+pub const WEDNESDAY: u8 = 0b0000_0100;
+pub const THURSDAY: u8 = 0b0000_1000;
+pub const FRIDAY: u8 = 0b0001_0000;
+pub const SATURDAY: u8 = 0b0010_0000;
+pub const SUNDAY: u8 = 0b0100_0000;
 
 #[derive(Copy, Clone, Debug, Default, Hash, PartialEq, PartialOrd, Serialize, Deserialize)]
 pub enum Weekdays {
@@ -51,8 +51,12 @@ impl Default for RecurringReminder {
 }
 
 #[derive(Clone, Debug, Default, Hash, PartialEq, PartialOrd, Serialize, Deserialize)]
-pub struct Reminders {
+pub struct OneTimeReminders {
     pub one_time: Vec<OneTimeReminder>,
+}
+
+#[derive(Clone, Debug, Default, Hash, PartialEq, PartialOrd, Serialize, Deserialize)]
+pub struct RecurringReminders {
     pub recurring: Vec<RecurringReminder>,
 }
 
@@ -70,6 +74,6 @@ pub fn u8_bitflag_to_days(bitflag: u8) -> [bool; 7] {
 }
 
 #[cfg(feature = "server")]
-crate::impl_sea_orm!(Reminders);
+crate::impl_sea_orm!(RecurringReminders, OneTimeReminders);
 #[cfg(feature = "server")]
-crate::impl_redis!(Reminders);
+crate::impl_redis!(RecurringReminders, OneTimeReminders);

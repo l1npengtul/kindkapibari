@@ -29,4 +29,4 @@ pub struct Sobers {
 #[cfg(feature = "server")]
 crate::impl_sea_orm!(Sober, Sobers);
 #[cfg(feature = "server")]
-crate::impl_sea_orm!(Sober, Sobers);
+crate::impl_redis!(Sober, Sobers);

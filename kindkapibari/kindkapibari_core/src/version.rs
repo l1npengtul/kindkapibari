@@ -5,6 +5,7 @@ use sea_orm::{
 };
 use semver::{BuildMetadata, Prerelease, Version as SemVer};
 use std::ops::{Deref, DerefMut};
+use std::str::FromStr;
 
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 pub struct Version {

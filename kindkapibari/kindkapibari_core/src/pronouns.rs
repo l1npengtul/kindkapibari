@@ -1,10 +1,3 @@
-use chrono::Utc;
-use rand::{rngs::SmallRng, seq::SliceRandom, SeedableRng};
-#[cfg(feature = "server")]
-use sea_orm::{
-    sea_query::{ColumnType, ValueType, ValueTypeErr},
-    DbErr, QueryResult, TryGetError, TryGetable, Value,
-};
 use std::borrow::Cow;
 
 // TODO: Localized Pronouns! This is English centric!
@@ -93,21 +86,6 @@ impl From<PronounProfile> for Pronouns {
     }
 }
 
-#[cfg(feature = "server")]
-impl TryGetable for Pronouns {
-    fn try_get(res: &QueryResult, pre: &str, col: &str) -> Result<Self, TryGetError> {
-        match pot::from_slice::<PronounProfile>(&Vec::<u8>::try_get(res, pre, col)?) {
-            Ok(pp) => Ok(Pronouns::from(pp)),
-            Err(why) => Err(TryGetError::DbErr(DbErr::Custom(why.to_string()))),
-        }
-    }
-}
-
-#[cfg(feature = "server")]
-crate::impl_sea_orm!(Pronouns, PronounProfile, PronounProfileStr);
-#[cfg(feature = "server")]
-crate::impl_redis!(Pronouns, PronounProfile, PronounProfileStr);
-
 #[derive(Clone, Debug, Default, Hash, PartialOrd, PartialEq, Serialize, Deserialize)]
 pub struct PronounProfile {
     pub(crate) nominative: String,
@@ -188,9 +166,7 @@ impl PronounProfile {
 //     };
 // }
 
-#[derive(
-    Copy, Clone, Debug, Default, Hash, Ord, PartialOrd, Eq, PartialEq, Serialize, Deserialize,
-)]
+#[derive(Clone, Debug, Default, Hash, Ord, PartialOrd, Eq, PartialEq, Serialize, Deserialize)]
 pub struct PronounProfileStr<'a> {
     pub nominative: Cow<'a, str>,
     pub accusative: Cow<'a, str>,
@@ -201,67 +177,67 @@ pub struct PronounProfileStr<'a> {
 
 impl<'a> PronounProfileStr<'a> {
     pub const HE_HIM: PronounProfileStr<'static> = PronounProfileStr {
-        nominative: Cow::from("he"),
-        accusative: Cow::from("him"),
-        pronominal: Cow::from("his"),
-        predicative: Cow::from("his"),
-        reflexive: Cow::from("himself"),
+        nominative: Cow::Borrowed("he"),
+        accusative: Cow::Borrowed("him"),
+        pronominal: Cow::Borrowed("his"),
+        predicative: Cow::Borrowed("his"),
+        reflexive: Cow::Borrowed("himself"),
     };
     pub const SHE_HER: PronounProfileStr<'static> = PronounProfileStr {
-        nominative: Cow::from("she"),
-        accusative: Cow::from("her"),
-        pronominal: Cow::from("hers"),
-        predicative: Cow::from("her"),
-        reflexive: Cow::from("herself"),
+        nominative: Cow::Borrowed("she"),
+        accusative: Cow::Borrowed("her"),
+        pronominal: Cow::Borrowed("hers"),
+        predicative: Cow::Borrowed("her"),
+        reflexive: Cow::Borrowed("herself"),
     };
     pub const THEY_THEM: PronounProfileStr<'static> = PronounProfileStr {
-        nominative: Cow::from("they"),
-        accusative: Cow::from("them"),
-        pronominal: Cow::from("theirs"),
-        predicative: Cow::from("their"),
-        reflexive: Cow::from("themself"),
+        nominative: Cow::Borrowed("they"),
+        accusative: Cow::Borrowed("them"),
+        pronominal: Cow::Borrowed("theirs"),
+        predicative: Cow::Borrowed("their"),
+        reflexive: Cow::Borrowed("themself"),
     };
     pub const PER_PERS: PronounProfileStr<'static> = PronounProfileStr {
-        nominative: Cow::from("per"),
-        accusative: Cow::from("per"),
-        pronominal: Cow::from("per"),
-        predicative: Cow::from("pers"),
-        reflexive: Cow::from("perself"),
+        nominative: Cow::Borrowed("per"),
+        accusative: Cow::Borrowed("per"),
+        pronominal: Cow::Borrowed("per"),
+        predicative: Cow::Borrowed("pers"),
+        reflexive: Cow::Borrowed("perself"),
     };
     pub const IT_ITS: PronounProfileStr<'static> = PronounProfileStr {
-        nominative: Cow::from("it"),
-        accusative: Cow::from("it"),
-        pronominal: Cow::from("its"),
-        predicative: Cow::from("its"),
-        reflexive: Cow::from("itself"),
+        nominative: Cow::Borrowed("it"),
+        accusative: Cow::Borrowed("it"),
+        pronominal: Cow::Borrowed("its"),
+        predicative: Cow::Borrowed("its"),
+        reflexive: Cow::Borrowed("itself"),
     };
     pub const FAE_FAER: PronounProfileStr<'static> = PronounProfileStr {
-        nominative: Cow::from("fae"),
-        accusative: Cow::from("faer"),
-        pronominal: Cow::from("faer"),
-        predicative: Cow::from("faers"),
-        reflexive: Cow::from("faerself"),
+        nominative: Cow::Borrowed("fae"),
+        accusative: Cow::Borrowed("faer"),
+        pronominal: Cow::Borrowed("faer"),
+        predicative: Cow::Borrowed("faers"),
+        reflexive: Cow::Borrowed("faerself"),
     };
     pub const XE_XYRS: PronounProfileStr<'static> = PronounProfileStr {
-        nominative: Cow::from("xe"),
-        accusative: Cow::from("xem"),
-        pronominal: Cow::from("xyr"),
-        predicative: Cow::from("xyrs"),
-        reflexive: Cow::from("xemself"),
+        nominative: Cow::Borrowed("xe"),
+        accusative: Cow::Borrowed("xem"),
+        pronominal: Cow::Borrowed("xyr"),
+        predicative: Cow::Borrowed("xyrs"),
+        reflexive: Cow::Borrowed("xemself"),
     };
     pub const ZE_ZIE: PronounProfileStr<'static> = PronounProfileStr {
-        nominative: Cow::from("ze"),
-        accusative: Cow::from("zir"),
-        pronominal: Cow::from("zir"),
-        predicative: Cow::from("zirs"),
-        reflexive: Cow::from("zirself"),
+        nominative: Cow::Borrowed("ze"),
+        accusative: Cow::Borrowed("zir"),
+        pronominal: Cow::Borrowed("zir"),
+        predicative: Cow::Borrowed("zirs"),
+        reflexive: Cow::Borrowed("zirself"),
     };
     pub const AE_AERS: PronounProfileStr<'static> = PronounProfileStr {
-        nominative: Cow::from("ae"),
-        accusative: Cow::from("aer"),
-        pronominal: Cow::from("aer"),
-        predicative: Cow::from("aers"),
-        reflexive: Cow::from("aerself"),
+        nominative: Cow::Borrowed("ae"),
+        accusative: Cow::Borrowed("aer"),
+        pronominal: Cow::Borrowed("aer"),
+        predicative: Cow::Borrowed("aers"),
+        reflexive: Cow::Borrowed("aerself"),
     };
 }
 
@@ -290,6 +266,6 @@ impl<'a> From<PronounProfileStr<'a>> for PronounProfile {
 }
 
 #[cfg(feature = "server")]
-crate::impl_sea_orm!(Pronouns, PronounProfile);
+crate::impl_sea_orm!(Pronouns, PronounProfile, PronounProfileStr<'_>);
 #[cfg(feature = "server")]
-crate::impl_redis!(Pronouns, PronounProfile);
+crate::impl_redis!(Pronouns, PronounProfile, PronounProfileStr<'_>);

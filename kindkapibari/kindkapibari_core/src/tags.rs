@@ -194,5 +194,3 @@ pub enum Tags {
     //
     Other(String),
 }
-
-impl_attr_err!(GenderMarker, Jobs, Pets, Tags);

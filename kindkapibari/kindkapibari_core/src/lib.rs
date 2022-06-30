@@ -7,8 +7,6 @@ extern crate serde;
 #[cfg(feature = "server")]
 pub mod dbarray;
 #[cfg(feature = "server")]
-pub mod dbhasmap;
-#[cfg(feature = "server")]
 pub mod dbvec;
 pub mod error;
 pub mod gender;
@@ -47,6 +45,9 @@ pub mod sober;
 pub mod makeconfig_macros;
 #[cfg(feature = "server")]
 pub mod auth;
+pub mod badges;
+pub mod roles;
+pub mod scopes;
 
 pub use kindkapibari_proc::AttrString;
 
