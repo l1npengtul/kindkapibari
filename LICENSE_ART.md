@@ -1,1 +1,0 @@
-All rights reserved (C) l1npengtul <l1npengtul@protonmail.com>
