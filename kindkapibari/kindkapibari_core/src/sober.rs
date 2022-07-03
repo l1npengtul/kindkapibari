@@ -5,7 +5,7 @@ use serde::{Deserialize, Serialize};
 // const SOBERS_SCHEMA: u64 = 0;
 
 // represent as a </3?
-#[derive(Clone, Debug, Hash, PartialEq, Serialize, Deserialize)]
+#[derive(Clone, Debug, Hash, PartialEq, Eq, Serialize, Deserialize)]
 pub struct Sober {
     // pub schema: u64,
     pub name: String,
@@ -21,7 +21,7 @@ impl Default for Sober {
     }
 }
 
-#[derive(Clone, Debug, Default, Hash, PartialEq, Serialize, Deserialize)]
+#[derive(Clone, Debug, Default, Hash, PartialEq, Eq, Serialize, Deserialize)]
 pub struct Sobers {
     pub sobers: Vec<Sober>,
 }

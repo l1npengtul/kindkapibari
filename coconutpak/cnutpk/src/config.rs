@@ -42,15 +42,11 @@ impl Config {
         Ok(())
     }
 
-    pub fn get_login_for_url(&self, url: impl AsRef<str>) -> Option<&String> {
+    pub fn get_login_for_url(&self, url: &str) -> Option<&String> {
         self.logins.get(url.as_ref())
     }
 
-    pub fn add_login_for_url(
-        &mut self,
-        url: impl AsRef<str>,
-        apikey: impl AsRef<str>,
-    ) -> Option<String> {
+    pub fn add_login_for_url(&mut self, url: &str, apikey: &str) -> Option<String> {
         self.logins
             .insert(url.as_ref().to_string(), apikey.as_ref().to_string())
     }

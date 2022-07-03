@@ -1,21 +1,20 @@
-use chrono::{DateTime, Utc};
-use kindkapibari_core::badges::Badge;
-use kindkapibari_core::dbvec::DBVec;
+use kindkapibari_core::badges::Badges;
 use sea_orm::{
     prelude::{DeriveEntityModel, EntityTrait, PrimaryKeyTrait, RelationTrait},
-    sea_query::ValueType,
-    ActiveModelBehavior, DerivePrimaryKey, DeriveRelation, EnumIter, IdenStatic, Related,
-    RelationDef, TryGetable,
+    ActiveModelBehavior, DerivePrimaryKey, EnumIter, IdenStatic, Related, RelationDef,
 };
 use serde::{Deserialize, Serialize};
-use uuid::Uuid;
 
-#[derive(Clone, Debug, Hash, PartialOrd, PartialEq, Serialize, Deserialize, DeriveEntityModel)]
+#[derive(
+    Clone, Debug, Hash, PartialOrd, PartialEq, Eq, Serialize, Deserialize, DeriveEntityModel,
+)]
 #[sea_orm(table_name = "user_data")]
 pub struct Model {
     #[sea_orm(primary_key)]
     pub user_id: u64,
-    badges: DBVec<Badge>,
+    #[sea_orm(column_type = "JsonBinary")]
+    pub badges: Badges,
+    pub primary: u64,
 }
 
 #[derive(Copy, Clone, Debug, EnumIter)]

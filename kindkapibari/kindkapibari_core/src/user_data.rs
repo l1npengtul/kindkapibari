@@ -7,9 +7,9 @@ use std::{
     str::FromStr,
 };
 
-const CURRENT_SCHEMA: u64 = 0;
+pub const CURRENT_SCHEMA: u64 = 0;
 
-#[derive(Clone, Debug, Hash, PartialEq, Serialize, Deserialize)]
+#[derive(Clone, Debug, Hash, PartialEq, Eq, Serialize, Deserialize)]
 pub struct UserData {
     // pub schema: u64,
     pub gender: Gender,
@@ -19,6 +19,7 @@ pub struct UserData {
 }
 
 impl UserData {
+    #[must_use]
     pub fn new(
         gender: Gender,
         pronouns: Pronouns,
@@ -30,8 +31,7 @@ impl UserData {
             gender,
             pronouns,
             birthday,
-            locale: locale.into(),
-            ..Default::default()
+            locale,
         }
     }
 }
@@ -39,15 +39,15 @@ impl UserData {
 impl Default for UserData {
     fn default() -> Self {
         Self {
-            gender: Default::default(),
-            pronouns: Default::default(),
+            gender: Gender::default(),
+            pronouns: Pronouns::default(),
             birthday: Option::from(Utc::now()),
             locale: LanguageTag::parse("en").unwrap().into(), // Panics: This is a valid locale and thus shouldn't crash.
         }
     }
 }
 
-#[derive(Clone, Debug, Hash, PartialEq, Serialize, Deserialize)]
+#[derive(Clone, Debug, Hash, PartialEq, Eq, Serialize, Deserialize)]
 pub struct Locale {
     lang_tag: LanguageTag,
 }
@@ -78,7 +78,7 @@ impl FromStr for Locale {
 
 impl Display for Locale {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
-        write!(f, "{self}")
+        write!(f, "{}", &self.lang_tag)
     }
 }
 
@@ -95,6 +95,7 @@ impl From<Locale> for LanguageTag {
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
+#[cfg_attr(feature = "server", derive(utoipa::Component))]
 pub struct UserSignupRequest {
     pub username: String,
     pub email: String,
@@ -103,6 +104,6 @@ pub struct UserSignupRequest {
 }
 
 #[cfg(feature = "server")]
-crate::impl_redis!(UserData, UserSignupRequest);
+crate::impl_redis!(UserData, UserSignupRequest, Locale);
 #[cfg(feature = "server")]
-crate::impl_sea_orm!(UserData, UserSignupRequest);
+crate::impl_sea_orm!(UserData, UserSignupRequest, Locale);

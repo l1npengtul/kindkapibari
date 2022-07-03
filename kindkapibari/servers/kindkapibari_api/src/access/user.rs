@@ -1,127 +1,58 @@
-use crate::{
-    access::auth::oauth_thirdparty::AuthorizationProviders,
-    appdata_traits::{AppDataCache, AppDataDatabase},
-    schema::users::{connections, onetime_reminders, sobers, user, userdata},
-    SResult, ServerError,
-};
+use crate::State;
 use chrono::{Duration, Utc};
 use kindkapibari_core::{
-    reminder::{OneTimeReminder, OneTimeReminders, Reminders},
+    reminder::{OneTimeReminder, OneTimeReminders},
     sober::{Sober, Sobers},
     user_data::UserData,
 };
+use kindkapibari_schema::{
+    error::ServerError,
+    schema::users::{onetime_reminders, sobers, user, userdata},
+    SResult,
+};
 use sea_orm::{
-    ActiveValue, ColumnTrait, EntityTrait, IntoActiveModel, JoinType, QueryFilter, QuerySelect,
-    RelationTrait,
+    ActiveModelTrait, ActiveValue, ColumnTrait, EntityTrait, IntoActiveModel, JoinType, ModelTrait,
+    QueryFilter, QuerySelect, RelationTrait,
 };
 use std::{borrow::Cow, sync::Arc};
 use tracing::instrument;
 
-pub async fn user_by_id(
-    state: Arc<impl AppDataDatabase + AppDataCache<u64, user::Model>>,
-    id: u64,
-) -> SResult<user::Model> {
+#[instrument]
+pub async fn user_by_id(state: Arc<State>, id: u64) -> SResult<user::Model> {
     // check our local cache
-    if let Some(possible_user) = state.cache::<u64, user::Model>().get(&id) {
-        return possible_user.ok_or(ServerError::NotFound(
-            Cow::from("user"),
-            Cow::from(id.to_string()),
-        ));
+    if let Some(possible_user) = state.caches.users_cache.get(&id) {
+        return Ok(possible_user);
     }
 
-    let user = match user::Entity::find_by_id(id).one(state.database()).await? {
+    match user::Entity::find_by_id(id).one(&state.database).await? {
         Some(u) => {
-            state
-                .cache::<u64, user::Model>()
-                .insert(id, u.clone())
-                .await;
-            u
+            state.cache().insert(id, u.clone()).await;
+            Ok(u)
         }
-        None => return Err(ServerError::NotFound(Cow::from("user"), Cow::from("id"))),
-    };
-
-    return user.ok_or(ServerError::NotFound(
-        Cow::from("user"),
-        Cow::from(id.to_string()),
-    ));
+        None => Err(ServerError::NotFound(Cow::from("user"), Cow::from("id"))),
+    }
 }
 
 #[instrument]
-pub async fn user_by_username(
-    state: Arc<impl AppDataDatabase>,
-    name: impl AsRef<str>,
-) -> SResult<Option<user::Model>> {
+pub async fn user_by_username(state: Arc<State>, name: &str) -> SResult<Option<user::Model>> {
     let user = user::Entity::find()
-        .filter(user::Column::Username.eq(name.as_ref()))
+        .filter(user::Column::Username.eq(name))
         .one(state.database())
         .await?;
     Ok(user)
 }
 
 #[instrument]
-pub async fn user_by_email(
-    state: Arc<impl AppDataDatabase>,
-    email: impl AsRef<str>,
-) -> SResult<Option<user::Model>> {
+pub async fn user_by_email(state: Arc<State>, email: &str) -> SResult<Option<user::Model>> {
     let user = user::Entity::find()
-        .filter(user::Column::Email.eq(email.as_ref()))
+        .filter(user::Column::Email.eq(email))
         .one(state.database())
         .await?;
     Ok(user)
 }
 
 #[instrument]
-pub async fn detect_user_already_exists(
-    state: Arc<impl AppDataDatabase>,
-    maybeuser: AuthorizationProviders,
-) -> SResult<Option<u64>> {
-    // check if the account exists in connections
-    let prepared = connections::Entity::find();
-
-    let exists = match &maybeuser {
-        AuthorizationProviders::Twitter(twt) => {
-            prepared
-                .filter(connections::Column::TwitterId.eq(Some(&twt.twitter_id)))
-                .one(state.database())
-                .await?
-        }
-        AuthorizationProviders::Github(ghb) => {
-            prepared
-                .filter(connections::Column::GithubId.eq(Some(ghb.github_id as u64)))
-                .one(state.database())
-                .await?
-        }
-    };
-
-    if let Some(user) = exists {
-        return Ok(Some(user.user_id));
-    }
-
-    // email account
-    let email_chk = match maybeuser {
-        AuthorizationProviders::Twitter(twt) => twt.email,
-        AuthorizationProviders::Github(ghb) => ghb.email,
-    };
-
-    if let Some(email) = email_chk {
-        return match user::Entity::find()
-            .filter(user::Column::Email.eq(email))
-            .one(state.database())
-            .await?
-        {
-            Some(user) => Ok(Some(user.id)),
-            None => Ok(None),
-        };
-    }
-
-    return Ok(None);
-}
-
-#[instrument]
-pub async fn user_data_by_user_id(
-    state: Arc<impl AppDataDatabase>,
-    user: u64,
-) -> SResult<UserData> {
+pub async fn user_data_by_user_id(state: Arc<State>, user: u64) -> SResult<userdata::Model> {
     let userdata = user::Entity::find_by_id(user)
         .join(JoinType::LeftJoin, userdata::Relation::User.def())
         .into_model::<userdata::Model>()
@@ -131,16 +62,16 @@ pub async fn user_data_by_user_id(
             Cow::from("userdata"),
             Cow::from(user.to_string()),
         ))?;
-    Ok(userdata.into_userdata())
+    Ok(userdata)
 }
 
 #[instrument]
 pub async fn update_user_data_by_user_id(
-    state: Arc<impl AppDataDatabase>,
+    state: Arc<State>,
     user: u64,
     userdata: UserData,
 ) -> SResult<()> {
-    let user = user_by_id(state.clone(), user).await?;
+    let user = user_data_by_user_id(state.clone(), user).await?;
     let mut user_data_active: userdata::ActiveModel = user.into();
     user_data_active.locale = ActiveValue::Set(userdata.locale);
     user_data_active.birthday = ActiveValue::Set(userdata.birthday);
@@ -151,7 +82,7 @@ pub async fn update_user_data_by_user_id(
 }
 
 #[instrument]
-pub async fn get_sobers_by_user_id(state: Arc<impl AppDataDatabase>, user: u64) -> SResult<Sobers> {
+pub async fn get_sobers_by_user_id(state: Arc<State>, user: u64) -> SResult<Sobers> {
     let user = user_by_id(state.clone(), user).await?;
     let sobers: Vec<sobers::Model> = user
         .find_related(sobers::Entity)
@@ -169,7 +100,7 @@ pub async fn get_sobers_by_user_id(state: Arc<impl AppDataDatabase>, user: u64) 
 
 #[instrument]
 async fn check_if_sober_already_exists(
-    state: Arc<impl AppDataDatabase>,
+    state: Arc<State>,
     sober_name: &String,
     user: u64,
 ) -> SResult<bool> {
@@ -187,7 +118,7 @@ async fn check_if_sober_already_exists(
 
 #[instrument]
 pub async fn reset_sober_by_name_and_user_id(
-    state: Arc<impl AppDataDatabase + AppDataCache<u64, user::Model>>,
+    state: Arc<State>,
     sober_name: String,
     user: u64,
 ) -> SResult<i64> {
@@ -219,7 +150,7 @@ pub async fn reset_sober_by_name_and_user_id(
 
 #[instrument]
 pub async fn update_sober_name_by_user_id(
-    state: Arc<impl AppDataDatabase>,
+    state: Arc<State>,
     current: String,
     new_name: String,
     user_id: u64,
@@ -252,17 +183,13 @@ pub async fn update_sober_name_by_user_id(
 }
 
 #[instrument]
-pub async fn add_sober_by_user(
-    state: Arc<impl AppDataDatabase>,
-    user: u64,
-    new_sober: Sober,
-) -> SResult<()> {
+pub async fn add_sober_by_user(state: Arc<State>, user: u64, new_sober: Sober) -> SResult<()> {
     let _ = user_by_id(state.clone(), user).await?;
     let now = Utc::now();
     if now - new_sober.start_time > Duration::seconds(5) || new_sober.start_time > now {
         return Err(ServerError::BadRequest(Cow::from("bad time")));
     }
-    if !check_if_sober_already_exists(state.clone(), &new_sober.name, user_id).await? {
+    if !check_if_sober_already_exists(state.clone(), &new_sober.name, user).await? {
         return Err(ServerError::BadRequest(Cow::from("already exists!")));
     }
     let sober_active = sobers::ActiveModel {
@@ -278,7 +205,7 @@ pub async fn add_sober_by_user(
 
 #[instrument]
 pub async fn delete_sober_name_by_user_id(
-    state: Arc<impl AppDataDatabase>,
+    state: Arc<State>,
     user: u64,
     sober_name: String,
 ) -> SResult<()> {
@@ -306,7 +233,7 @@ pub async fn delete_sober_name_by_user_id(
 
 #[instrument]
 async fn check_if_onetime_already_exists(
-    state: Arc<impl AppDataDatabase>,
+    state: Arc<State>,
     user: u64,
     new_name: &String,
 ) -> SResult<bool> {
@@ -324,7 +251,7 @@ async fn check_if_onetime_already_exists(
 
 #[instrument]
 pub async fn get_onetime_reminders_by_user_id(
-    state: Arc<impl AppDataDatabase>,
+    state: Arc<State>,
     user: u64,
 ) -> SResult<OneTimeReminders> {
     let user = user_by_id(state.clone(), user).await?;
@@ -345,7 +272,7 @@ pub async fn get_onetime_reminders_by_user_id(
 
 #[instrument]
 pub async fn expire_onetime_reminder_by_user_id(
-    state: Arc<impl AppDataDatabase + AppDataCache<u64, user::Model>>,
+    state: Arc<State>,
     user: u64,
     name: String,
 ) -> SResult<()> {

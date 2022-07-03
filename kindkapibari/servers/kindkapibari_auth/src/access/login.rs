@@ -1,27 +1,49 @@
-use crate::State;
+use crate::{access::oauth_thirdparty::AuthorizationProviders, State};
 use chrono::{Duration, Utc};
 use kindkapibari_core::secret::{GeneratedToken, SentSecret};
 use kindkapibari_schema::{
-    access::user::user_by_id,
     error::ServerError,
-    schema::users::{login_tokens, user},
+    schema::users::{connections, login_tokens, user},
     SResult,
 };
-use redis::AsyncCommands;
-use sea_orm::{ActiveValue, ColumnTrait, EntityTrait, QueryFilter};
-use std::borrow::Cow;
-use std::{ops::Add, sync::Arc};
+use sea_orm::{ActiveModelTrait, ActiveValue, ColumnTrait, EntityTrait, ModelTrait, QueryFilter};
+use std::{borrow::Cow, ops::Add, sync::Arc};
 use tracing::instrument;
 
 pub const AUTH_REDIS_KEY_START_SESSION: [u8; 2] = *b"se";
-pub const LOGIN_TOKEN_PREFIX_NO_DASH: &'static str = "LT";
+pub const LOGIN_TOKEN_PREFIX_NO_DASH: &str = "LT";
+
+// static AUTO_RESEEDING_RNG: Lazy<Arc<Mutex<AutoReseedingRng<65535>>>> =
+//     Lazy::new(|| Arc::new(Mutex::new(AutoReseedingRng::new())));
+
+#[instrument]
+pub async fn user_by_id(state: Arc<State>, id: u64) -> SResult<user::Model> {
+    // check our local cache
+    if let Some(possible_user) = state.caches.users_cache.get(&id) {
+        return Ok(possible_user);
+    }
+
+    match user::Entity::find_by_id(id).one(&state.database).await? {
+        Some(u) => {
+            state.caches.users_cache.insert(id, u.clone()).await;
+            Ok(u)
+        }
+        None => Err(ServerError::NotFound(Cow::from("user"), Cow::from("id"))),
+    }
+}
 
 // LOGIN TOKEN CONVENTION: ALL LOGIN TOKENS ARE ENCRYPTED IN REDIS
 #[instrument]
 pub async fn generate_login_token(state: Arc<State>, user: u64) -> SResult<SentSecret> {
     let user = user_by_id(state.clone(), user).await?;
     let config = state.config.read().await;
-    let gen_token = GeneratedToken::new(user.id, config.signing_keys.login_key.as_bytes())?;
+    let gen_token = GeneratedToken::new(
+        user.id,
+        config.signing_keys.login_key.as_bytes(),
+        config.machine_id,
+    )
+    .await
+    .map_err(|why| ServerError::InternalServer(why))?;
     let login_token_active = login_tokens::ActiveModel {
         id: ActiveValue::NotSet,
         owner: ActiveValue::Set(user.id),
@@ -45,25 +67,22 @@ pub async fn verify_user_login_token(
     state: Arc<State>,
     token: SentSecret,
 ) -> SResult<Option<user::Model>> {
-    let config = *state.config.read().await;
+    let config = state.config.read().await;
     if let Some(user_id) = state.caches.login_token_cache.get(&token) {
-        return match user_id {
-            Some(id) => Ok(user::Entity::find_by_id(id).one(&state.database).await?),
-            None => Ok(None),
-        };
+        return Ok(user::Entity::find_by_id(user_id)
+            .one(&state.database)
+            .await?);
     }
 
     let user_id = token
         .user_id(config.signing_keys.login_key.as_bytes())
-        .ok_or(ServerError::NotFound(
-            Cow::from("ID not found"),
-            Cow::from("???"),
-        ))?;
+        .ok_or_else(|| ServerError::NotFound(Cow::from("ID not found"), Cow::from("???")))?;
 
     // yes, we're using lazy loading
     // no, it is not performant
     // yes, someone can probably optimize this.
     // TODO: optimize lazy loaded query into eager query
+    // TODO: use openapi to dogfood this
 
     let user = user_by_id(state.clone(), user_id).await?;
     // intellij has no idea what the fuck we are doing here, so this typeanno is for that.
@@ -80,7 +99,7 @@ pub async fn verify_user_login_token(
             return Ok(Some(user));
         }
     }
-    return Ok(None);
+    Ok(None)
 }
 
 #[instrument]
@@ -89,7 +108,7 @@ pub async fn burn_login_token(state: Arc<State>, user: u64, token: SentSecret) -
     if user
         != token
             .user_id(config.signing_keys.login_key.as_bytes())
-            .ok_or(ServerError::BadRequest(Cow::from("bad token")))?
+            .ok_or_else(|| ServerError::BadRequest(Cow::from("bad token")))?
     {
         return Err(ServerError::BadRequest(Cow::from("bad user")));
     }
@@ -114,16 +133,77 @@ pub async fn burn_login_token(state: Arc<State>, user: u64, token: SentSecret) -
     Err(ServerError::ISErr(Cow::from("no token")))
 }
 
+// #[instrument]
+// async fn generate_redirect_id(state: Arc<State>) -> String {
+//     let salt = state.id_generator.redirect_ids.generate_id().to_be_bytes();
+//     let rng_gen = AUTO_RESEEDING_RNG.lock().await.generate_bytes::<64>();
+//     base64::encode(blake3::hash(&[rng_gen.as_slice(), salt.as_slice()].concat()).as_bytes())
+// }
+
+#[allow(clippy::cast_sign_loss)]
 #[instrument]
-async fn generate_redirect_id(state: Arc<State>) -> String {
-    let salt = state
-        .id_generator
-        .redirect_ids
-        .generate_id()
-        .to_be_bytes()
-        .as_bytes();
-    let rng_gen: [u8; 64] = AUTO_RESEEDING_RNG.lock().await.generate_bytes();
-    base64::encode(blake3::hash(&[rng_gen, salt].concat()))
+pub async fn detect_user_already_exists_auth_provider(
+    state: Arc<State>,
+    maybeuser: AuthorizationProviders,
+) -> SResult<Option<u64>> {
+    // check if the account exists in connections
+    let prepared = connections::Entity::find();
+
+    let exists = match &maybeuser {
+        AuthorizationProviders::Twitter(twt) => {
+            prepared
+                .filter(connections::Column::TwitterId.eq(Some(twt.twitter_id)))
+                .one(&state.database)
+                .await?
+        }
+        AuthorizationProviders::Github(ghb) => {
+            prepared
+                .filter(connections::Column::GithubId.eq(Some(ghb.github_id as u64)))
+                .one(&state.database)
+                .await?
+        }
+    };
+
+    if let Some(user) = exists {
+        return Ok(Some(user.user_id));
+    }
+
+    // email account
+    let email_chk = match maybeuser {
+        AuthorizationProviders::Twitter(twt) => twt.email,
+        AuthorizationProviders::Github(ghb) => ghb.email,
+    };
+
+    if let Some(email) = email_chk {
+        return match user::Entity::find()
+            .filter(user::Column::Email.eq(email))
+            .one(&state.database)
+            .await?
+        {
+            Some(user) => Ok(Some(user.id)),
+            None => Ok(None),
+        };
+    }
+
+    Ok(None)
+}
+
+#[instrument]
+pub async fn user_by_username(state: Arc<State>, name: &str) -> SResult<Option<user::Model>> {
+    let user = user::Entity::find()
+        .filter(user::Column::Username.eq(name))
+        .one(&state.database)
+        .await?;
+    Ok(user)
+}
+
+#[instrument]
+pub async fn user_by_email(state: Arc<State>, email: &str) -> SResult<Option<user::Model>> {
+    let user = user::Entity::find()
+        .filter(user::Column::Email.eq(email))
+        .one(&state.database)
+        .await?;
+    Ok(user)
 }
 
 // // TODO: Add 2FA support

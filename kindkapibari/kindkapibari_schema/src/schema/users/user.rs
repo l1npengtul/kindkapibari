@@ -1,16 +1,23 @@
 use chrono::{DateTime, Utc};
-use kindkapibari_core::roles::Roles;
-use kindkapibari_core::{dbvec::DBVec, impl_redis};
+use kindkapibari_core::{impl_redis, roles::Role};
 use sea_orm::{
     prelude::{DeriveEntityModel, EntityTrait, PrimaryKeyTrait, RelationTrait},
-    sea_query::ValueType,
-    ActiveModelBehavior, DerivePrimaryKey, DeriveRelation, EnumIter, IdenStatic, Related,
-    RelationDef, TryGetable,
+    ActiveModelBehavior, DerivePrimaryKey, EnumIter, IdenStatic, Related, RelationDef,
 };
 use serde::{Deserialize, Serialize};
+use utoipa::Component;
 
 #[derive(
-    Clone, Debug, Hash, PartialOrd, PartialEq, Eq, Serialize, Deserialize, DeriveEntityModel,
+    Clone,
+    Debug,
+    Hash,
+    PartialOrd,
+    PartialEq,
+    Eq,
+    Serialize,
+    Deserialize,
+    DeriveEntityModel,
+    Component,
 )]
 #[sea_orm(table_name = "users")]
 pub struct Model {
@@ -23,10 +30,11 @@ pub struct Model {
     #[sea_orm(column_type = "Text", nullable)]
     pub profile_picture: Option<String>,
     pub creation_date: DateTime<Utc>,
-    pub roles: DBVec<Roles>,
+    #[sea_orm(column_type = "JsonBinary")]
+    pub roles: Role,
 }
 
-#[derive(Copy, Clone, Debug, EnumIter, DeriveRelation)]
+#[derive(Copy, Clone, Debug, EnumIter)]
 pub enum Relation {
     Applications,
     Authorizations,
@@ -40,6 +48,7 @@ pub enum Relation {
     OneTimeReminders,
     RecurringReminders,
     Sobers,
+    Statistics,
 }
 
 impl RelationTrait for Relation {
@@ -61,13 +70,86 @@ impl RelationTrait for Relation {
                 Entity::has_many(super::recurring_reminders::Entity).into()
             }
             Relation::Sobers => Entity::has_many(super::sobers::Entity).into(),
+            Relation::Statistics => Entity::has_one(super::statistics::Entity).into(),
         }
+    }
+}
+
+impl Related<super::super::applications::Entity> for Entity {
+    fn to() -> RelationDef {
+        Relation::Applications.def()
+    }
+}
+
+impl Related<super::oauth_authorizations::Entity> for Entity {
+    fn to() -> RelationDef {
+        Relation::Authorizations.def()
+    }
+}
+
+impl Related<super::badges::Entity> for Entity {
+    fn to() -> RelationDef {
+        Relation::Badges.def()
+    }
+}
+
+impl Related<super::super::bans::Entity> for Entity {
+    fn to() -> RelationDef {
+        Relation::Bans.def()
+    }
+}
+
+impl Related<super::connections::Entity> for Entity {
+    fn to() -> RelationDef {
+        Relation::Connections.def()
+    }
+}
+
+impl Related<super::login_tokens::Entity> for Entity {
+    fn to() -> RelationDef {
+        Relation::LoginTokens.def()
+    }
+}
+
+impl Related<super::passwords::Entity> for Entity {
+    fn to() -> RelationDef {
+        Relation::Passwords.def()
     }
 }
 
 impl Related<super::preferences::Entity> for Entity {
     fn to() -> RelationDef {
         Relation::Preferences.def()
+    }
+}
+
+impl Related<super::userdata::Entity> for Entity {
+    fn to() -> RelationDef {
+        Relation::UserData.def()
+    }
+}
+
+impl Related<super::onetime_reminders::Entity> for Entity {
+    fn to() -> RelationDef {
+        Relation::OneTimeReminders.def()
+    }
+}
+
+impl Related<super::recurring_reminders::Entity> for Entity {
+    fn to() -> RelationDef {
+        Relation::RecurringReminders.def()
+    }
+}
+
+impl Related<super::sobers::Entity> for Entity {
+    fn to() -> RelationDef {
+        Relation::Sobers.def()
+    }
+}
+
+impl Related<super::statistics::Entity> for Entity {
+    fn to() -> RelationDef {
+        Relation::Statistics.def()
     }
 }
 

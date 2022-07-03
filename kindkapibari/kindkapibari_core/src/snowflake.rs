@@ -2,6 +2,7 @@ use chrono::{DateTime, Utc};
 use crossbeam::atomic::AtomicCell;
 use std::sync::atomic::{AtomicU16, Ordering};
 
+#[derive(Debug)]
 pub struct SnowflakeIdGenerator {
     epoch: DateTime<Utc>,
     last: AtomicCell<DateTime<Utc>>,
@@ -10,6 +11,7 @@ pub struct SnowflakeIdGenerator {
 }
 
 impl SnowflakeIdGenerator {
+    #[must_use]
     pub fn new(epoch: DateTime<Utc>, machine_id: u8) -> Option<Self> {
         let now = Utc::now();
         if epoch >= now {
@@ -18,11 +20,13 @@ impl SnowflakeIdGenerator {
         Some(Self {
             epoch,
             last: AtomicCell::new(epoch),
-            sequence: Default::default(),
+            sequence: AtomicU16::default(),
             machine_id,
         })
     }
 
+    #[allow(clippy::cast_sign_loss)]
+    #[allow(clippy::cast_lossless)]
     pub fn generate_id(&self) -> u64 {
         let sequence = self.sequence.load(Ordering::SeqCst);
         let now = Utc::now();

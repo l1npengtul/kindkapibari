@@ -1,14 +1,14 @@
 use chrono::{DateTime, Utc};
-use kindkapibari_core::dbvec::DBVec;
-use kindkapibari_core::scopes::KKBScope;
 use kindkapibari_core::secret::StoredSecret;
 use sea_orm::{
-    ActiveModelBehavior, DeriveEntityModel, EntityTrait, EnumIter, Related, RelationDef,
-    RelationTrait,
+    prelude::{DeriveEntityModel, EntityTrait, PrimaryKeyTrait, RelationTrait},
+    ActiveModelBehavior, DerivePrimaryKey, EnumIter, IdenStatic, Related, RelationDef,
 };
 use serde::{Deserialize, Serialize};
 
-#[derive(Clone, Debug, Hash, PartialOrd, PartialEq, Serialize, Deserialize, DeriveEntityModel)]
+#[derive(
+    Clone, Debug, Hash, PartialOrd, PartialEq, Eq, Serialize, Deserialize, DeriveEntityModel,
+)]
 #[sea_orm(table_name = "oauth_authorizations")]
 pub struct Model {
     #[sea_orm(primary_key)]

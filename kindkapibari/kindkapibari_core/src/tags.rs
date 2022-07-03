@@ -1,7 +1,6 @@
-use crate::impl_attr_err;
 use kindkapibari_proc::AttrString;
 
-#[derive(Clone, Hash, PartialOrd, PartialEq, Serialize, Deserialize, AttrString)]
+#[derive(Clone, Hash, PartialOrd, PartialEq, Eq, Serialize, Deserialize, AttrString)]
 #[non_exhaustive]
 pub enum GenderMarker {
     General,
@@ -14,7 +13,7 @@ pub enum GenderMarker {
 // >no, i definately shouldhave written a macro
 // >but now i must suffer
 // i have solved this. baby's first proc mmacro
-#[derive(Clone, Hash, PartialOrd, PartialEq, Serialize, Deserialize, AttrString)]
+#[derive(Clone, Hash, PartialOrd, PartialEq, Eq, Serialize, Deserialize, AttrString)]
 #[non_exhaustive]
 pub enum Jobs {
     // Customer Facing / Selling Stuff / Emotional Labour / Delivery
@@ -112,7 +111,7 @@ pub enum Jobs {
     Other(String),
 }
 
-#[derive(Clone, Hash, PartialOrd, PartialEq, Serialize, Deserialize, AttrString)]
+#[derive(Clone, Hash, PartialOrd, PartialEq, Eq, Serialize, Deserialize, AttrString)]
 #[non_exhaustive]
 pub enum Pets {
     Dog,
@@ -147,7 +146,7 @@ pub enum Pets {
     Other(String),
 }
 
-#[derive(Clone, Hash, PartialOrd, PartialEq, Serialize, Deserialize, AttrString)]
+#[derive(Clone, Hash, PartialOrd, PartialEq, Eq, Serialize, Deserialize, AttrString)]
 #[non_exhaustive]
 pub enum Tags {
     // General Interest Tags

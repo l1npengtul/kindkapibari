@@ -9,10 +9,17 @@ pub struct DBArray<T, const N: usize> {
 }
 
 impl<T, const N: usize> DBArray<T, N> {
+    #[must_use]
     pub fn new() -> DBArray<T, N> {
         DBArray {
             internal: StaticVec::new(),
         }
+    }
+}
+
+impl<T, const N: usize> Default for DBArray<T, N> {
+    fn default() -> Self {
+        Self::new()
     }
 }
 
@@ -41,11 +48,5 @@ impl<T, const N: usize> From<[T; N]> for DBArray<T, N> {
         DBArray {
             internal: StaticVec::new_from_array(arr),
         }
-    }
-}
-
-impl<T, const N: usize> From<DBArray<T, N>> for &[T] {
-    fn from(dbarr: DBArray<T, N>) -> Self {
-        dbarr.internal.as_slice()
     }
 }

@@ -2,7 +2,7 @@
 use crate::{impl_redis, impl_sea_orm};
 use license::License;
 
-#[derive(Clone, Debug, Hash, PartialOrd, PartialEq, Serialize, Deserialize)]
+#[derive(Clone, Debug, Hash, PartialOrd, PartialEq, Eq, Serialize, Deserialize)]
 pub struct SPDXLicense {
     name: String,
     id: String,
@@ -28,18 +28,23 @@ impl SPDXLicense {
             }
         })
     }
+    #[must_use]
     pub fn name(&self) -> &str {
         &self.name
     }
+    #[must_use]
     pub fn id(&self) -> &str {
         &self.id
     }
+    #[must_use]
     pub fn osi(&self) -> bool {
         self.osi
     }
+    #[must_use]
     pub fn libre(&self) -> bool {
         self.libre
     }
+    #[must_use]
     pub fn addendum(&self) -> &str {
         &self.addendum
     }

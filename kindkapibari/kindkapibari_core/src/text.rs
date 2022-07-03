@@ -12,6 +12,7 @@ pub struct TextContainer {
 }
 
 impl TextContainer {
+    #[must_use]
     pub fn new(
         sub_namespace: String,
         tags: Tags,
@@ -28,15 +29,19 @@ impl TextContainer {
         }
     }
 
+    #[must_use]
     pub fn sub_namespace(&self) -> &str {
         &self.sub_namespace
     }
+    #[must_use]
     pub fn language(&self) -> &LanguageTag {
         &self.language
     }
+    #[must_use]
     pub fn description(&self) -> &str {
         &self.description
     }
+    #[must_use]
     pub fn responses(&self) -> &[Response] {
         &self.responses
     }

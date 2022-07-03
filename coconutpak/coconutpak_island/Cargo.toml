@@ -101,6 +101,3 @@ features = ["future"]
 
 [dependencies.thiserror]
 version = "1.0.31"
-
-[build]
-rustflags = ["-Ctarget-feature=+aes,+sse2,+sse4.1,+ssse3"]

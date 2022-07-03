@@ -3,7 +3,7 @@ use kindkapibari_core::{
     auth::{FromAuth, Located},
     secret::SentSecret,
 };
-use kindkapibari_schema::access::auth::login::verify_login_token;
+use crate::access::auth::login::verify_login_token;
 use kindkapibari_schema::schema::users::user;
 use serde::{Deserialize, Serialize};
 use std::{

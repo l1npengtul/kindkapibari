@@ -5,23 +5,23 @@ use axum_core::{
 use http::StatusCode;
 use redis::{ErrorKind, RedisError};
 use sea_orm::error::DbErr;
-use std::{borrow::Cow, error::Error, fmt::Display};
+use std::borrow::Cow;
 use thiserror::Error;
 
 #[derive(Error, Debug)]
 pub enum ServerError {
     #[error("Could not find {0} with {1}")]
     NotFound(Cow<'static, str>, Cow<'static, str>),
-    #[error(transparent)]
+    #[error("Internal Server Database Error.")]
     RedisError(#[from] RedisError),
-    #[error(transparent)]
+    #[error("Internal Server Database Error.")]
     DatabaseError(#[from] DbErr),
-    #[error(transparent)]
-    InternalServer(#[from] dyn std::error::Error),
+    #[error("Internal Server Error.")]
+    InternalServer(Box<dyn std::error::Error>),
     #[error("Internal Error: {0}")]
     ISErr(Cow<'static, str>),
     #[error("Bad Argument {0}: {1}")]
-    BadArgumentError(Cow<'static, str>, #[from] dyn std::error::Error),
+    BadArgumentError(Cow<'static, str>, Box<dyn std::error::Error>),
     #[error("Bad Request: {0}")]
     BadRequest(Cow<'static, str>),
     #[error("Unauthorized.")]
@@ -95,30 +95,7 @@ impl IntoResponse for ServerError {
 
         Response::builder()
             .status(status_code)
-            .body(boxed(""))
+            .body(boxed(format!("{self}")))
             .unwrap()
-    }
-}
-
-impl From<RedisError> for ServerError {
-    fn from(why: RedisError) -> Self {
-        ServerError::RedisError(why)
-    }
-}
-
-impl From<DbErr> for ServerError {
-    fn from(db: DbErr) -> Self {
-        match &db {
-            DbErr::RecordNotFound(rec) => {
-                ServerError::NotFound(Cow::from(rec.to_owned()), Cow::from(""))
-            }
-            _ => ServerError::DatabaseError(db),
-        }
-    }
-}
-
-impl From<dyn Error> for ServerError {
-    fn from(why: Box<dyn Error>) -> Self {
-        return ServerError::InternalServer(why);
     }
 }

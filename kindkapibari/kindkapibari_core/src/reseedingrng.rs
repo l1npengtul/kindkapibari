@@ -8,6 +8,7 @@ pub struct AutoReseedingRng<const MAX_BYTES: usize> {
 }
 
 impl<const MAX_BYTES: usize> AutoReseedingRng<MAX_BYTES> {
+    #[must_use]
     pub fn new() -> AutoReseedingRng<MAX_BYTES> {
         AutoReseedingRng {
             rng_core: ChaCha20Rng::from_entropy(),
@@ -28,5 +29,11 @@ impl<const MAX_BYTES: usize> AutoReseedingRng<MAX_BYTES> {
         self.rng_core.fill_bytes(&mut arr);
         self.check_rng_bytes_remaining(N);
         arr
+    }
+}
+
+impl<const MAX_BYTES: usize> Default for AutoReseedingRng<MAX_BYTES> {
+    fn default() -> Self {
+        Self::new()
     }
 }

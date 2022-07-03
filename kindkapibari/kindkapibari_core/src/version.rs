@@ -7,12 +7,13 @@ use semver::{BuildMetadata, Prerelease, Version as SemVer};
 use std::ops::{Deref, DerefMut};
 use std::str::FromStr;
 
-#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct Version {
     version: SemVer,
 }
 
 impl Version {
+    #[must_use]
     pub const fn new(major: u64, minor: u64, patch: u64) -> Self {
         Version {
             version: SemVer {
@@ -27,7 +28,7 @@ impl Version {
 
     pub fn parse(text: &str) -> Result<Self, semver::Error> {
         Ok(Version {
-            version: SemVer::parse(text)?.into(),
+            version: SemVer::parse(text)?,
         })
     }
 }

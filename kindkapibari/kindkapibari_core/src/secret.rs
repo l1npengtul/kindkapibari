@@ -25,7 +25,7 @@ static AUTO_RESEEDING_SALT_SHAKER_RNG: Lazy<Arc<Mutex<AutoReseedingRng<65535>>>>
 //                         |---------> StoredSecret(nonce + salt + raw) -> Database
 // Redeem/Verify Flow
 // Receive [{}.{{}.{}}] -> SentSecret -> StoredSecret::verify_secret(StoredSecret, SentSecret
-#[derive(Clone, Debug, Hash, PartialOrd, PartialEq, Serialize, Deserialize)]
+#[derive(Clone, Debug, Hash, PartialOrd, PartialEq, Eq, Serialize, Deserialize)]
 pub struct GeneratedToken {
     pub sent: SentSecret,
     pub store: StoredSecret,
@@ -114,11 +114,11 @@ pub struct SentSecret {
 }
 
 impl SentSecret {
-    pub fn from_str_token(token: impl AsRef<str>) -> Option<Self> {
+    #[must_use]
+    pub fn from_str_token(token: &str) -> Option<Self> {
         let mut split = token
-            .as_ref()
-            .split(".")
-            .map(|x| base64::decode(x))
+            .split('.')
+            .map(base64::decode)
             .collect::<Result<Vec<Vec<u8>>, DecodeError>>()
             .ok()?;
         if split.len() != 2 {
@@ -136,15 +136,15 @@ impl SentSecret {
         if let Ok(data) = aead(signing_key).decrypt(nonce, self.signed.as_slice()) {
             return String::from_utf8(data)
                 .ok()
-                .map(|x| x.split(".").next())
-                .flatten()?
+                .and_then(|x| x.split('.').next().map(ToString::to_string))?
                 .parse::<u64>()
                 .ok();
         }
 
-        return None;
+        None
     }
 
+    #[must_use]
     pub fn to_str_token(&self) -> String {
         format!(
             "{}.{}",
@@ -168,6 +168,7 @@ pub struct StoredSecret {
 }
 
 impl StoredSecret {
+    #[must_use]
     pub fn nonce(&self) -> &GenericArray<u8, U24> {
         XNonce::from_slice(&self.nonce)
     }
@@ -177,7 +178,7 @@ impl StoredSecret {
             Ok(data) => data,
             Err(_) => return false,
         };
-        let decode_str = match String::from_utf8(decrypted).ok().as_ref() {
+        let decode_str = match String::from_utf8(decrypted).ok() {
             Some(s) => s,
             None => return false,
         };
@@ -200,13 +201,17 @@ impl StoredSecret {
             },
         );
         let mut decoded_hash = Vec::with_capacity(64);
-        if let Err(_) = argon2.hash_password_into(&raw, &self.salt, &mut decoded_hash) {
+        if argon2
+            .hash_password_into(&raw, &self.salt, &mut decoded_hash)
+            .is_err()
+        {
             return false;
         }
 
         decoded_hash.as_slice() == self.hash.as_slice()
     }
 
+    #[must_use]
     pub fn to_bin_str(&self) -> String {
         let stored_str = format!(
             "{}.{}.{}",
@@ -217,7 +222,7 @@ impl StoredSecret {
         stored_str
     }
 
-    // pub fn from_bin_str(str: impl AsRef<str>) -> Result<Self, ()> {
+    // pub fn from_bin_str(str: &str) -> Result<Self, ()> {
     //     let mut data = str.as_ref().split(".").map(|x| base64::decode(x)).collect::<Result<Vec<Vec<u8>>, DecodeError>>().map_err(|_| ())?;
     //     if data.len() != 3 {
     //         return Err(())

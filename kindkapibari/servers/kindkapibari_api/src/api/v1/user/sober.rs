@@ -1,16 +1,14 @@
-use crate::{SResult, ServerError, State};
-use axum::{extract::Query, Extension, Json};
+use crate::{ServerError, SResult, State};
+use axum::{Extension, extract::Query, Json};
 use kindkapibari_core::{sober::Sober, sober::Sobers};
-use kindkapibari_schema::{
-    access::user::{
-        add_sober_by_user, delete_sober_name_by_user_id, get_sobers_by_user_id,
-        reset_sober_by_name_and_user_id, update_sober_name_by_user_id,
-    },
-    auth::AuthedUser,
-};
+use kindkapibari_schema::auth::AuthedUser;
 use serde::Deserialize;
 use std::{borrow::Cow, sync::Arc};
 use tracing::instrument;
+use crate::access::user::{
+    add_sober_by_user, delete_sober_name_by_user_id, get_sobers_by_user_id,
+    reset_sober_by_name_and_user_id, update_sober_name_by_user_id,
+};
 
 #[instrument]
 pub async fn get_user_sobers(

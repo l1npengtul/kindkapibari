@@ -1,7 +1,5 @@
-use color_eyre::Report;
 use kindkapibari_core::{impl_redis, impl_sea_orm};
-use kindkapibari_schema::error::ServerError;
-use kindkapibari_schema::SResult;
+use kindkapibari_schema::{error::ServerError, SResult};
 use oauth2::{
     basic::{BasicClient, BasicTokenResponse},
     AuthUrl, ClientId, ClientSecret, CsrfToken, PkceCodeChallenge, RedirectUrl, Scope,
@@ -10,20 +8,20 @@ use oauth2::{
 use paste::paste;
 use reqwest::Client;
 use serde::{Deserialize, Serialize};
-use std::{fmt::Debug, sync::Arc};
+use std::{borrow::Cow, fmt::Debug, sync::Arc};
 use tracing::instrument;
 
-pub type AResult<T> = Result<T, Report>;
+pub type AResult<T> = Result<T, Box<dyn std::error::Error>>;
 
 trait OAuthProviderBasicInfo {
-    fn id_as_str(&self) -> &str;
+    fn id_as_str(&self) -> String;
     fn username(&self) -> &str;
     fn handle(&self) -> &str;
-    fn profile_picture_url(&self) -> Option<&str>;
-    fn email(&self) -> Option<&str>;
+    fn profile_picture_url(&self) -> &str;
+    fn email(&self) -> &Option<String>;
 }
 
-#[derive(Clone, Debug, Default, PartialEq, Serialize, Deserialize)]
+#[derive(Clone, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
 pub struct Twitter {
     pub twitter_id: u64,
     pub username: String,
@@ -33,8 +31,8 @@ pub struct Twitter {
 }
 
 impl OAuthProviderBasicInfo for Twitter {
-    fn id_as_str(&self) -> &str {
-        self.twitter_id.to_string().as_str()
+    fn id_as_str(&self) -> String {
+        self.twitter_id.to_string()
     }
 
     fn username(&self) -> &str {
@@ -49,12 +47,12 @@ impl OAuthProviderBasicInfo for Twitter {
         self.profile_picture.as_ref()
     }
 
-    fn email(&self) -> Option<&str> {
-        None
+    fn email(&self) -> &Option<String> {
+        &None
     }
 }
 
-#[derive(Clone, Debug, Default, PartialEq, Serialize, Deserialize)]
+#[derive(Clone, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
 pub struct Github {
     pub github_id: i64,
     pub username: String,
@@ -63,8 +61,8 @@ pub struct Github {
 }
 
 impl OAuthProviderBasicInfo for Github {
-    fn id_as_str(&self) -> &str {
-        self.github_id.to_string().as_str()
+    fn id_as_str(&self) -> String {
+        self.github_id.to_string()
     }
 
     fn username(&self) -> &str {
@@ -79,18 +77,18 @@ impl OAuthProviderBasicInfo for Github {
         self.profile_picture.as_ref()
     }
 
-    fn email(&self) -> Option<&str> {
-        self.email.as_ref().into()
+    fn email(&self) -> &Option<String> {
+        &self.email
     }
 }
 
-#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub enum AuthorizationProviders {
     Twitter(Twitter),
     Github(Github),
 }
 
-#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct AuthProviderDataCommon {
     pub id: u64,
     pub username: String,
@@ -99,6 +97,7 @@ pub struct AuthProviderDataCommon {
 }
 
 impl From<AuthorizationProviders> for AuthProviderDataCommon {
+    #[allow(clippy::cast_sign_loss)]
     fn from(authp: AuthorizationProviders) -> Self {
         match authp {
             AuthorizationProviders::Twitter(twt) => Self {
@@ -117,26 +116,30 @@ impl From<AuthorizationProviders> for AuthProviderDataCommon {
     }
 }
 
-#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct OAuthAttempt {
     auth_url: String,
     csrf_token: String,
     pkce_verifier: String,
-    authorizer: &'static str,
+    authorizer: String,
 }
 
 impl OAuthAttempt {
+    #[must_use]
     pub fn auth_url(&self) -> &str {
         &self.auth_url
     }
+    #[must_use]
     pub fn csrf_token(&self) -> &str {
         &self.csrf_token
     }
+    #[must_use]
     pub fn pkce_verifier(&self) -> &str {
         &self.pkce_verifier
     }
-    pub fn authorizer(&self) -> &'static str {
-        self.authorizer
+    #[must_use]
+    pub fn authorizer(&self) -> &str {
+        &self.authorizer
     }
 }
 
@@ -147,13 +150,13 @@ pub fn get_oauth_client(
     client_id: String,
     client_secret: String,
 ) -> Result<BasicClient, Box<dyn std::error::Error>> {
-    return Ok(BasicClient::new(
+    Ok(BasicClient::new(
         ClientId::new(client_id),
         Some(ClientSecret::new(client_secret)),
         AuthUrl::new(authorize_url)?,
         Some(TokenUrl::new(token_url)?),
     )
-    .set_redirect_uri(RedirectUrl::new(redirect_url)?));
+    .set_redirect_uri(RedirectUrl::new(redirect_url)?))
 }
 
 macro_rules! oauth_providers {
@@ -161,19 +164,19 @@ macro_rules! oauth_providers {
         $(
             paste! {
                 #[instrument]
-                pub async fn [<oauth_login_ $provider>](state: Arc<State>, url: impl AsRef<str>) -> SResult<OAuthAttempt> {
-                    let config = *state.config.read().await;
-                    let mut client = get_oauth_client(
+                pub async fn [<oauth_login_ $provider>](state: Arc<crate::State>, url: &str) -> SResult<OAuthAttempt> {
+                    let config = state.config.read().await.clone();
+                    let client = get_oauth_client(
                         config.oauth.$provider.authorize_url,
                         config.oauth.$provider.token_url,
-                        format!("{}/redirect"),
+                        format!("{url}/redirect"),
                         config.oauth.$provider.client_id,
                         config.oauth.$provider.secret,
-                    ).map_err(|x| ServerError::InternalServer(x));
+                    ).map_err(|x| ServerError::InternalServer(x))?;
                     let (pkce_challenge, pkce_verifier) = PkceCodeChallenge::new_random_sha256_len(96);
 
                     let (auth_url, csrf) = client
-                        .authorize_url(CsrfToken::new_random())
+                        .authorize_url(CsrfToken::new_random)
                         $(
                         .add_scope(Scope::new($scope.to_string()))
                         )*
@@ -182,10 +185,10 @@ macro_rules! oauth_providers {
 
                     return Ok(
                         OAuthAttempt {
-                            auth_url,
-                            csrf_token: csrf.secret(),
-                            pkce_verifier: pkce_verifier.secret(),
-                            authorizer: stringify!($provider),
+                            auth_url: auth_url.to_string(),
+                            csrf_token: csrf.secret().to_string(),
+                            pkce_verifier: pkce_verifier.secret().to_string(),
+                            authorizer: stringify!($provider).to_string(),
                         }
                     );
                 }
@@ -198,17 +201,21 @@ oauth_providers!([twitter {"users.read", "tweet.read"}], [github {"read:user", "
 
 #[instrument]
 pub async fn get_user_data(
-    authorizer: impl AsRef<str>,
+    authorizer: &str,
     token: BasicTokenResponse,
-) -> AResult<AuthorizationProviders> {
-    match authorizer.as_ref() {
+) -> SResult<AuthorizationProviders> {
+    match authorizer {
         "twitter" => Ok(AuthorizationProviders::Twitter(
-            get_twitter_info(token).await?,
+            get_twitter_info(token)
+                .await
+                .map_err(|x| ServerError::InternalServer(x))?,
         )),
         "github" => Ok(AuthorizationProviders::Github(
-            get_github_info(token).await?,
+            get_github_info(token)
+                .await
+                .map_err(|x| ServerError::InternalServer(x))?,
         )),
-        _ => Err(Report::msg("unsupported")),
+        _ => Err(ServerError::BadRequest(Cow::from("bad authorizer"))),
     }
 }
 
@@ -229,7 +236,7 @@ async fn get_twitter_info(token: BasicTokenResponse) -> AResult<Twitter> {
 
     let user = Client::new()
         .get("https://api.twitter.com/2/users/me?user.fields=id,name,username,profile_image_url")
-        .bearer_auth(token.access_token())
+        .bearer_auth(token.access_token().secret())
         .send()
         .await?
         .json::<TwitterUser>()
@@ -246,7 +253,7 @@ async fn get_twitter_info(token: BasicTokenResponse) -> AResult<Twitter> {
 
 #[instrument]
 async fn get_github_info(token: BasicTokenResponse) -> AResult<Github> {
-    #[derive(Serialize, Deserialize)]
+    #[derive(Default, Serialize, Deserialize)]
     #[serde(default)]
     struct GithubUser {
         id: i64,
@@ -257,7 +264,7 @@ async fn get_github_info(token: BasicTokenResponse) -> AResult<Github> {
 
     let user = Client::new()
         .get("https://api.github.com/user")
-        .bearer_auth(token.access_token())
+        .bearer_auth(token.access_token().secret())
         .header("Accept", "application/vnd.github.v3+json")
         .send()
         .await?
@@ -276,11 +283,13 @@ impl_sea_orm!(
     Twitter,
     Github,
     AuthorizationProviders,
-    AuthProviderDataCommon
+    AuthProviderDataCommon,
+    OAuthAttempt
 );
 impl_redis!(
     Twitter,
     Github,
     AuthorizationProviders,
-    AuthProviderDataCommon
+    AuthProviderDataCommon,
+    OAuthAttempt
 );

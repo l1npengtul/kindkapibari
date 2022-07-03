@@ -1,5 +1,7 @@
 #![deny(clippy::pedantic)]
 #![warn(clippy::all)]
+#![allow(clippy::module_name_repetitions)]
+#![allow(clippy::missing_errors_doc)]
 
 #[macro_use]
 extern crate serde;

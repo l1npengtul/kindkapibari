@@ -1,34 +1,36 @@
-use crate::access::login::generate_login_token;
-use crate::access::oauth_thirdparty::{
-    get_oauth_client, get_user_data, AuthProviderDataCommon, OAuthAttempt,
+use crate::{
+    access::{
+        login::{
+            detect_user_already_exists_auth_provider, generate_login_token, user_by_email,
+            user_by_id, user_by_username,
+        },
+        oauth_thirdparty::{get_oauth_client, get_user_data, AuthProviderDataCommon, OAuthAttempt},
+    },
+    State,
 };
-use crate::State;
-use axum::extract::Query;
-use axum::{Extension, Json};
+use axum::{extract::Query, Extension, Json};
 use chrono::Utc;
-use kindkapibari_core::roles::Roles;
-use kindkapibari_core::secret::SentSecret;
-use kindkapibari_core::user_data::UserSignupRequest;
-use kindkapibari_schema::access::user::{
-    detect_user_already_exists, user_by_email, user_by_id, user_by_username,
+use kindkapibari_core::{roles::Role, secret::SentSecret, user_data::UserSignupRequest};
+use kindkapibari_schema::{
+    error::ServerError,
+    redis::{check_if_exists_cache, delet_dis, insert_into_cache, read_from_cache},
+    schema::users::{user, userdata},
+    SResult,
 };
-use kindkapibari_schema::error::ServerError;
-use kindkapibari_schema::redis::{
-    check_if_exists_cache, delet_dis, insert_into_cache, read_from_cache,
-};
-use kindkapibari_schema::schema::users::{user, userdata};
-use kindkapibari_schema::SResult;
-use oauth2::reqwest::async_http_client;
-use oauth2::{AuthorizationCode, PkceCodeVerifier};
-use redis::AsyncCommands;
+use oauth2::{reqwest::async_http_client, AuthorizationCode, PkceCodeVerifier};
 use sea_orm::{ActiveValue, EntityTrait};
 use serde::{Deserialize, Serialize};
-use std::borrow::Cow;
-use std::sync::Arc;
+use std::{borrow::Cow, sync::Arc};
 use tracing::instrument;
 use utoipa::Component;
 
-#[derive(Clone, Debug, PartialOrd, PartialEq, Serialize, Deserialize, Component)]
+// u c pp
+// i c pp
+// we all c pp
+// pee with friends :) vs pee alone :C
+pub const REDIS_USER_CREATION_PENDING_PREFIX: &str = "ucpp";
+
+#[derive(Clone, Debug, PartialOrd, PartialEq, Eq, Serialize, Deserialize, Component)]
 pub enum RedirectedUser {
     AlreadyExists(SentSecret),
     NewUserCreation {
@@ -37,7 +39,7 @@ pub enum RedirectedUser {
     },
 }
 
-#[derive(Deserialize, Component)]
+#[derive(Debug, Deserialize, Component)]
 pub struct StateAndCode {
     pub state: String,
     pub code: String,
@@ -48,12 +50,9 @@ pub async fn redirect(
     Extension(app): Extension<Arc<State>>,
     state_and_code: Query<StateAndCode>,
 ) -> SResult<Json<RedirectedUser>> {
-    let oauth_attempt = app
-        .redis
-        .get::<&String, OAuthAttempt>(&state_and_code.state)
-        .await?;
-    let config = *app.config.read().await;
-    if &state_and_code.state != oauth_attempt.pkce_verifier() {
+    let oauth_attempt = read_from_cache::<OAuthAttempt>(app.clone(), &state_and_code.state).await?;
+    let config = app.config.read().await.clone();
+    if state_and_code.state != oauth_attempt.pkce_verifier() {
         return Err(ServerError::BadRequest(Cow::Borrowed("Bad State")));
     }
 
@@ -61,17 +60,19 @@ pub async fn redirect(
         "twitter" => get_oauth_client(
             config.oauth.twitter.authorize_url,
             config.oauth.twitter.token_url,
-            format!("{THIS_SITE_URL}/redirect"),
+            format!("{}/redirect", config.host_url),
             config.oauth.twitter.client_id,
             config.oauth.twitter.secret,
-        )?,
+        )
+        .map_err(|why| ServerError::InternalServer(why))?,
         "github" => get_oauth_client(
             config.oauth.github.authorize_url,
             config.oauth.github.token_url,
-            format!("{THIS_SITE_URL}/redirect"),
+            format!("{}/redirect", config.host_url),
             config.oauth.github.client_id,
             config.oauth.github.secret,
-        )?,
+        )
+        .map_err(|why| ServerError::InternalServer(why))?,
         _ => return Err(ServerError::BadRequest(Cow::Borrowed("Bad Authorizer"))),
     };
 
@@ -82,10 +83,11 @@ pub async fn redirect(
         ))
         .request_async(async_http_client)
         .await
-        .map_err(|why| ServerError::InternalServer(why))?;
+        .map_err(|why| ServerError::InternalServer(why.into()))?;
 
     let user_info = get_user_data(oauth_attempt.authorizer(), token_result).await?;
-    let maybe_existing_user = detect_user_already_exists(app.clone(), user_info).await?;
+    let maybe_existing_user =
+        detect_user_already_exists_auth_provider(app.clone(), user_info.clone()).await?;
     let user_info_common: AuthProviderDataCommon = user_info.into();
     Ok(Json(match maybe_existing_user {
         Some(existing) => {
@@ -97,34 +99,44 @@ pub async fn redirect(
                 return Err(ServerError::BadRequest(Cow::from("You need an email!")));
             }
             let user_info_num = format!(
-                "{}{}{}{}",
+                "{}{:?}{}{}",
                 user_info_common.id,
-                &user_info_common.email.unwrap_or_default(),
+                &user_info_common.email.as_ref(),
                 &user_info_common.profile_picture,
                 &user_info_common.username
             );
             // check if username exists
-            let suggested = if !user_by_username(app.clone(), &user_info_num)
+            let suggested = if user_by_username(app.clone(), &user_info_num)
                 .await?
                 .is_none()
             {
-                Some(user_info_common.username)
-            } else {
                 None
+            } else {
+                Some(user_info_common.username.clone())
             };
             // we dont really need this to be cryptographic
             // by the time this is reversed it will already be useless
             let data_hashed = base64::encode(blake3::hash(user_info_num.as_bytes()).as_bytes());
             let stored_secret_with_redis_prefix =
                 format!("{REDIS_USER_CREATION_PENDING_PREFIX}:{}", data_hashed);
-            if !check_if_exists_cache(app.clone(), &stored_secret_with_redis_prefix).await {
-                insert_into_cache(app.clone(), &data_hashed, &user_info_common, Some(1000)).await?;
-            } else {
+            if check_if_exists_cache::<&str, AuthProviderDataCommon>(
+                app.clone(),
+                &stored_secret_with_redis_prefix,
+            )
+            .await
+            {
                 return Err(ServerError::ISErr(Cow::from("failed to create slip")));
             }
+            insert_into_cache(
+                app.clone(),
+                &stored_secret_with_redis_prefix,
+                &user_info_common,
+                Some(1000),
+            )
+            .await?;
 
             RedirectedUser::NewUserCreation {
-                slip: data_hashed,
+                slip: stored_secret_with_redis_prefix,
                 suggested_username: suggested,
             }
         }
@@ -147,17 +159,17 @@ pub async fn burn_signup_token(
     Extension(state): Extension<Arc<State>>,
     request: Query<String>,
 ) -> SResult<()> {
-    if !check_if_exists_cache(state.clone(), &request.0).await {
+    if !check_if_exists_cache::<&str, AuthProviderDataCommon>(state.clone(), &request.0).await {
         return Err(ServerError::NotFound(
             Cow::from("signup in progress"),
             Cow::from(request.0),
         ));
     }
-    delet_dis(state.clone(), &request.0).await?;
+    delet_dis::<AuthProviderDataCommon>(state.clone(), &request.0).await?;
     Ok(())
 }
 
-#[derive(Clone, Debug, Hash, PartialEq, Serialize, Deserialize, Component)]
+#[derive(Clone, Debug, Hash, PartialEq, Eq, Serialize, Deserialize, Component)]
 pub struct PostSignupSent {
     pub id: u64,
     pub login_secret: SentSecret,
@@ -167,13 +179,14 @@ pub struct PostSignupSent {
 #[utoipa::path(
     post,
     path = "/signup",
+    request_body = UserSignupRequest,
     responses(
-    (status = 200, description = "Signup sucessfully completed", body = json),
+    (status = 200, description = "Thank you %user! But our HRT is in another site! (diyhrt.github.io)", body = json),
     (status = 400, description = "Signup Request Modified/Invalid"),
     (status = 404, description = "Signup Request Does Not Exist"),
     (status = 500, description = "Failed")),
     params(
-    ("data" = json, body, description = "UserSignupRequest Object")
+    ("request" = String, query, description = "Request Signup Token")
     )
 )]
 pub async fn signup(
@@ -190,11 +203,14 @@ pub async fn signup(
         return Err(ServerError::ISErr(Cow::from("please retry")));
     }
 
+    let oauth_email = match oauth_data.email.as_ref() {
+        Some(e) => e.clone(),
+        None => "".to_string(),
+    };
+
     if oauth_data.email.is_none()
-        || user_data.email != oauth_data.email
-        || user_by_email(state.clone(), &oauth_data.email)
-            .await?
-            .is_some()
+        || user_data.email != oauth_email
+        || user_by_email(state.clone(), &oauth_email).await?.is_some()
     {
         return Err(ServerError::BadRequest(Cow::from("email")));
     }
@@ -212,7 +228,7 @@ pub async fn signup(
         email: ActiveValue::Set(oauth_data.email.unwrap()),
         profile_picture: ActiveValue::Set(Some(oauth_data.profile_picture)),
         creation_date: ActiveValue::Set(Utc::now()),
-        roles: ActiveValue::Set(vec![Roles::NormalUser].into()),
+        roles: ActiveValue::Set(Role::NormalUser),
     };
 
     let user_data_active_model = userdata::ActiveModel {

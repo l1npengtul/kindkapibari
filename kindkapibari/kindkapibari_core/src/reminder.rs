@@ -2,7 +2,7 @@ use chrono::{naive::NaiveTime, DateTime, Utc};
 use serde::{Deserialize, Serialize};
 use std::hash::Hash;
 
-#[derive(Clone, Debug, Hash, PartialEq, PartialOrd, Serialize, Deserialize)]
+#[derive(Clone, Debug, Hash, PartialEq, Eq, PartialOrd, Serialize, Deserialize)]
 pub struct OneTimeReminder {
     pub name: String,
     pub set: DateTime<Utc>,
@@ -27,7 +27,7 @@ pub const FRIDAY: u8 = 0b0001_0000;
 pub const SATURDAY: u8 = 0b0010_0000;
 pub const SUNDAY: u8 = 0b0100_0000;
 
-#[derive(Copy, Clone, Debug, Default, Hash, PartialEq, PartialOrd, Serialize, Deserialize)]
+#[derive(Copy, Clone, Debug, Default, Hash, PartialEq, PartialOrd, Eq, Serialize, Deserialize)]
 pub enum Weekdays {
     #[default]
     Everyday,
@@ -35,7 +35,7 @@ pub enum Weekdays {
 }
 
 // inspired by the alarm app on my phone
-#[derive(Clone, Debug, Hash, PartialEq, PartialOrd, Serialize, Deserialize)]
+#[derive(Clone, Debug, Hash, PartialEq, PartialOrd, Eq, Serialize, Deserialize)]
 pub struct RecurringReminder {
     pub time: NaiveTime,
     pub days: Weekdays,
@@ -50,16 +50,17 @@ impl Default for RecurringReminder {
     }
 }
 
-#[derive(Clone, Debug, Default, Hash, PartialEq, PartialOrd, Serialize, Deserialize)]
+#[derive(Clone, Debug, Default, Hash, PartialEq, Eq, PartialOrd, Serialize, Deserialize)]
 pub struct OneTimeReminders {
     pub one_time: Vec<OneTimeReminder>,
 }
 
-#[derive(Clone, Debug, Default, Hash, PartialEq, PartialOrd, Serialize, Deserialize)]
+#[derive(Clone, Debug, Default, Hash, PartialEq, Eq, PartialOrd, Serialize, Deserialize)]
 pub struct RecurringReminders {
     pub recurring: Vec<RecurringReminder>,
 }
 
+#[must_use]
 pub fn u8_bitflag_to_days(bitflag: u8) -> [bool; 7] {
     let monday = bitflag & MONDAY == MONDAY;
     let tuesday = bitflag & TUESDAY == TUESDAY;

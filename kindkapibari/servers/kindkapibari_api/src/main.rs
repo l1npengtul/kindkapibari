@@ -3,6 +3,7 @@
 
 extern crate core;
 
+pub mod access;
 mod api;
 mod config;
 
@@ -30,8 +31,6 @@ use tokio::io::AsyncReadExt;
 use tokio::sync::RwLock;
 
 const EPOCH_START: u64 = 1650125769; // haha nice
-type SResult<T> = Result<T, ServerError>;
-type AResult<T> = Result<T, Report>;
 
 pub const THIS_SITE_URL: &'static str = "https://kindkapibari.land";
 

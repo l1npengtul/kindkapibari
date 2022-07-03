@@ -1,8 +1,8 @@
 <component name="ProjectRunConfigurationManager">
-  <configuration default="false" name="build core" type="CargoCommandRunConfiguration" factoryName="Cargo Command">
-    <option name="command" value="build " />
+  <configuration default="false" name="Clippy Core Server" type="CargoCommandRunConfiguration" factoryName="Cargo Command">
+    <option name="command" value="clippy --features &quot;server&quot;" />
     <option name="workingDirectory" value="file://$PROJECT_DIR$/kindkapibari/kindkapibari_core" />
-    <option name="channel" value="DEFAULT" />
+    <option name="channel" value="NIGHTLY" />
     <option name="requiredFeatures" value="true" />
     <option name="allFeatures" value="false" />
     <option name="emulateTerminal" value="true" />

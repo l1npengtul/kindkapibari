@@ -33,9 +33,9 @@ pub enum AuthenticationRejection {
 impl IntoResponse for AuthenticationRejection {
     fn into_response(self) -> Response {
         let statuscode = match self {
-            AuthenticationRejection::BadQuery => StatusCode::UNPROCESSABLE_ENTITY,
-            AuthenticationRejection::BadHeader => StatusCode::UNPROCESSABLE_ENTITY,
-            AuthenticationRejection::BadCookie => StatusCode::UNPROCESSABLE_ENTITY,
+            AuthenticationRejection::BadQuery
+            | AuthenticationRejection::BadHeader
+            | AuthenticationRejection::BadCookie => StatusCode::UNPROCESSABLE_ENTITY,
             AuthenticationRejection::BadAuthorization => StatusCode::UNAUTHORIZED,
         };
 
@@ -43,7 +43,6 @@ impl IntoResponse for AuthenticationRejection {
             .status(statuscode)
             .body(boxed(Empty::new()))
             .unwrap()
-            .into()
     }
 }
 
@@ -85,8 +84,7 @@ where
                 let cookie_value = Option::<TypedHeader<Cookie>>::from_request(req)
                     .await
                     .map_err(|_| AuthenticationRejection::BadHeader)?
-                    .map(|cookie| cookie.get(cookie_key.as_ref()))
-                    .flatten()
+                    .and_then(|cookie| cookie.get(&cookie_key).map(ToString::to_string))
                     .ok_or(AuthenticationRejection::BadCookie)?;
                 T::from_auth(cookie_value.to_string())
                     .await

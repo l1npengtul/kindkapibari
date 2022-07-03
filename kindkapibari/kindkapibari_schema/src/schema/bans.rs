@@ -2,7 +2,9 @@ use chrono::{DateTime, Utc};
 use sea_orm::prelude::*;
 use serde::{Deserialize, Serialize};
 
-#[derive(Clone, Debug, Hash, PartialOrd, PartialEq, Serialize, Deserialize, DeriveEntityModel)]
+#[derive(
+    Clone, Debug, Hash, PartialOrd, PartialEq, Eq, Serialize, Deserialize, DeriveEntityModel,
+)]
 #[sea_orm(table_name = "bans")]
 pub struct Model {
     #[sea_orm(primary_key)]

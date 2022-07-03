@@ -13,7 +13,7 @@ pub fn attr_string(input: TokenStream) -> TokenStream {
 
     let mut parse_noarg = vec![];
     let mut parse_onearg = vec![];
-    let mut parse_plain_string_from_noarg: Vec<&str> = vec![];
+    let mut parse_plain_string_from_noarg = vec![];
     let mut parse_plain_string_from_onearg = vec![];
     if let syn::Data::Enum(DataEnum { variants, .. }) = data {
         variants.into_iter().for_each(|variant| {
@@ -38,12 +38,18 @@ pub fn attr_string(input: TokenStream) -> TokenStream {
                                 } } 
                             }
                         });
-                        parse_plain_string_from_onearg.push(stringify!(#variant.ident));
+                        parse_plain_string_from_onearg.push(variant.ident.to_string());
+                        let varname = format_ident!("v");
+                        let variantname = variant.ident.to_string();
                         fields.push(quote! {
                             {
-                                format!("{}({}: {})", core::stringify!(#variant), #flds_ident_str, #flds_str)
+                                format!("{}({}: {})", #variantname, #flds_ident_str, #varname)
                             }
                         });
+
+                        let fident = &variant.ident;
+                        let varname = format_ident!("v");
+                        field.push(quote! { #ident::#fident{#varname} });
                     }
                 }
                 syn::Fields::Unnamed(ref u) => {
@@ -62,13 +68,18 @@ pub fn attr_string(input: TokenStream) -> TokenStream {
                                 })
                             }
                         });
-                        parse_plain_string_from_onearg.push(stringify!(#variant.ident));
-    
+                        parse_plain_string_from_onearg.push(variant.ident.to_string());
+                        let varname = format_ident!("v");
+                        let variantname = variant.ident.to_string();
                         fields.push(quote! {
                             {
-                                format!("{}({})", core::stringify!(#variant), #flds_str)
+                                format!("{}({})", #variantname, #varname)
                             }
                         });
+
+                        let fident = &variant.ident;
+                        let varname = format_ident!("v");
+                        field.push(quote! { #ident::#fident(#varname) });
                     }
                 }
                 syn::Fields::Unit => {
@@ -77,15 +88,18 @@ pub fn attr_string(input: TokenStream) -> TokenStream {
                             #ident::#variant
                         }
                     });
-                    parse_plain_string_from_noarg.push(stringify!(#variant.ident));
+                    parse_plain_string_from_noarg.push(variant.ident.to_string());
+                    let variantname = variant.ident.to_string();
                     fields.push(quote! {
                         {
-                            core::stringify!(#variant).to_string()
+                            #variantname.to_string()
                         }
                     });
+                    let fident = &variant.ident;
+                    field.push(quote! { #ident::#fident });
                 }
             }
-            field.push(quote! { #ident::#variant });
+            
         })
     }
 

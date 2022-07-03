@@ -1,10 +1,11 @@
-use chrono::Duration;
 use color_eyre::eyre::Result;
 use serde::{Deserialize, Serialize};
-use std::fs::File;
-use std::io::{Read, Write};
+use std::{
+    fs::File,
+    io::{Read, Write},
+};
 
-#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct Config {
     pub machine_id: u8,
     pub machine_key: String,
@@ -12,6 +13,7 @@ pub struct Config {
     pub port: u16,
     pub database: Database,
     pub host_url: String,
+    pub other_urls: OtherServers,
     pub signing_keys: SigningKeys,
     pub oauth: OAuthProviders,
 }
@@ -28,37 +30,33 @@ impl Config {
     pub fn load() -> Result<Self> {
         let mut config_file = File::open("config.toml")?;
         let mut bytes = Vec::new();
-        config_file.read_exact(&mut bytes)?;
+        config_file.read_to_end(&mut bytes)?;
         Ok(toml::from_slice(&bytes)?)
     }
 }
 
-#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct Database {
     pub postgres_url: String,
     #[serde(default = "default_max_threads")]
     pub postgres_pool: u32,
-    #[serde(default = "default_sled_store_path")]
-    pub sled_store_path: String,
-    pub meilisearch_url: String,
-    pub meilisearch_passwd: String,
     pub redis_url: String,
 }
 
-#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct CoconutPak {
     pub admin_key: String,
 }
 
-#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct OAuthProviders {
-    pub default_time: Duration,
+    pub default_time: usize,
     pub redirect_url: String,
     pub twitter: OAuth,
     pub github: OAuth,
 }
 
-#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct OAuth {
     pub client_id: String,
     pub secret: String,
@@ -66,38 +64,22 @@ pub struct OAuth {
     pub token_url: String,
 }
 
-#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct SigningKeys {
     pub oauth_key: String,
     pub oauth_thirdparty_key: String,
     pub login_key: String,
 }
 
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct OtherServers {
+    pub api: String,
+}
+
 const fn default_port() -> u16 {
     3160
 }
 
-const fn default_kkb_login() -> bool {
-    false
-}
-
-fn default_static_serve_location() -> String {
-    "static".to_string()
-}
-
-const fn default_core_threads() -> usize {
-    2
-}
-const fn default_max_threads() -> usize {
+const fn default_max_threads() -> u32 {
     4
-}
-const fn default_wtsa() -> usize {
-    1000
-}
-const fn default_mpts() -> usize {
-    60
-}
-
-fn default_compiler_location() -> String {
-    "coconutpak".to_string()
 }

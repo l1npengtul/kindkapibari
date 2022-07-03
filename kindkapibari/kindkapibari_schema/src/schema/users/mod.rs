@@ -1,5 +1,4 @@
-use crate::KKBScope;
-use kindkapibari_core::impl_redis;
+use kindkapibari_core::{impl_redis, scopes::KKBScope};
 use serde::{Deserialize, Serialize};
 
 pub mod badges;

@@ -8,10 +8,17 @@ pub struct DBVec<T> {
 }
 
 impl<T> DBVec<T> {
+    #[must_use]
     pub fn new() -> DBVec<T> {
         DBVec {
             internal: Vec::new(),
         }
+    }
+}
+
+impl<T> Default for DBVec<T> {
+    fn default() -> Self {
+        Self::new()
     }
 }
 

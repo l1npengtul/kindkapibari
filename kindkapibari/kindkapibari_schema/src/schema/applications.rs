@@ -1,12 +1,10 @@
-use crate::KKBScope;
-use kindkapibari_core::dbvec::DBVec;
-use kindkapibari_core::scopes::KKBScope;
-use kindkapibari_core::secret::StoredSecret;
-use sea_orm::prelude::*;
-use sea_orm::EnumIter;
+use kindkapibari_core::{scopes::KKBScopes, secret::StoredSecret};
+use sea_orm::{prelude::*, EnumIter};
 use serde::{Deserialize, Serialize};
 
-#[derive(Clone, Debug, Hash, PartialOrd, PartialEq, Serialize, Deserialize, DeriveEntityModel)]
+#[derive(
+    Clone, Debug, Hash, PartialOrd, PartialEq, Eq, Serialize, Deserialize, DeriveEntityModel,
+)]
 #[sea_orm(table_name = "applications")]
 pub struct Model {
     #[sea_orm(primary_key)]
@@ -19,16 +17,17 @@ pub struct Model {
     pub homepage: String,
     pub callback: String,
     pub logo: String,
-    #[sea_orm(column_type = "Text", indexed, nullable)]
+    #[sea_orm(column_type = "JsonBinary", indexed, nullable)]
     pub signed_secret: Option<StoredSecret>,
-    pub scopes: DBVec<KKBScope>,
+    #[sea_orm(column_type = "JsonBinary")]
+    pub scopes: KKBScopes,
     pub confidential: bool,
 }
 
 #[derive(Copy, Clone, Debug, EnumIter)]
 pub enum Relation {
     User,
-    ApplicationSecret,
+    // ApplicationSecret,
 }
 
 impl RelationTrait for Relation {
@@ -38,9 +37,9 @@ impl RelationTrait for Relation {
                 .from(Column::Creator)
                 .to(super::users::user::Column::Id)
                 .into(),
-            Relation::ApplicationSecret => {
-                Entity::has_many(super::application_secrets::Entity).into()
-            }
+            // Relation::ApplicationSecret => {
+            //     Entity::has_many(super::application_secrets::Entity).into()
+            // }
         }
     }
 }
@@ -51,10 +50,10 @@ impl Related<super::users::user::Entity> for Entity {
     }
 }
 
-impl Related<super::application_secrets::Entity> for Entity {
-    fn to() -> RelationDef {
-        Relation::ApplicationSecret.def()
-    }
-}
+// impl Related<super::application_secrets::Entity> for Entity {
+//     fn to() -> RelationDef {
+//         Relation::ApplicationSecret.def()
+//     }
+// }
 
 impl ActiveModelBehavior for ActiveModel {}

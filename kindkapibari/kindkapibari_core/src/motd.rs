@@ -1,4 +1,4 @@
-#[derive(Clone, Debug, PartialOrd, PartialEq, Serialize, Deserialize)]
+#[derive(Clone, Debug, PartialOrd, PartialEq, Eq, Serialize, Deserialize)]
 pub struct MessageOfTheDay {
     pub color: String,
     pub text: String,
