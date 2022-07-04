@@ -16,7 +16,7 @@ pub enum ServerError {
     RedisError(#[from] RedisError),
     #[error("Internal Server Database Error.")]
     DatabaseError(#[from] DbErr),
-    #[error("Internal Server Error.")]
+    #[error("fucky wuckyy uwu :c")]
     InternalServer(Box<dyn std::error::Error>),
     #[error("Internal Error: {0}")]
     ISErr(Cow<'static, str>),
