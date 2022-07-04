@@ -13,7 +13,7 @@ pub struct Config {
     pub host_url: String,
     pub signing_keys: SigningKeys,
     pub oauth: OAuthProviders,
-    pub coconutpak: CoconutPak,
+    pub others: Others,
 }
 
 impl Config {
@@ -52,11 +52,6 @@ pub struct Database {
 }
 
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
-pub struct CoconutPak {
-    pub admin_key: String,
-}
-
-#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 pub struct OAuthProviders {
     pub default_time: Duration,
     pub redirect_url: String,
@@ -77,6 +72,11 @@ pub struct SigningKeys {
     pub oauth_key: String,
     pub oauth_thirdparty_key: String,
     pub login_key: String,
+}
+
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+pub struct Others {
+    pub auth_url: String,
 }
 
 const fn default_port() -> u16 {

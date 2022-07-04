@@ -1,13 +1,16 @@
 use crate::State;
 use chrono::{Duration, Utc};
 use kindkapibari_core::{
-    reminder::{OneTimeReminder, OneTimeReminders},
+    reminder::{
+        u8_bitflag_to_days, OneTimeReminder, OneTimeReminders, RecurringReminder,
+        RecurringReminders,
+    },
     sober::{Sober, Sobers},
     user_data::UserData,
 };
 use kindkapibari_schema::{
     error::ServerError,
-    schema::users::{onetime_reminders, sobers, user, userdata},
+    schema::users::{onetime_reminders, recurring_reminders, sobers, user, userdata},
     SResult,
 };
 use sea_orm::{
@@ -91,11 +94,31 @@ pub async fn get_sobers_by_user_id(state: Arc<State>, user: u64) -> SResult<Sobe
     let sobers = sobers
         .into_iter()
         .map(|sober_mdl| Sober {
+            id: sober_mdl.id,
             name: sober_mdl.name,
             start_time: sober_mdl.time_since_reset,
         })
         .collect::<Vec<Sober>>();
     Ok(Sobers { sobers })
+}
+#[instrument]
+pub async fn get_sober(state: Arc<State>, user: u64, sober: u64) -> SResult<sobers::Model> {
+    let sobers = sobers::Entity::find_by_id(sober)
+        .one(&state.database)
+        .await?
+        .ok_or(ServerError::NotFound(
+            Cow::from("sober"),
+            Cow::from(format!("{sober}")),
+        ))?;
+
+    if sobers.owner != user {
+        return Err(ServerError::NotFound(
+            Cow::from("sober"),
+            Cow::from(format!("{sober}")),
+        ));
+    }
+
+    Ok(sobers)
 }
 
 #[instrument]
@@ -119,28 +142,23 @@ async fn check_if_sober_already_exists(
 #[instrument]
 pub async fn reset_sober_by_name_and_user_id(
     state: Arc<State>,
-    sober_name: String,
+    sober: u64,
     user: u64,
 ) -> SResult<i64> {
-    let user = user_by_id(state.clone(), user).await?;
-    let sobers: Option<sobers::Model> = user
-        .find_related(sobers::Entity)
-        .filter(sobers::Column::Name.eq(sober_name.clone()))
-        .one(state.database())
-        .await?;
+    let sobers = get_sober(state.clone(), user, sober).await?;
 
     let timestamp = match sobers {
         Some(sober) => {
             let mut sober_active_mdl = sober.into_active_model();
             let new_time = Utc::now();
             sober_active_mdl.time_since_reset = ActiveValue::Set(new_time.clone());
-            sober_active_mdl.update(state.database()).await?;
+            sober_active_mdl.update(&state.database).await?;
             new_time.timestamp_millis()
         }
         None => {
             return Err(ServerError::NotFound(
                 Cow::from("sober"),
-                Cow::from(sober_name),
+                Cow::from(format!("{sober}")),
             ))
         }
     };
@@ -151,49 +169,49 @@ pub async fn reset_sober_by_name_and_user_id(
 #[instrument]
 pub async fn update_sober_name_by_user_id(
     state: Arc<State>,
-    current: String,
+    sober_id: u64,
     new_name: String,
     user_id: u64,
 ) -> SResult<()> {
-    let user = user_by_id(state.clone(), user_id).await?;
+    let current_sober = get_sober(state.clone(), user_id, sober_id).await?;
+
     if !check_if_sober_already_exists(state.clone(), &new_name, user_id).await? {
         return Err(ServerError::BadRequest(Cow::from("already exists!")));
     }
-    let sobers: Option<sobers::Model> = user
-        .find_related(sobers::Entity)
-        .filter(sobers::Column::Name.eq(current.clone()))
-        .one(state.database())
-        .await?;
 
-    match sobers {
-        Some(sober) => {
-            let mut sober_active_mdl = sober.into_active_model();
-            sober_active_mdl.name = ActiveValue::Set(new_name);
-            sober_active_mdl.update(state.database()).await?;
-        }
-        None => {
-            return Err(ServerError::NotFound(
-                Cow::from("sober"),
-                Cow::from(current),
-            ))
-        }
-    };
+    if current_sober.name == new_name {
+        return Ok(());
+    }
+
+    let mut sober_active_mdl = current_sober.into_active_model();
+    sober_active_mdl.name = ActiveValue::Set(new_name);
+    sober_active_mdl.update(&state.database).await?;
 
     Ok(())
 }
 
 #[instrument]
 pub async fn add_sober_by_user(state: Arc<State>, user: u64, new_sober: Sober) -> SResult<()> {
-    let _ = user_by_id(state.clone(), user).await?;
-    let now = Utc::now();
-    if now - new_sober.start_time > Duration::seconds(5) || new_sober.start_time > now {
+    // start time is stamped on the user's device
+    // use 5 seconds to compensate for ping, etc...
+    if now - new_sober.start_time > Duration::seconds(5) || new_sober.start_time > Utc::now() {
         return Err(ServerError::BadRequest(Cow::from("bad time")));
     }
+
+    if new_sober.name.len().count() > 160 {
+        return Err(ServerError::BadRequest(Cow::from("too long!")));
+    }
+
     if !check_if_sober_already_exists(state.clone(), &new_sober.name, user).await? {
         return Err(ServerError::BadRequest(Cow::from("already exists!")));
     }
+
+    let _ = user_by_id(state.clone(), user).await?;
+
+    let sober_id = state.id_generator.sober_ids.generate_id();
+
     let sober_active = sobers::ActiveModel {
-        id: Default::default(),
+        id: ActiveValue::Set(sober_id),
         owner: ActiveValue::Set(user),
         name: ActiveValue::Set(new_sober.name),
         time_since_reset: ActiveValue::Set(new_sober.start_time),
@@ -204,31 +222,79 @@ pub async fn add_sober_by_user(state: Arc<State>, user: u64, new_sober: Sober) -
 }
 
 #[instrument]
-pub async fn delete_sober_name_by_user_id(
-    state: Arc<State>,
-    user: u64,
-    sober_name: String,
-) -> SResult<()> {
-    let user = user_by_id(state.clone(), user).await?;
-    let sobers: Option<sobers::Model> = user
-        .find_related(sobers::Entity)
-        .filter(sobers::Column::Name.eq(sober_name.clone()))
-        .one(state.database())
-        .await?;
+pub async fn delete_sober_by_user_id(state: Arc<State>, user: u64, sober: u64) -> SResult<()> {
+    let sober = get_sober(state.clone(), user, sober).await?;
 
-    match sobers {
-        Some(sober) => {
-            sober.delete(state.database()).await?;
-        }
-        None => {
-            return Err(ServerError::NotFound(
-                Cow::from("sober"),
-                Cow::from(sober_name),
-            ))
-        }
-    };
+    sober.delete(&state.database).await?;
 
     Ok(())
+}
+
+#[instrument]
+pub async fn get_onetime_reminders_by_user_id(
+    state: Arc<State>,
+    user: u64,
+) -> SResult<OneTimeReminders> {
+    let user = user_by_id(state.clone(), user).await?;
+    let onetimes: Vec<onetime_reminders::Model> = user
+        .find_related(onetime_reminders::Entity)
+        .all(&state.database)
+        .await?;
+
+    let now = Utc::now();
+    let mut one_time = Vec::with_capacity(onetimes.len());
+    for reminder in onetimes {
+        if reminder.expire < now {
+            tokio::task::spawn(async {
+                delete_onetime_reminder_by_user_id(state.clone(), user.id, reminder.id).await
+            })
+        } else {
+            one_time.push(OneTimeReminder {
+                id: reminder.id,
+                name: reminder.name,
+                set: reminder.set,
+                expire: reminder.expire,
+            })
+        }
+    }
+
+    one_time.shrink_to_fit();
+
+    Ok(OneTimeReminders { one_time })
+}
+
+#[instrument]
+pub async fn get_onetime_reminder(
+    state: Arc<State>,
+    user: u64,
+    one_time: u64,
+) -> SResult<onetime_reminders::Model> {
+    let one_time = onetime_reminders::Entity::find_by_id(one_time)
+        .one(&state.database)
+        .await?
+        .ok_or(ServerError::NotFound(
+            Cow::from("one time reminder"),
+            Cow::from(format!("{one_time}")),
+        ))?;
+
+    if one_time.owner != user {
+        return Err(ServerError::NotFound(
+            Cow::from("one time reminder"),
+            Cow::from(format!("{one_time}")),
+        ));
+    }
+
+    if one_time.expire > Utc::now() {
+        tokio::task::spawn(async {
+            delete_onetime_reminder_by_user_id(state, user, one_time.id).await
+        });
+        return Err(ServerError::NotFound(
+            Cow::from("one time reminder"),
+            Cow::from(format!("{one_time}")),
+        ));
+    }
+
+    Ok(one_time)
 }
 
 #[instrument]
@@ -250,31 +316,136 @@ async fn check_if_onetime_already_exists(
 }
 
 #[instrument]
-pub async fn get_onetime_reminders_by_user_id(
+pub async fn update_onetime_reminder_by_user_id(
     state: Arc<State>,
     user: u64,
-) -> SResult<OneTimeReminders> {
-    let user = user_by_id(state.clone(), user).await?;
-    let onetimes: Vec<onetime_reminders::Model> = user
-        .find_related(onetime_reminders::Entity)
-        .all(state.database())
-        .await?;
-    let onetimes = onetimes
-        .into_iter()
-        .map(|reminders| OneTimeReminder {
-            name: reminders.name,
-            set: reminders.set,
-            expire: reminders.expire,
-        })
-        .collect::<Vec<OneTimeReminder>>();
-    Ok(OneTimeReminders { one_time: onetimes })
+    reminder: OneTimeReminder,
+) -> SResult<()> {
+    if reminder.name.len() > 160 || reminder.expire > Utc::now() || reminder.expire <= reminder.set
+    {
+        return Err(ServerError::BadRequest(Cow::from("invalid reminder")));
+    }
+
+    let current_reminder = get_onetime_reminder(state.clone(), user, reminnder.id).await?;
+    if current_reminder == reminder {
+        return Ok(());
+    }
+
+    if check_if_onetime_already_exists(state.clone(), user, &reminder.name).await? {
+        return Err(ServerError::BadRequest(Cow::from("already exist!")));
+    }
+
+    let mut onetime_active_mdl = current_reminder.into_active_model();
+    onetime_active_mdl.name = ActiveValue::Set(reminder.name);
+    onetime_active_mdl.expire = ActiveValue::Set(reminder.expire);
+    onetime_active_mdl.update(&state.database).await?;
+
+    Ok(())
 }
 
 #[instrument]
-pub async fn expire_onetime_reminder_by_user_id(
+pub async fn add_onetime_reminder_by_user_id(
     state: Arc<State>,
     user: u64,
-    name: String,
+    reminder: OneTimeReminder,
 ) -> SResult<()> {
+    if reminder.name.len() > 160 || reminder.expire > Utc::now() || reminder.expire <= reminder.set
+    {
+        return Err(ServerError::BadRequest(Cow::from("invalid reminder")));
+    }
+
+    if check_if_onetime_already_exists(state.clone(), user, &reminder.name).await? {
+        return Err(ServerError::BadRequest(Cow::from("already exist!")));
+    }
+
+    let _ = user_by_id(state.clone(), user).await?;
+
+    let reminder_id = state.id_generator.onetime_reminder_ids.generate_id();
+
+    let reminder_active = onetime_reminders::ActiveModel {
+        id: ActiveValue::Set(reminder_id),
+        owner: ActiveValue::Set(user),
+        name: ActiveValue::Set(reminder.name),
+        set: ActiveValue::Set(reminder.set),
+        expire: ActiveValue::Set(reminder.expire),
+    };
+
+    reminder_active.insert(&state.database).await?;
+    Ok(())
+}
+
+#[instrument]
+pub async fn delete_onetime_reminder_by_user_id(
+    state: Arc<State>,
+    user: u64,
+    reminder: u64,
+) -> SResult<()> {
+    let onetime = get_onetime_reminder(state.clone(), user, reminder).await?;
+
+    onetime.delete(&state.database).await?;
+
+    Ok(())
+}
+
+#[instrument]
+pub async fn get_recurring_reminders(state: Arc<State>, user: u64) -> SResult<RecurringReminders> {
     let user = user_by_id(state.clone(), user).await?;
+    let mut recurring: Vec<recurring_reminders::Model> = user
+        .find_related(recurring_reminders::Entity)
+        .all(&state.database)
+        .await?;
+
+    let recurring = recurring
+        .into_iter()
+        .map(|reminder_mdl| RecurringReminder {
+            id: reminder_mdl.id,
+            name: reminder_mdl.name,
+            time: reminder_mdl.time,
+            days: u8_bitflag_to_days(reminder_mdl.days),
+        })
+        .collect::<Vec<RecurringReminder>>();
+
+    Ok(RecurringReminders { recurring })
+}
+
+#[instrument]
+pub async fn get_recurring_reminder(
+    state: Arc<State>,
+    user: u64,
+    recurring_reminder: u64,
+) -> SResult<recurring_reminders::Model> {
+    let reminder = recurring_reminders::Entity::find_by_id(recurring_reminder)
+        .one(&state.database)
+        .await?
+        .ok_or(ServerError::NotFound(
+            Cow::from("recurring reminder"),
+            Cow::from(format!("{recurring_reminder}")),
+        ))?;
+
+    if reminder.owner != user {
+        return Err(ServerError::NotFound(
+            Cow::from("recurring reminder"),
+            Cow::from(format!("{recurring_reminder}")),
+        ));
+    }
+
+    Ok(reminder)
+}
+
+#[instrument]
+async fn check_if_reminder_already_exists(
+    state: Arc<State>,
+    user: u64,
+    new_name: &String,
+) -> SResult<bool> {
+    let recurring = get_recurring_reminders(state.clone(), user)
+        .await?
+        .recurring
+        .into_iter()
+        .map(|recur| recur.name)
+        .collect::<Vec<String>>();
+    if recurring.contains(new_name) {
+        return Ok(true);
+    }
+    return Ok(false);
 }

@@ -7,28 +7,29 @@ pub mod access;
 mod api;
 mod config;
 
-use crate::config::Config;
-use crate::schema::{
-    applications, users,
-    users::{oauth_authorizations, user},
+use crate::{
+    config::Config,
+    schema::{
+        applications, users,
+        users::{oauth_authorizations, user},
+    },
 };
 use color_eyre::Report;
-use kindkapibari_core::make_caches;
-use kindkapibari_core::scopes::KKBScope;
-use kindkapibari_core::snowflake::SnowflakeIdGenerator;
-use kindkapibari_schema::appdata_traits::{
-    AppData, AppDataCache, AppDataDatabase, AppDataKeyTypes, AppDataRedis, AppDataSigningKey,
+use kindkapibari_core::{make_caches, scopes::KKBScope, snowflake::SnowflakeIdGenerator};
+use kindkapibari_schema::{
+    appdata_traits::{
+        AppData, AppDataCache, AppDataDatabase, AppDataKeyTypes, AppDataRedis, AppDataSigningKey,
+    },
+    error::ServerError,
+    schema::users::user,
 };
-use kindkapibari_schema::error::ServerError;
-use kindkapibari_schema::schema::users::user;
 use moka::future::Cache;
 use once_cell::sync::OnceCell;
 use oxide_auth_async::primitives::{Authorizer, Issuer, Registrar};
 use redis::aio::ConnectionManager;
 use sea_orm::DatabaseConnection;
 use std::sync::Arc;
-use tokio::io::AsyncReadExt;
-use tokio::sync::RwLock;
+use tokio::{io::AsyncReadExt, sync::RwLock};
 
 const EPOCH_START: u64 = 1650125769; // haha nice
 
@@ -57,7 +58,7 @@ pub static SERVERSTATE: OnceCell<Arc<State>> = OnceCell::new();
 //     }
 // }
 
-#[derive(Clone)]
+#[derive(Clone, Debug)]
 pub struct State {
     pub redis: ConnectionManager,
     pub database: DatabaseConnection,
@@ -66,9 +67,12 @@ pub struct State {
     pub id_generator: IdGenerators,
 }
 
+#[derive(Clone, Debug)]
 pub struct IdGenerators {
     user_ids: SnowflakeIdGenerator,
     redirect_ids: SnowflakeIdGenerator,
+    sober_ids: SnowflakeIdGenerator,
+    onetime_reminder_ids: SnowflakeIdGenerator,
 }
 
 make_caches! {

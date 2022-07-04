@@ -8,9 +8,13 @@ use crate::{
     },
     State,
 };
-use axum::{extract::Query, Extension, Json};
+use axum::{
+    extract::Query,
+    routing::{delete, post},
+    Extension, Json,
+};
 use chrono::Utc;
-use kindkapibari_core::{roles::Role, secret::SentSecret, user_data::UserSignupRequest};
+use kindkapibari_core::{roles::Role, route, secret::SentSecret, user_data::UserSignupRequest};
 use kindkapibari_schema::{
     error::ServerError,
     redis::{check_if_exists_cache, delet_dis, insert_into_cache, read_from_cache},
@@ -181,7 +185,7 @@ pub struct PostSignupSent {
     path = "/signup",
     request_body = UserSignupRequest,
     responses(
-    (status = 200, description = "Thank you %user! But our HRT is in another site! (diyhrt.github.io)", body = json),
+    (status = 200, description = "Thank you %user! But our HRT is in another site! (diyhrt.github.io)", body = UserSignupRequest),
     (status = 400, description = "Signup Request Modified/Invalid"),
     (status = 404, description = "Signup Request Does Not Exist"),
     (status = 500, description = "Failed")),
@@ -194,6 +198,14 @@ pub async fn signup(
     request: Query<String>,
     data: Json<UserSignupRequest>,
 ) -> SResult<Json<PostSignupSent>> {
+    if !(data.username.len() > 30
+        || data.profile_picture.len() > 200
+        || data.email.len() > 100
+        || data.other_data.verify())
+    {
+        return Err(ServerError::BadRequest(Cow::from("too long!")));
+    }
+
     let oauth_data = read_from_cache::<AuthProviderDataCommon>(state.clone(), &request.0).await?;
     let user_data = data.0;
 
@@ -252,4 +264,10 @@ pub async fn signup(
         id: user_id,
         login_secret: login_generated,
     }))
+}
+
+route! {
+    "/redirect" => post(redirect),
+    "/burn_signup_token" => delete(burn_signup_token),
+    "/signup" => post(signup)
 }

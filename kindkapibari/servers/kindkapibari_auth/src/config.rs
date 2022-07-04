@@ -44,13 +44,8 @@ pub struct Database {
 }
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
-pub struct CoconutPak {
-    pub admin_key: String,
-}
-
-#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct OAuthProviders {
-    pub default_time: usize,
+    pub default_time_seconds: usize,
     pub redirect_url: String,
     pub twitter: OAuth,
     pub github: OAuth,

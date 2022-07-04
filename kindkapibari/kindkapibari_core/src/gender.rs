@@ -58,13 +58,20 @@ impl<'de> Deserialize<'de> for AsThree {
 }
 
 // reduction meant for coconutpak
-#[derive(Clone, Default, Hash, Ord, PartialOrd, Eq, PartialEq)]
+#[cfg_attr(feature = "server", derive(utoipa::Component))]
+#[derive(Clone, Hash, Ord, PartialOrd, Eq, PartialEq, Serialize, Deserialize)]
+#[serde(tag = "t", content = "c")]
 pub enum Gender {
     Man,
     Woman,
-    #[default]
     NonBinary,
     Custom(String), // upload custom gender. max 10 MB /s
+}
+
+impl Default for Gender {
+    fn default() -> Self {
+        Gender::Custom("diyhrt.github.io gender :)".to_string())
+    }
 }
 
 impl Debug for Gender {
@@ -99,25 +106,6 @@ where
             "non-binary" => Gender::NonBinary,
             g => Gender::Custom(g.to_owned()),
         }
-    }
-}
-
-impl Serialize for Gender {
-    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
-    where
-        S: Serializer,
-    {
-        serializer.serialize_str(&self.to_string())
-    }
-}
-
-impl<'de> Deserialize<'de> for Gender {
-    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
-    where
-        D: Deserializer<'de>,
-    {
-        let gender_str = String::deserialize(deserializer)?;
-        Ok(Self::from(gender_str))
     }
 }
 

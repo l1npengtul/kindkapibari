@@ -1,13 +1,12 @@
-use crate::api::auth::AuthedUser;
-use crate::{SResult, ServerError, State};
-use axum::extract::Path;
-use axum::{Extension, Json};
+use crate::{
+    access::user::{update_user_data_by_user_id, user_by_id, user_data_by_user_id},
+    api::auth::AuthedUser,
+    SResult, ServerError, State,
+};
+use axum::{extract::Path, Extension, Json};
 use kindkapibari_core::{auth::Authentication, user_data::UserData};
-use crate::access::user::user_by_id;
-use crate::access::user::{update_user_data_by_user_id, user_data_by_user_id};
-use kindkapibari_schema::auth::AuthedUser;
-use std::borrow::Cow;
-use std::sync::Arc;
+use kindkapibari_schema::{auth::AuthedUser, SResult};
+use std::{borrow::Cow, sync::Arc};
 use tracing::instrument;
 
 #[instrument]

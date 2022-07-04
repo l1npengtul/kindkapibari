@@ -1,6 +1,7 @@
 use crate::{gender::Gender, pronouns::Pronouns};
 use chrono::{DateTime, Utc};
 use language_tags::LanguageTag;
+use serde::{Deserialize, Serialize};
 use std::{
     fmt::{Display, Formatter},
     ops::{Deref, DerefMut},
@@ -10,6 +11,7 @@ use std::{
 pub const CURRENT_SCHEMA: u64 = 0;
 
 #[derive(Clone, Debug, Hash, PartialEq, Eq, Serialize, Deserialize)]
+#[cfg_attr(feature = "server", derive(utoipa::Component))]
 pub struct UserData {
     // pub schema: u64,
     pub gender: Gender,
@@ -34,6 +36,23 @@ impl UserData {
             locale,
         }
     }
+
+    #[must_use]
+    pub fn verify(&self) -> bool {
+        let gender = match &self.gender {
+            Gender::Man | Gender::Woman | Gender::NonBinary => true,
+            Gender::Custom(c) => c.len() > 30,
+        };
+
+        let pronoun = match &self.pronouns {
+            Pronouns::Custom(c) => c.verify(),
+            _ => true,
+        };
+
+        let date = self.birthday.unwrap_or_else(Utc::now) > Utc::now();
+
+        gender && pronoun && date
+    }
 }
 
 impl Default for UserData {
@@ -48,21 +67,25 @@ impl Default for UserData {
 }
 
 #[derive(Clone, Debug, Hash, PartialEq, Eq, Serialize, Deserialize)]
-pub struct Locale {
-    lang_tag: LanguageTag,
+#[cfg_attr(feature = "server", derive(utoipa::Component))]
+#[cfg_attr(feature = "server", component(value_type = String, default = locale_default))]
+pub struct Locale(LanguageTag);
+
+fn locale_default() -> String {
+    "en-US".to_string()
 }
 
 impl Deref for Locale {
     type Target = LanguageTag;
 
     fn deref(&self) -> &Self::Target {
-        &self.lang_tag
+        &self.0
     }
 }
 
 impl DerefMut for Locale {
     fn deref_mut(&mut self) -> &mut Self::Target {
-        &mut self.lang_tag
+        &mut self.0
     }
 }
 
@@ -70,27 +93,25 @@ impl FromStr for Locale {
     type Err = language_tags::ParseError;
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
-        Ok(Self {
-            lang_tag: LanguageTag::from_str(s)?,
-        })
+        Ok(Self(LanguageTag::from_str(s)?))
     }
 }
 
 impl Display for Locale {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
-        write!(f, "{}", &self.lang_tag)
+        write!(f, "{}", &self.0.as_str())
     }
 }
 
 impl From<LanguageTag> for Locale {
     fn from(lt: LanguageTag) -> Self {
-        Self { lang_tag: lt }
+        Self(lt)
     }
 }
 
 impl From<Locale> for LanguageTag {
     fn from(lc: Locale) -> Self {
-        lc.lang_tag
+        lc.0
     }
 }
 
@@ -99,7 +120,7 @@ impl From<Locale> for LanguageTag {
 pub struct UserSignupRequest {
     pub username: String,
     pub email: String,
-    pub pfp: String,
+    pub profile_picture: String,
     pub other_data: UserData,
 }
 

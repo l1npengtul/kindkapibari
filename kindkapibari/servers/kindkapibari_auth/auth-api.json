@@ -1,0 +1,466 @@
+{
+  "openapi": "3.0.3",
+  "info": {
+    "title": "kindkapibari_auth",
+    "description": "",
+    "contact": {
+      "name": "",
+      "email": ""
+    },
+    "license": {
+      "name": ""
+    },
+    "version": "0.1.0"
+  },
+  "paths": {
+    "/burn_signup_token": {
+      "delete": {
+        "tags": [
+          "handlers::signup"
+        ],
+        "description": "",
+        "operationId": "burn_signup_token",
+        "parameters": [
+          {
+            "name": "request",
+            "in": "query",
+            "description": "token",
+            "required": true,
+            "deprecated": false,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Token Sucessfully burnt"
+          },
+          "404": {
+            "description": "No token exists"
+          },
+          "500": {
+            "description": "Failed"
+          }
+        },
+        "deprecated": false
+      }
+    },
+    "/login_with_github": {
+      "post": {
+        "tags": [
+          "handlers::login"
+        ],
+        "description": "",
+        "operationId": "login_with_github",
+        "responses": {
+          "200": {
+            "description": "Github Url Sucessfully Generated",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Failed"
+          }
+        },
+        "deprecated": false
+      }
+    },
+    "/login_with_twitter": {
+      "post": {
+        "tags": [
+          "handlers::login"
+        ],
+        "description": "",
+        "operationId": "login_with_twitter",
+        "responses": {
+          "200": {
+            "description": "Twitter Url Sucessfully Generated",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Failed"
+          }
+        },
+        "deprecated": false
+      }
+    },
+    "/signup": {
+      "post": {
+        "tags": [
+          "handlers::signup"
+        ],
+        "description": "",
+        "operationId": "signup",
+        "parameters": [
+          {
+            "name": "request",
+            "in": "query",
+            "description": "Request Signup Token",
+            "required": true,
+            "deprecated": false,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UserSignupRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Thank you %user! But our HRT is in another site! (diyhrt.github.io)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/UserSignupRequest"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Signup Request Modified/Invalid"
+          },
+          "404": {
+            "description": "Signup Request Does Not Exist"
+          },
+          "500": {
+            "description": "Failed"
+          }
+        },
+        "deprecated": false
+      }
+    },
+    "/verify_login_token": {
+      "post": {
+        "tags": [
+          "handlers::login"
+        ],
+        "description": "",
+        "operationId": "verify_login_token",
+        "parameters": [
+          {
+            "name": "token",
+            "in": "query",
+            "description": "token to verify",
+            "required": true,
+            "deprecated": false,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Github Url Sucessfully Generated",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Model"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid Token"
+          },
+          "404": {
+            "description": "User Not Found"
+          },
+          "500": {
+            "description": "Failed"
+          }
+        },
+        "deprecated": false
+      }
+    }
+  },
+  "components": {
+    "schemas": {
+      "PronounProfile": {
+        "type": "object",
+        "required": [
+          "nominative",
+          "accusative",
+          "pronominal",
+          "predicative",
+          "reflexive"
+        ],
+        "properties": {
+          "nominative": {
+            "type": "string"
+          },
+          "accusative": {
+            "type": "string"
+          },
+          "reflexive": {
+            "type": "string"
+          },
+          "pronominal": {
+            "type": "string"
+          },
+          "predicative": {
+            "type": "string"
+          }
+        }
+      },
+      "PostSignupSent": {
+        "type": "object",
+        "required": [
+          "id",
+          "login_secret"
+        ],
+        "properties": {
+          "id": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "login_secret": {
+            "$ref": "#/components/schemas/SentSecret"
+          }
+        }
+      },
+      "Pronouns": {
+        "oneOf": [
+          {
+            "type": "string",
+            "enum": [
+              "HeHim"
+            ]
+          },
+          {
+            "type": "string",
+            "enum": [
+              "SheHer"
+            ]
+          },
+          {
+            "type": "string",
+            "enum": [
+              "TheyThem"
+            ]
+          },
+          {
+            "type": "string",
+            "enum": [
+              "PerPers"
+            ]
+          },
+          {
+            "type": "string",
+            "enum": [
+              "ItIts"
+            ]
+          },
+          {
+            "type": "string",
+            "enum": [
+              "FaeFaer"
+            ]
+          },
+          {
+            "type": "string",
+            "enum": [
+              "XeXyrs"
+            ]
+          },
+          {
+            "type": "string",
+            "enum": [
+              "ZeZie"
+            ]
+          },
+          {
+            "type": "string",
+            "enum": [
+              "AeAers"
+            ]
+          },
+          {
+            "type": "string",
+            "enum": [
+              "AnyAll"
+            ]
+          },
+          {
+            "type": "object",
+            "properties": {
+              "Custom": {
+                "$ref": "#/components/schemas/PronounProfile"
+              }
+            }
+          }
+        ]
+      },
+      "Locale": {
+        "type": "string",
+        "default": "en-US"
+      },
+      "Model": {
+        "type": "object",
+        "required": [
+          "id",
+          "username",
+          "email",
+          "creation_date",
+          "roles"
+        ],
+        "properties": {
+          "creation_date": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "id": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "roles": {
+            "$ref": "#/components/schemas/Role"
+          },
+          "username": {
+            "type": "string"
+          },
+          "email": {
+            "type": "string"
+          },
+          "profile_picture": {
+            "type": "string"
+          }
+        }
+      },
+      "UserData": {
+        "type": "object",
+        "required": [
+          "gender",
+          "pronouns",
+          "locale"
+        ],
+        "properties": {
+          "pronouns": {
+            "$ref": "#/components/schemas/Pronouns"
+          },
+          "locale": {
+            "$ref": "#/components/schemas/Locale"
+          },
+          "gender": {
+            "$ref": "#/components/schemas/Gender"
+          },
+          "birthday": {
+            "type": "string",
+            "format": "date-time"
+          }
+        }
+      },
+      "Gender": {
+        "oneOf": [
+          {
+            "type": "string",
+            "enum": [
+              "Man"
+            ]
+          },
+          {
+            "type": "string",
+            "enum": [
+              "Woman"
+            ]
+          },
+          {
+            "type": "string",
+            "enum": [
+              "NonBinary"
+            ]
+          },
+          {
+            "type": "object",
+            "properties": {
+              "Custom": {
+                "type": "string"
+              }
+            }
+          }
+        ]
+      },
+      "UserSignupRequest": {
+        "type": "object",
+        "required": [
+          "username",
+          "email",
+          "profile_picture",
+          "other_data"
+        ],
+        "properties": {
+          "username": {
+            "type": "string"
+          },
+          "email": {
+            "type": "string"
+          },
+          "other_data": {
+            "$ref": "#/components/schemas/UserData"
+          },
+          "profile_picture": {
+            "type": "string"
+          }
+        }
+      },
+      "Role": {
+        "type": "string",
+        "enum": [
+          "NewUser",
+          "NormalUser",
+          "Moderator",
+          "Server",
+          "Administrator"
+        ]
+      },
+      "SentSecret": {
+        "type": "object",
+        "required": [
+          "iv",
+          "signed"
+        ],
+        "properties": {
+          "iv": {
+            "type": "array",
+            "items": {
+              "type": "integer",
+              "format": "int32"
+            }
+          },
+          "signed": {
+            "type": "array",
+            "items": {
+              "type": "integer",
+              "format": "int32"
+            }
+          }
+        }
+      }
+    }
+  },
+  "tags": [
+    {
+      "name": "auth",
+      "description": "Authentication/Login/Signup API"
+    }
+  ]
+}

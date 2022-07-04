@@ -14,11 +14,13 @@ pub const PRONOUNS_CONST_BUILTIN: [PronounProfileStr<'static>; 9] = [
     PronounProfileStr::AE_AERS,
 ];
 
-#[derive(Clone, Debug, Default, Hash, PartialOrd, PartialEq, Eq, Serialize, Deserialize)]
+#[cfg_attr(feature = "server", derive(utoipa::Component))]
+#[derive(Clone, Debug, Hash, PartialOrd, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(tag = "t", content = "c")]
+#[non_exhaustive]
 pub enum Pronouns {
     HeHim,
     SheHer,
-    #[default]
     TheyThem,
     PerPers,
     ItIts,
@@ -66,6 +68,12 @@ impl Pronouns {
     }
 }
 
+impl Default for Pronouns {
+    fn default() -> Self {
+        Pronouns::TheyThem
+    }
+}
+
 impl From<PronounProfile> for Pronouns {
     fn from(pp: PronounProfile) -> Self {
         let pps = PronounProfileStr::from(&pp);
@@ -84,7 +92,8 @@ impl From<PronounProfile> for Pronouns {
     }
 }
 
-#[derive(Clone, Debug, Default, Hash, PartialOrd, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Clone, Debug, Hash, PartialOrd, PartialEq, Eq, Serialize, Deserialize)]
+#[cfg_attr(feature = "server", derive(utoipa::Component))]
 pub struct PronounProfile {
     pub(crate) nominative: String,
     pub(crate) accusative: String,
@@ -108,6 +117,15 @@ impl PronounProfile {
             predicative: predicative.as_ref().to_string(),
             reflexive: reflexive.as_ref().to_string(),
         }
+    }
+
+    #[must_use]
+    pub fn verify(&self) -> bool {
+        !(self.reflexive.len() > 30
+            || self.accusative.len() > 30
+            || self.pronominal.len() > 30
+            || self.predicative.len() > 30
+            || self.reflexive.len() > 30)
     }
 
     pub fn set_nominative(&mut self, nominative: String) {
@@ -145,6 +163,19 @@ impl PronounProfile {
     #[must_use]
     pub fn reflexive(&self) -> &str {
         &self.reflexive
+    }
+}
+
+impl Default for PronounProfile {
+    fn default() -> Self {
+        // FIXME: check this mayb???
+        Self {
+            nominative: "they".to_string(),
+            accusative: "they".to_string(),
+            pronominal: "their".to_string(),
+            predicative: "their".to_string(),
+            reflexive: "themself".to_string(),
+        }
     }
 }
 

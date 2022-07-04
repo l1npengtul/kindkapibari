@@ -2,14 +2,16 @@ use crate::reseedingrng::AutoReseedingRng;
 use argon2::{Algorithm, Argon2, Params, Version};
 use base64::DecodeError;
 use chacha20poly1305::{
-    aead::{consts::U24, generic_array::GenericArray, Aead, NewAead},
-    Key, XChaCha20Poly1305, XNonce,
+    aead::{consts::U24, generic_array::GenericArray, Aead},
+    Key, KeyInit, XChaCha20Poly1305, XNonce,
 };
 use chrono::Utc;
 use once_cell::sync::Lazy;
 use staticvec::StaticVec;
-use std::fmt::{Display, Formatter};
-use std::sync::Arc;
+use std::{
+    fmt::{Display, Formatter},
+    sync::Arc,
+};
 use tokio::sync::Mutex;
 
 static AUTO_RESEEDING_TOKEN_RNG: Lazy<Arc<Mutex<AutoReseedingRng<65535>>>> =
@@ -108,6 +110,7 @@ impl GeneratedToken {
 }
 
 #[derive(Clone, Debug, Hash, PartialOrd, PartialEq, Eq, Serialize, Deserialize)]
+#[cfg_attr(feature = "server", derive(utoipa::Component))]
 pub struct SentSecret {
     pub iv: Vec<u8>,
     pub signed: Vec<u8>,

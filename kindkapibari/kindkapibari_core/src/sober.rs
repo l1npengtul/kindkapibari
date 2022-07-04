@@ -7,7 +7,7 @@ use serde::{Deserialize, Serialize};
 // represent as a </3?
 #[derive(Clone, Debug, Hash, PartialEq, Eq, Serialize, Deserialize)]
 pub struct Sober {
-    // pub schema: u64,
+    pub id: u64,
     pub name: String,
     pub start_time: DateTime<Utc>,
 }
@@ -15,6 +15,7 @@ pub struct Sober {
 impl Default for Sober {
     fn default() -> Self {
         Self {
+            id: 0,
             name: "".to_string(),
             start_time: Utc::now(),
         }

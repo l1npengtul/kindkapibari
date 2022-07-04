@@ -4,6 +4,7 @@ use std::hash::Hash;
 
 #[derive(Clone, Debug, Hash, PartialEq, Eq, PartialOrd, Serialize, Deserialize)]
 pub struct OneTimeReminder {
+    pub id: u64,
     pub name: String,
     pub set: DateTime<Utc>,
     pub expire: DateTime<Utc>,
@@ -12,6 +13,7 @@ pub struct OneTimeReminder {
 impl Default for OneTimeReminder {
     fn default() -> Self {
         Self {
+            id: 0,
             name: "".to_string(),
             set: Utc::now(),
             expire: Utc::now(),
@@ -27,25 +29,22 @@ pub const FRIDAY: u8 = 0b0001_0000;
 pub const SATURDAY: u8 = 0b0010_0000;
 pub const SUNDAY: u8 = 0b0100_0000;
 
-#[derive(Copy, Clone, Debug, Default, Hash, PartialEq, PartialOrd, Eq, Serialize, Deserialize)]
-pub enum Weekdays {
-    #[default]
-    Everyday,
-    Days([bool; 7]),
-}
-
 // inspired by the alarm app on my phone
 #[derive(Clone, Debug, Hash, PartialEq, PartialOrd, Eq, Serialize, Deserialize)]
 pub struct RecurringReminder {
+    pub id: u64,
+    pub name: String,
     pub time: NaiveTime,
-    pub days: Weekdays,
+    pub days: [bool; 7],
 }
 
 impl Default for RecurringReminder {
     fn default() -> Self {
         Self {
+            id: 0,
+            name: "".to_string(),
             time: Utc::now().time(),
-            days: Weekdays::Everyday,
+            days: u8_bitflag_to_days(0),
         }
     }
 }

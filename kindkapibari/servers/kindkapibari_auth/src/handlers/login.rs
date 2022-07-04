@@ -5,8 +5,8 @@ use crate::{
     },
     State,
 };
-use axum::{extract::Query, Extension, Json};
-use kindkapibari_core::secret::SentSecret;
+use axum::{extract::Query, routing::post, Extension, Json};
+use kindkapibari_core::{route, secret::SentSecret};
 use kindkapibari_schema::{
     error::ServerError,
     opt_to_sr,
@@ -78,11 +78,15 @@ pub async fn verify_login_token(
     Extension(app): Extension<Arc<State>>,
     token: Query<String>,
 ) -> SResult<Json<Model>> {
-    let user = verify_user_login_token(
-        app.clone(),
-        SentSecret::from_str_token(&token.0)
-            .ok_or_else(|| ServerError::BadRequest(Cow::from("Invalid Token")))?,
-    )
-    .await?;
-    Ok(Json(opt_to_sr!(user, "_", "not found")))
+    let token = SentSecret::from_str_token(&token.0)
+        .ok_or_else(|| ServerError::BadRequest(Cow::from("Invalid Token")))?;
+    let user = verify_user_login_token(app.clone(), token).await?;
+    let a = opt_to_sr!(user, "_", "not found");
+    Ok(Json(a))
+}
+
+route! {
+    "/login_with_twitter" => post(login_with_twitter),
+    "/login_with_github" => post(login_with_github),
+    "/verify_login_token" => post(verify_login_token)
 }

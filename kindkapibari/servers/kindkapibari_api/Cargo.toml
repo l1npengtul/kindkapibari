@@ -34,7 +34,7 @@ version = "1.0"
 features = ["derive"]
 
 [dependencies.axum]
-version = "0.5.9"
+version = "0.5"
 features = ["http2", "serde_json", "serde_urlencoded", "ws", "multipart", "headers"]
 
 [dependencies.axum-extra]

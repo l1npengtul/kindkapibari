@@ -49,6 +49,9 @@ pub mod makeconfig_macros;
 pub mod auth;
 pub mod badges;
 pub mod roles;
+#[cfg(feature = "server")]
+#[macro_use]
+pub mod route;
 pub mod scopes;
 
 pub use kindkapibari_proc::AttrString;
