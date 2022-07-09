@@ -7,4 +7,18 @@ macro_rules! route {
                 $( .route($path, $handler) )*
         }
     };
+    { $( $path:literal => $handler:path ),* } => {
+        #[must_use]
+        pub fn routes() -> axum::Router {
+            axum::Router::new()
+                $( .nest($path, $handler::routes()) )*
+        }
+    };
+    { $( $handler:path ),* } => {
+        #[must_use]
+        pub fn routes() -> axum::Router {
+            axum::Router::new()
+                $( .merge($handler::routes()) )*
+        }
+    };
 }

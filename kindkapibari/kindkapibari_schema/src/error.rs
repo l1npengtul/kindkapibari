@@ -17,11 +17,11 @@ pub enum ServerError {
     #[error("Internal Server Database Error.")]
     DatabaseError(#[from] DbErr),
     #[error("fucky wuckyy uwu :c")]
-    InternalServer(Box<dyn std::error::Error>),
+    InternalServer(Box<dyn std::error::Error + Send + Sync>),
     #[error("Internal Error: {0}")]
     ISErr(Cow<'static, str>),
     #[error("Bad Argument {0}: {1}")]
-    BadArgumentError(Cow<'static, str>, Box<dyn std::error::Error>),
+    BadArgumentError(Cow<'static, str>, Box<dyn std::error::Error + Send + Sync>),
     #[error("Bad Request: {0}")]
     BadRequest(Cow<'static, str>),
     #[error("Unauthorized.")]

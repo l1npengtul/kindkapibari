@@ -1,28 +1,28 @@
-use chrono::{DateTime, Utc};
-use kindkapibari_core::secret::StoredSecret;
+use kindkapibari_core::secret::RefreshClaims;
 use sea_orm::{
     prelude::{DeriveEntityModel, EntityTrait, PrimaryKeyTrait, RelationTrait},
     ActiveModelBehavior, DerivePrimaryKey, EnumIter, IdenStatic, Related, RelationDef,
 };
 use serde::{Deserialize, Serialize};
 
-#[derive(
-    Clone, Debug, Hash, PartialOrd, PartialEq, Eq, Serialize, Deserialize, DeriveEntityModel,
-)]
-#[sea_orm(table_name = "login_tokens")]
+#[derive(Clone, Debug, PartialOrd, PartialEq, Eq, Serialize, Deserialize, DeriveEntityModel)]
+#[sea_orm(table_name = "refresh_tokens")]
 pub struct Model {
     #[sea_orm(primary_key)]
     pub id: u64,
     pub owner: u64,
-    pub expire: DateTime<Utc>,
-    pub created: DateTime<Utc>,
-    #[sea_orm(unique, indexed)]
-    pub stored_secret: StoredSecret,
+    pub related: u64,
+    pub expire: u64,
+    pub created: u64,
+    pub revoked: bool,
+    #[sea_orm(column_type = "JsonBinary", unique, indexed)]
+    pub stored_secret: RefreshClaims,
 }
 
 #[derive(Copy, Clone, Debug, EnumIter)]
 pub enum Relation {
     User,
+    // LoginTokens,
 }
 
 impl RelationTrait for Relation {

@@ -1,7 +1,7 @@
 use async_trait::async_trait;
 use axum::{headers::Cookie, TypedHeader};
-use axum_core::body::boxed;
 use axum_core::{
+    body::boxed,
     extract::{FromRequest, RequestParts},
     response::{IntoResponse, Response},
 };

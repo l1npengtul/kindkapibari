@@ -1,5 +1,5 @@
 [package]
-name = "kindkapibari_game"
+name = "kindkapibari_game_shared"
 version = "0.1.0"
 edition = "2021"
 

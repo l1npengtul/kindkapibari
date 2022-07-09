@@ -3,12 +3,12 @@ use serde::{Deserialize, Serialize};
 
 pub mod badges;
 pub mod connections;
-pub mod login_tokens;
 pub mod oauth_authorizations;
 pub mod onetime_reminders;
 pub mod passwords;
 pub mod preferences;
 pub mod recurring_reminders;
+pub mod refresh_tokens;
 pub mod sobers;
 pub mod statistics;
 pub mod user;

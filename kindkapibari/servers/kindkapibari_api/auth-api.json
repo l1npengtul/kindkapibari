@@ -1,0 +1,929 @@
+{
+  "openapi": "3.0.3",
+  "info": {
+    "title": "kandkapybari_api",
+    "description": "",
+    "contact": {
+      "name": "",
+      "email": ""
+    },
+    "license": {
+      "name": ""
+    },
+    "version": "0.1.0"
+  },
+  "paths": {
+    "/users/account_creation_date/{id}": {
+      "get": {
+        "tags": [
+          "users"
+        ],
+        "description": "",
+        "operationId": "get_account_creation_date",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "description": "User ID",
+            "required": true,
+            "deprecated": false,
+            "schema": {
+              "type": "integer",
+              "format": "int64"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Account Creation UTC Timestamp",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "type": "integer",
+                  "format": "int64"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "User does not exist."
+          },
+          "500": {
+            "description": "Failed"
+          }
+        },
+        "deprecated": false,
+        "security": [
+          {}
+        ]
+      }
+    },
+    "/users/add_onetime_reminders": {
+      "post": {
+        "tags": [
+          "onetime"
+        ],
+        "description": "",
+        "operationId": "post_add_onetime_reminder",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/OneTimeReminder"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Sucessfully Added Recurring Reminder, Reminder ID",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "type": "integer",
+                  "format": "int64"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Bad Token"
+          },
+          "403": {
+            "description": "Bad Token"
+          },
+          "404": {
+            "description": "User does not exist/Reminder does not exist"
+          },
+          "500": {
+            "description": "Failed"
+          }
+        },
+        "deprecated": false,
+        "security": [
+          {
+            "api_jwt_token": []
+          }
+        ]
+      }
+    },
+    "/users/add_recurring_reminders": {
+      "post": {
+        "tags": [
+          "recurring"
+        ],
+        "description": "",
+        "operationId": "post_add_recurring_reminder",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RecurringReminder"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Sucessfully Updated Recurring Reminder, new reminder ID",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "type": "integer",
+                  "format": "int64"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Bad Token"
+          },
+          "403": {
+            "description": "Bad Token"
+          },
+          "404": {
+            "description": "User does not exist/Reminder does not exist"
+          },
+          "500": {
+            "description": "Failed"
+          }
+        },
+        "deprecated": false,
+        "security": [
+          {
+            "api_jwt_token": []
+          }
+        ]
+      }
+    },
+    "/users/add_sober": {
+      "post": {
+        "tags": [
+          "sober"
+        ],
+        "description": "",
+        "operationId": "post_add_sober",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/Sober"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Sucessfully Updated Sober, Sober ID",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "type": "integer",
+                  "format": "int64"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Bad Token"
+          },
+          "403": {
+            "description": "Bad Token"
+          },
+          "404": {
+            "description": "User does not exist/Sober does not exist"
+          },
+          "500": {
+            "description": "Failed"
+          }
+        },
+        "deprecated": false,
+        "security": [
+          {
+            "api_jwt_token": []
+          }
+        ]
+      }
+    },
+    "/users/delete_onetime_reminders/{onetime_id}": {
+      "delete": {
+        "tags": [
+          "onetime"
+        ],
+        "description": "",
+        "operationId": "delete_user_onetime_reminder",
+        "parameters": [
+          {
+            "name": "onetime_id",
+            "in": "path",
+            "description": "Onetime Reminder ID",
+            "required": true,
+            "deprecated": false,
+            "schema": {
+              "type": "integer",
+              "format": "int64"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/OneTimeReminder"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Sucessfully Deleted Recurring Reminder"
+          },
+          "401": {
+            "description": "Bad Token"
+          },
+          "403": {
+            "description": "Bad Token"
+          },
+          "404": {
+            "description": "User does not exist/Reminder does not exist"
+          },
+          "500": {
+            "description": "Failed"
+          }
+        },
+        "deprecated": false,
+        "security": [
+          {
+            "api_jwt_token": []
+          }
+        ]
+      }
+    },
+    "/users/delete_recurring_reminders/{recurring_reminder_id}": {
+      "delete": {
+        "tags": [
+          "recurring"
+        ],
+        "description": "",
+        "operationId": "delete_user_recurring_reminder",
+        "parameters": [
+          {
+            "name": "recurring_reminder_id",
+            "in": "path",
+            "description": "Recurring Reminder ID",
+            "required": true,
+            "deprecated": false,
+            "schema": {
+              "type": "integer",
+              "format": "int64"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RecurringReminder"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Sucessfully Deleted Recurring Reminder"
+          },
+          "401": {
+            "description": "Bad Token"
+          },
+          "403": {
+            "description": "Bad Token"
+          },
+          "404": {
+            "description": "User does not exist/Reminder does not exist"
+          },
+          "500": {
+            "description": "Failed"
+          }
+        },
+        "deprecated": false,
+        "security": [
+          {
+            "api_jwt_token": []
+          }
+        ]
+      }
+    },
+    "/users/delete_sober/{id}": {
+      "delete": {
+        "tags": [
+          "sober"
+        ],
+        "description": "",
+        "operationId": "delete_user_sober",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "description": "Sober ID",
+            "required": true,
+            "deprecated": false,
+            "schema": {
+              "type": "integer",
+              "format": "int64"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/Sober"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Sucessfully Updated Sober"
+          },
+          "401": {
+            "description": "Bad Token"
+          },
+          "403": {
+            "description": "Bad Token"
+          },
+          "404": {
+            "description": "User does not exist/Sober does not exist"
+          },
+          "500": {
+            "description": "Failed"
+          }
+        },
+        "deprecated": false,
+        "security": [
+          {
+            "api_jwt_token": []
+          }
+        ]
+      }
+    },
+    "/users/onetime_reminders/{user_id}": {
+      "delete": {
+        "tags": [
+          "onetime"
+        ],
+        "description": "",
+        "operationId": "get_user_onetime_reminders",
+        "parameters": [
+          {
+            "name": "user_id",
+            "in": "path",
+            "description": "User ID",
+            "required": true,
+            "deprecated": false,
+            "schema": {
+              "type": "integer",
+              "format": "int64"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Sucessfully Got Onetime Reminders",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/OneTimeReminders"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Bad Token"
+          },
+          "403": {
+            "description": "Bad Token"
+          },
+          "404": {
+            "description": "User does not exist/Reminder does not exist"
+          },
+          "500": {
+            "description": "Failed"
+          }
+        },
+        "deprecated": false,
+        "security": [
+          {
+            "api_jwt_token": []
+          }
+        ]
+      }
+    },
+    "/users/profile_picture/{id}": {
+      "get": {
+        "tags": [
+          "users"
+        ],
+        "description": "",
+        "operationId": "profile_picture",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "description": "User ID",
+            "required": true,
+            "deprecated": false,
+            "schema": {
+              "type": "integer",
+              "format": "int64"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "User Profile Picture URL",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "type": "integer",
+                  "format": "int64"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "User does not exist/no profile picture"
+          },
+          "500": {
+            "description": "Failed"
+          }
+        },
+        "deprecated": false,
+        "security": [
+          {}
+        ]
+      }
+    },
+    "/users/recurring_reminders/{user_id}": {
+      "get": {
+        "tags": [
+          "recurring"
+        ],
+        "description": "",
+        "operationId": "get_user_recurring_reminders",
+        "parameters": [
+          {
+            "name": "user_id",
+            "in": "path",
+            "description": "User ID",
+            "required": true,
+            "deprecated": false,
+            "schema": {
+              "type": "integer",
+              "format": "int64"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Sucessfully Updated Recurring Reminder"
+          },
+          "401": {
+            "description": "Bad Token"
+          },
+          "403": {
+            "description": "Bad Token"
+          },
+          "404": {
+            "description": "User does not exist/Reminder does not exist"
+          },
+          "500": {
+            "description": "Failed"
+          }
+        },
+        "deprecated": false,
+        "security": [
+          {
+            "api_jwt_token": []
+          }
+        ]
+      }
+    },
+    "/users/reset/{sober_id}": {
+      "patch": {
+        "tags": [
+          "sober"
+        ],
+        "description": "",
+        "operationId": "patch_user_sober_reset_time",
+        "parameters": [
+          {
+            "name": "user_id",
+            "in": "path",
+            "description": "User ID",
+            "required": true,
+            "deprecated": false,
+            "schema": {
+              "type": "integer",
+              "format": "int64"
+            }
+          },
+          {
+            "name": "sober_id",
+            "in": "path",
+            "description": "Sober ID",
+            "required": true,
+            "deprecated": false,
+            "schema": {
+              "type": "integer",
+              "format": "int64"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Sucessfully reset sober time"
+          },
+          "401": {
+            "description": "Bad Token"
+          },
+          "403": {
+            "description": "Bad Token"
+          },
+          "404": {
+            "description": "User does not exist/Sober does not exist"
+          },
+          "500": {
+            "description": "Failed"
+          }
+        },
+        "deprecated": false,
+        "security": [
+          {
+            "api_jwt_token": []
+          }
+        ]
+      }
+    },
+    "/users/set_user_data": {
+      "patch": {
+        "tags": [
+          "users"
+        ],
+        "description": "",
+        "operationId": "patch_set_user_data",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UserData"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Sucessfully Updated"
+          },
+          "401": {
+            "description": "Bad Token"
+          },
+          "403": {
+            "description": "Bad Token"
+          },
+          "404": {
+            "description": "User does not exist."
+          },
+          "500": {
+            "description": "Failed"
+          }
+        },
+        "deprecated": false,
+        "security": [
+          {}
+        ]
+      }
+    },
+    "/users/sobers/{id}": {
+      "post": {
+        "tags": [
+          "sober"
+        ],
+        "description": "",
+        "operationId": "get_user_sobers",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "description": "User ID",
+            "required": true,
+            "deprecated": false,
+            "schema": {
+              "type": "integer",
+              "format": "int64"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Sobers",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Sobers"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Bad Token"
+          },
+          "403": {
+            "description": "Bad Token"
+          },
+          "404": {
+            "description": "User does not exist."
+          },
+          "500": {
+            "description": "Failed"
+          }
+        },
+        "deprecated": false,
+        "security": [
+          {
+            "api_jwt_token": []
+          }
+        ]
+      }
+    },
+    "/users/update_onetime_reminders": {
+      "patch": {
+        "tags": [
+          "onetime"
+        ],
+        "description": "",
+        "operationId": "patch_update_onetime_reminders",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/OneTimeReminder"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Sucessfully Updated Recurring Reminder"
+          },
+          "401": {
+            "description": "Bad Token"
+          },
+          "403": {
+            "description": "Bad Token"
+          },
+          "404": {
+            "description": "User does not exist/Reminder does not exist"
+          },
+          "500": {
+            "description": "Failed"
+          }
+        },
+        "deprecated": false,
+        "security": [
+          {
+            "api_jwt_token": []
+          }
+        ]
+      }
+    },
+    "/users/update_recurring_reminder": {
+      "patch": {
+        "tags": [
+          "recurring"
+        ],
+        "description": "",
+        "operationId": "patch_update_recurring_reminders",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RecurringReminder"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Sucessfully Updated Recurring Reminder"
+          },
+          "401": {
+            "description": "Bad Token"
+          },
+          "403": {
+            "description": "Bad Token"
+          },
+          "404": {
+            "description": "User does not exist/Reminder does not exist"
+          },
+          "500": {
+            "description": "Failed"
+          }
+        },
+        "deprecated": false,
+        "security": [
+          {
+            "api_jwt_token": []
+          }
+        ]
+      }
+    },
+    "/users/update_sober": {
+      "patch": {
+        "tags": [
+          "sober"
+        ],
+        "description": "",
+        "operationId": "patch_update_sober",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/Sober"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Sucessfully Updated Sober"
+          },
+          "401": {
+            "description": "Bad Token"
+          },
+          "403": {
+            "description": "Bad Token"
+          },
+          "404": {
+            "description": "User does not exist/Sober does not exist"
+          },
+          "500": {
+            "description": "Failed"
+          }
+        },
+        "deprecated": false,
+        "security": [
+          {
+            "api_jwt_token": []
+          }
+        ]
+      }
+    },
+    "/users/user_data": {
+      "get": {
+        "tags": [
+          "users"
+        ],
+        "description": "",
+        "operationId": "get_user_data",
+        "responses": {
+          "200": {
+            "description": "Data for user",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/UserData"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Bad Token"
+          },
+          "403": {
+            "description": "Bad Token"
+          },
+          "404": {
+            "description": "User does not exist."
+          },
+          "500": {
+            "description": "Failed"
+          }
+        },
+        "deprecated": false,
+        "security": [
+          {
+            "api_jwt_token": []
+          }
+        ]
+      }
+    },
+    "/users/user_id/{username}": {
+      "get": {
+        "tags": [
+          "users"
+        ],
+        "description": "",
+        "operationId": "user_id",
+        "parameters": [
+          {
+            "name": "name",
+            "in": "path",
+            "description": "Username",
+            "required": true,
+            "deprecated": false,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "User ID",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "type": "integer",
+                  "format": "int64"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "User does not exist."
+          },
+          "500": {
+            "description": "Failed"
+          }
+        },
+        "deprecated": false,
+        "security": [
+          {}
+        ]
+      }
+    },
+    "/users/username/{id}": {
+      "get": {
+        "tags": [
+          "users"
+        ],
+        "description": "",
+        "operationId": "username",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "description": "User ID",
+            "required": true,
+            "deprecated": false,
+            "schema": {
+              "type": "integer",
+              "format": "int64"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Username",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "User does not exist."
+          },
+          "500": {
+            "description": "Failed"
+          }
+        },
+        "deprecated": false,
+        "security": [
+          {}
+        ]
+      }
+    }
+  },
+  "components": {
+    "securitySchemes": {
+      "api_jwt_token": {
+        "type": "http",
+        "scheme": "bearer",
+        "bearerFormat": "JWT"
+      }
+    }
+  }
+}

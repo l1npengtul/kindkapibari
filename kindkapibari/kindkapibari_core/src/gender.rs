@@ -57,7 +57,6 @@ impl<'de> Deserialize<'de> for AsThree {
     }
 }
 
-// reduction meant for coconutpak
 #[cfg_attr(feature = "server", derive(utoipa::Component))]
 #[derive(Clone, Hash, Ord, PartialOrd, Eq, PartialEq, Serialize, Deserialize)]
 #[serde(tag = "t", content = "c")]
@@ -65,7 +64,7 @@ pub enum Gender {
     Man,
     Woman,
     NonBinary,
-    Custom(String), // upload custom gender. max 10 MB /s
+    Custom(String), // upload custom gender. max 10 MB
 }
 
 impl Default for Gender {

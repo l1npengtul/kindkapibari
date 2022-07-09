@@ -9,16 +9,16 @@ use kindkapibari_core::{
     make_caches,
     pronouns::{PronounProfile, Pronouns},
     roles::Role,
-    secret::SentSecret,
+    secret::JWTPair,
     snowflake::SnowflakeIdGenerator,
     user_data::{Locale, UserData, UserSignupRequest},
 };
-use kindkapibari_schema::{
-    redis::RedisState,
-    schema::users::{user, user::Model},
+use kindkapibari_schema::{redis::RedisState, schema::users::user::Model};
+use redis::{
+    aio::{ConnectionLike, ConnectionManager},
+    Client,
 };
-use redis::aio::{ConnectionLike, ConnectionManager};
-use sea_orm::DatabaseConnection;
+use sea_orm::{Database, DatabaseConnection};
 use std::{
     fmt::{Debug, Formatter},
     fs::File,
@@ -77,11 +77,12 @@ impl RedisState for State {
 pub struct IdGenerators {
     pub user_ids: SnowflakeIdGenerator,
     pub redirect_ids: SnowflakeIdGenerator,
+    pub login_token_ids: SnowflakeIdGenerator,
+    pub refresh_token_ids: SnowflakeIdGenerator,
 }
 
 make_caches! {
-    users: u64: user::Model,
-    login_token: SentSecret: u64
+    users: u64: user::Model
 }
 
 #[tokio::main]
@@ -97,6 +98,7 @@ async fn main() {
         ),
         components(
             Model,
+            JWTPair,
             UserSignupRequest,
             PostSignupSent,
             UserData,
@@ -105,7 +107,6 @@ async fn main() {
             Gender,
             Locale,
             Role,
-            SentSecret
         ),
         tags (
             (name = "auth", description = "Authentication/Login/Signup API")
@@ -126,6 +127,16 @@ async fn main() {
     tracing::debug!("listening on {}", addr);
 
     // FIXME: instantiate State
+
+    let config = Config::load().expect("Failed to read config");
+    let database: DatabaseConnection = Database::connect(&config.database.postgres_url)
+        .await
+        .expect("Failed to connect to PostgreSQL");
+    let redis = ConnectionManager::new(
+        Client::open(&config.database.redis_url).expect("Failed to connect to Redis"),
+    )
+    .await
+    .expect("Failed to open Redis ConnectionManager");
 
     let routes = handlers::routes();
 

@@ -8,6 +8,6 @@ members = [
     "kindkapibari/kindkapibari_proc",
     "kindkapibari/kindkapibari_schema",
 #    "kindkapibari/api_clients/*",
-    "kindkapibari/client/*",
+    "kindkapibari/game/*",
     "kindkapibari/servers/*",
 ]

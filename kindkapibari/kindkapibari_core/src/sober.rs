@@ -6,6 +6,7 @@ use serde::{Deserialize, Serialize};
 
 // represent as a </3?
 #[derive(Clone, Debug, Hash, PartialEq, Eq, Serialize, Deserialize)]
+#[cfg_attr(feature = "server", derive(utoipa::Component))]
 pub struct Sober {
     pub id: u64,
     pub name: String,
@@ -23,6 +24,7 @@ impl Default for Sober {
 }
 
 #[derive(Clone, Debug, Default, Hash, PartialEq, Eq, Serialize, Deserialize)]
+#[cfg_attr(feature = "server", derive(utoipa::Component))]
 pub struct Sobers {
     pub sobers: Vec<Sober>,
 }

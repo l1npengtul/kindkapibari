@@ -1,5 +1,4 @@
 use chrono::{DateTime, Utc};
-use kindkapibari_core::secret::StoredSecret;
 use sea_orm::{
     prelude::{DeriveEntityModel, EntityTrait, PrimaryKeyTrait, RelationTrait},
     ActiveModelBehavior, DerivePrimaryKey, EnumIter, IdenStatic, Related, RelationDef,
@@ -17,10 +16,10 @@ pub struct Model {
     pub application: u64,
     pub expire: DateTime<Utc>,
     pub created: DateTime<Utc>,
-    #[sea_orm(unique, indexed)]
-    pub access_token: StoredSecret,
-    #[sea_orm(unique, indexed, nullable)]
-    pub refresh_token: Option<StoredSecret>,
+    // #[sea_orm(unique, indexed)]
+    // pub access_token: StoredSecret,
+    // #[sea_orm(unique, indexed, nullable)]
+    // pub refresh_token: Option<StoredSecret>,
 }
 
 #[derive(Copy, Clone, Debug, EnumIter)]

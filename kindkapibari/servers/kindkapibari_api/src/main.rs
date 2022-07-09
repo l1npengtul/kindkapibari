@@ -1,39 +1,50 @@
 #![deny(clippy::pedantic)]
 #![warn(clippy::all)]
 
-extern crate core;
-
 pub mod access;
 mod api;
 mod config;
 
 use crate::{
+    api::user::{onetime, recurring, sober, users},
     config::Config,
-    schema::{
-        applications, users,
-        users::{oauth_authorizations, user},
-    },
 };
-use color_eyre::Report;
-use kindkapibari_core::{make_caches, scopes::KKBScope, snowflake::SnowflakeIdGenerator};
-use kindkapibari_schema::{
-    appdata_traits::{
-        AppData, AppDataCache, AppDataDatabase, AppDataKeyTypes, AppDataRedis, AppDataSigningKey,
-    },
-    error::ServerError,
-    schema::users::user,
+use kindkapibari_core::{
+    gender::Gender,
+    make_caches,
+    pronouns::{PronounProfile, Pronouns},
+    reminder::{OneTimeReminder, OneTimeReminders, RecurringReminder, RecurringReminders},
+    roles::Role,
+    secret::JWTPair,
+    snowflake::SnowflakeIdGenerator,
+    sober::{Sober, Sobers},
+    user_data::{Locale, UserData, UserSignupRequest},
 };
-use moka::future::Cache;
+use kindkapibari_schema::{error::ServerError, redis::RedisState, schema::users::user::Model};
 use once_cell::sync::OnceCell;
-use oxide_auth_async::primitives::{Authorizer, Issuer, Registrar};
-use redis::aio::ConnectionManager;
-use sea_orm::DatabaseConnection;
-use std::sync::Arc;
-use tokio::{io::AsyncReadExt, sync::RwLock};
+use redis::{
+    aio::{ConnectionLike, ConnectionManager},
+    Client,
+};
+use sea_orm::{Database, DatabaseConnection};
+use std::{
+    fmt::{Debug, Formatter},
+    net::SocketAddr,
+    ops::{Deref, DerefMut},
+    sync::Arc,
+};
+use tokio::{fs::File, io::AsyncWriteExt, sync::RwLock};
+use utoipa::{
+    openapi::{
+        security::{HttpAuthScheme, HttpBuilder, SecurityScheme},
+        ComponentsBuilder,
+    },
+    Modify, OpenApi,
+};
 
-const EPOCH_START: u64 = 1650125769; // haha nice
+const EPOCH_START: u64 = 1_650_125_769; // haha nice
 
-pub const THIS_SITE_URL: &'static str = "https://kindkapibari.land";
+pub const THIS_SITE_URL: &str = "https://kindkapibari.land";
 
 pub static SERVERSTATE: OnceCell<Arc<State>> = OnceCell::new();
 
@@ -58,63 +69,156 @@ pub static SERVERSTATE: OnceCell<Arc<State>> = OnceCell::new();
 //     }
 // }
 
-#[derive(Clone, Debug)]
-pub struct State {
+#[derive(Clone)]
+pub struct RedisCMWithDebug {
     pub redis: ConnectionManager,
+}
+
+impl Deref for RedisCMWithDebug {
+    type Target = ConnectionManager;
+
+    fn deref(&self) -> &Self::Target {
+        &self.redis
+    }
+}
+
+impl DerefMut for RedisCMWithDebug {
+    fn deref_mut(&mut self) -> &mut Self::Target {
+        &mut self.redis
+    }
+}
+
+impl Debug for RedisCMWithDebug {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{}", self.get_db())
+    }
+}
+
+#[derive(Debug)]
+pub struct State {
+    pub redis: RedisCMWithDebug,
     pub database: DatabaseConnection,
     pub config: RwLock<Config>,
     pub caches: Caches,
     pub id_generator: IdGenerators,
 }
 
-#[derive(Clone, Debug)]
+#[derive(Debug)]
 pub struct IdGenerators {
     user_ids: SnowflakeIdGenerator,
     redirect_ids: SnowflakeIdGenerator,
     sober_ids: SnowflakeIdGenerator,
     onetime_reminder_ids: SnowflakeIdGenerator,
+    recurring_reminder_ids: SnowflakeIdGenerator,
+}
+
+impl RedisState for State {
+    fn redis(&self) -> &ConnectionManager {
+        &self.redis.redis
+    }
 }
 
 make_caches! {
-    users: u64: user::Model,
-    login_token: SentSecret: u64,
-    access_tokens: SentSecret: oauth_authorizations::Model,
-    applications: u64: applications::Model
-}
-
-impl AppData for State {}
-
-impl AppDataRedis for State {
-    fn redis(&self) -> &ConnectionManager {
-        &self.redis
-    }
-}
-
-impl AppDataDatabase for State {
-    fn database(&self) -> &DatabaseConnection {
-        &self.database
-    }
-}
-
-impl AppDataCache<u64, user::Model> for State {
-    fn cache<K, V>(&self) -> &Cache<K, V> {
-        &self.caches.users_cache
-    }
-}
-
-impl AppDataSigningKey for State {
-    async fn get_key(&self, key: AppDataKeyTypes) -> Option<&[u8]> {
-        match key {
-            AppDataKeyTypes::LOGIN => {
-                Some(self.config.read().await.signing_keys.login_key.as_bytes())
-            }
-            AppDataKeyTypes::OAUTH => {
-                Some(self.config.read().await.signing_keys.oauth_key.as_bytes())
-            }
-            AppDataKeyTypes::OTHER => None,
-        }
-    }
+    users: u64 : Model
 }
 
 #[tokio::main]
-async fn main() {}
+async fn main() {
+    #[derive(OpenApi)]
+    #[openapi(
+        handlers(
+            onetime::get_user_onetime_reminders,
+            onetime::patch_update_onetime_reminders,
+            onetime::post_add_onetime_reminder,
+            onetime::delete_user_onetime_reminder,
+            recurring::get_user_recurring_reminders,
+            recurring::patch_update_recurring_reminders,
+            recurring::post_add_recurring_reminder,
+            recurring::delete_user_recurring_reminder,
+            sober::get_user_sobers,
+            sober::patch_user_sober_reset_time,
+            sober::patch_update_sober,
+            sober::post_add_sober,
+            sober::delete_user_sober,
+            users::username,
+            users::user_id,
+            users::profile_picture,
+            users::get_account_creation_date,
+            users::get_user_data,
+            users::patch_set_user_data
+        ),
+        components(
+            Model,
+            JWTPair,
+            UserSignupRequest,
+            UserData,
+            Pronouns,
+            PronounProfile,
+            Gender,
+            Locale,
+            Role,
+            OneTimeReminder,
+            OneTimeReminders,
+            RecurringReminder,
+            RecurringReminders,
+            Sober,
+            Sobers,
+        ),
+        modifiers(&SecurityAddon)
+    )]
+    struct ApiDoc;
+
+    struct SecurityAddon;
+
+    impl Modify for SecurityAddon {
+        fn modify(&self, openapi: &mut utoipa::openapi::OpenApi) {
+            openapi.components = Some(
+                ComponentsBuilder::new()
+                    .security_scheme(
+                        "api_jwt_token",
+                        SecurityScheme::Http(
+                            HttpBuilder::new()
+                                .scheme(HttpAuthScheme::Bearer)
+                                .bearer_format("JWT")
+                                .build(),
+                        ),
+                    )
+                    .build(),
+            );
+        }
+    }
+
+    // write apidoc to file if arg exists
+    if std::env::args().any(|x| x == *"--write") {
+        let mut to_write = File::create("auth-api.json").await.unwrap();
+        to_write
+            .write_all(ApiDoc::openapi().to_pretty_json().unwrap().as_bytes())
+            .await
+            .unwrap();
+    }
+
+    tracing_subscriber::fmt::init();
+    let addr = SocketAddr::from(([127, 0, 0, 1], 8000));
+    tracing::debug!("listening on {}", addr);
+
+    // FIXME: instantiate State
+
+    let config = Config::load().expect("Failed to read config");
+    let database: DatabaseConnection = Database::connect(&config.database.postgres_url)
+        .await
+        .expect("Failed to connect to PostgreSQL");
+    let redis = RedisCMWithDebug {
+        redis: ConnectionManager::new(
+            Client::open(config.database.redis_url.clone()).expect("Failed to connect to Redis"),
+        )
+        .await
+        .expect("Failed to open Redis ConnectionManager"),
+    };
+
+    let routes = api::user::routes();
+
+    axum::Server::bind(&addr)
+        .serve(routes.into_make_service())
+        .await
+        .unwrap();
+}

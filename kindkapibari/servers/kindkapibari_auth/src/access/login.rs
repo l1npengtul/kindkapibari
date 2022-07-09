@@ -1,13 +1,19 @@
 use crate::{access::oauth_thirdparty::AuthorizationProviders, State};
-use chrono::{Duration, Utc};
-use kindkapibari_core::secret::{GeneratedToken, SentSecret};
+use kindkapibari_core::secret::{
+    create_new_token_with_refresh, decode_access_token,
+    decode_access_token_without_time_verification, decode_refresh_token, JWTPair, RefreshClaims,
+    TokenClaims, TokenType,
+};
 use kindkapibari_schema::{
     error::ServerError,
-    schema::users::{connections, login_tokens, user},
+    schema::users::{connections, refresh_tokens, user},
     SResult,
 };
-use sea_orm::{ActiveModelTrait, ActiveValue, ColumnTrait, EntityTrait, ModelTrait, QueryFilter};
-use std::{borrow::Cow, ops::Add, sync::Arc};
+use sea_orm::{
+    ActiveModelTrait, ActiveValue, ColumnTrait, EntityTrait, IntoActiveModel, ModelTrait,
+    QueryFilter,
+};
+use std::{borrow::Cow, sync::Arc};
 use tracing::instrument;
 
 pub const AUTH_REDIS_KEY_START_SESSION: [u8; 2] = *b"se";
@@ -32,105 +38,89 @@ pub async fn user_by_id(state: Arc<State>, id: u64) -> SResult<user::Model> {
     }
 }
 
-// LOGIN TOKEN CONVENTION: ALL LOGIN TOKENS ARE ENCRYPTED IN REDIS
 #[instrument]
-pub async fn generate_login_token(state: Arc<State>, user: u64) -> SResult<SentSecret> {
+pub async fn generate_login_token(state: Arc<State>, user: u64) -> SResult<JWTPair> {
     let user = user_by_id(state.clone(), user).await?;
+    let token_id = state.id_generator.login_token_ids.generate_id();
+    let refresh_id = state.id_generator.refresh_token_ids.generate_id();
     let config = state.config.read().await;
-    let gen_token = GeneratedToken::new(
-        user.id,
+    let access_claim = TokenClaims::new()
+        .set_user(user.id)
+        .set_role(user.roles)
+        .set_id(token_id)
+        .set_token_type(TokenType::Login)
+        .set_machine_id(config.machine_id);
+
+    let mut refresh_claim: RefreshClaims = access_claim.clone().into().set_id(refresh_id);
+
+    let grant_pair = create_new_token_with_refresh(
+        &access_claim,
+        &refresh_claim,
         config.signing_keys.login_key.as_bytes(),
-        config.machine_id,
-    )
-    .await
-    .map_err(|why| ServerError::InternalServer(why))?;
-    let login_token_active = login_tokens::ActiveModel {
-        id: ActiveValue::NotSet,
+    )?;
+
+    let refresh_active = refresh_tokens::ActiveModel {
+        id: ActiveValue::Set(refresh_id),
         owner: ActiveValue::Set(user.id),
-        expire: ActiveValue::Set(Utc::now().add(Duration::days(1337))),
-        created: ActiveValue::Set(Utc::now()),
-        stored_secret: ActiveValue::Set(gen_token.store),
+        related: ActiveValue::Set(token_id),
+        expire: ActiveValue::Set(refresh_claim.exp as u64),
+        created: ActiveValue::Set(refresh_claim.iat as u64),
+        revoked: ActiveValue::Set(false),
+        stored_secret: ActiveValue::Set(refresh_claim),
     };
 
-    login_token_active.insert(&state.database).await?;
-    state
-        .caches
-        .login_token_cache
-        .insert(gen_token.sent.clone(), user.id)
-        .await;
+    refresh_active.insert(&state.database).await?;
 
-    Ok(gen_token.sent)
+    Ok(grant_pair)
 }
 
 #[instrument]
-pub async fn verify_user_login_token(
+pub async fn verify_user_login_token(state: Arc<State>, token: String) -> SResult<user::Model> {
+    let config = state.config.read().await;
+
+    let token = decode_access_token(token, config.signing_keys.login_key.as_bytes())
+        .map_err(|_| ServerError::Unauthorized)?;
+    if token.token_type != TokenType::Login {
+        return Err(ServerError::Forbidden);
+    }
+    user_by_id(state.clone(), token.user_id)
+}
+
+#[instrument]
+pub async fn refresh_user_login_token(
     state: Arc<State>,
-    token: SentSecret,
-) -> SResult<Option<user::Model>> {
+    access: String,
+    refresh: String,
+) -> SResult<JWTPair> {
     let config = state.config.read().await;
-    if let Some(user_id) = state.caches.login_token_cache.get(&token) {
-        return Ok(user::Entity::find_by_id(user_id)
-            .one(&state.database)
-            .await?);
+
+    let expired_access = decode_access_token_without_time_verification(
+        access,
+        config.signing_keys.login_key.as_bytes(),
+    )
+    .map_err(|_| ServerError::Unauthorized)?;
+    if expired_access.token_type != TokenType::Login {
+        return Err(ServerError::Forbidden);
     }
 
-    let user_id = token
-        .user_id(config.signing_keys.login_key.as_bytes())
-        .ok_or_else(|| ServerError::NotFound(Cow::from("ID not found"), Cow::from("???")))?;
-
-    // yes, we're using lazy loading
-    // no, it is not performant
-    // yes, someone can probably optimize this.
-    // TODO: optimize lazy loaded query into eager query
-    // TODO: use openapi to dogfood this
-
-    let user = user_by_id(state.clone(), user_id).await?;
-    // intellij has no idea what the fuck we are doing here, so this typeanno is for that.
-    let stored_tokens: Vec<login_tokens::Model> = user
-        .find_related(login_tokens::Entity)
-        .all(&state.database)
-        .await?;
-
-    for st in stored_tokens {
-        if st
-            .stored_secret
-            .verify(&token, config.signing_keys.login_key.as_bytes())
-        {
-            return Ok(Some(user));
-        }
-    }
-    Ok(None)
-}
-
-#[instrument]
-pub async fn burn_login_token(state: Arc<State>, user: u64, token: SentSecret) -> SResult<()> {
-    let config = state.config.read().await;
-    if user
-        != token
-            .user_id(config.signing_keys.login_key.as_bytes())
-            .ok_or_else(|| ServerError::BadRequest(Cow::from("bad token")))?
+    let refresh = decode_refresh_token(refresh, config.signing_keys.login_key.as_bytes())
+        .map_err(|_| ServerError::Unauthorized)?;
+    if refresh.token_type != TokenType::Login
+        && refresh.reference_token != expired_access.jti
+        && refresh.user_id != expired_access.user_id
     {
-        return Err(ServerError::BadRequest(Cow::from("bad user")));
+        return Err(ServerError::Forbidden);
     }
 
-    let tokens = login_tokens::Entity::find()
-        .filter(login_tokens::Column::Owner.eq(user))
-        .all(&state.database)
-        .await?;
-    for server_tkn in tokens {
-        if server_tkn
-            .stored_secret
-            .verify(&token, config.signing_keys.login_key.as_bytes())
-        {
-            // delete this one
-            login_tokens::Entity::delete_by_id(server_tkn.id)
-                .exec(&state.database)
-                .await?;
-            return Ok(());
-        }
-    }
+    let mut db_refreeh_tkn = refresh_tokens::Entity::find_by_id(refresh.jti)
+        .one(&state.database)
+        .await?
+        .ok_or(ServerError::Unauthorized)?
+        .into_active_model();
+    db_refreeh_tkn.revoked = ActiveValue::Set(true);
+    db_refreeh_tkn.update(&state.database).await?;
 
-    Err(ServerError::ISErr(Cow::from("no token")))
+    generate_login_token(state.clone(), refresh.reference_token)
 }
 
 // #[instrument]

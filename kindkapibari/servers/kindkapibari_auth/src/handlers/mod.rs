@@ -1,11 +1,9 @@
-use axum::Router;
+use kindkapibari_core::route;
 
 pub mod login;
 pub mod signup;
 
-#[must_use]
-pub fn routes() -> Router {
-    Router::new()
-        .nest("/login", login::routes())
-        .nest("/signup", signup::routes())
+route!{ 
+    "/login" => login,
+    "/signup" => signup
 }

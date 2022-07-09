@@ -1,4 +1,4 @@
-use kindkapibari_core::{scopes::KKBScopes, secret::StoredSecret};
+use kindkapibari_core::scopes::KKBScopes;
 use sea_orm::{prelude::*, EnumIter};
 use serde::{Deserialize, Serialize};
 
@@ -17,8 +17,8 @@ pub struct Model {
     pub homepage: String,
     pub callback: String,
     pub logo: String,
-    #[sea_orm(column_type = "JsonBinary", indexed, nullable)]
-    pub signed_secret: Option<StoredSecret>,
+    // #[sea_orm(column_type = "JsonBinary", indexed, nullable)]
+    // pub signed_secret: Option<StoredSecret>,
     #[sea_orm(column_type = "JsonBinary")]
     pub scopes: KKBScopes,
     pub confidential: bool,

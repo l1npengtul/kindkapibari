@@ -41,12 +41,13 @@ pub enum Relation {
     Badges,
     Bans,
     Connections,
-    LoginTokens,
+    // LoginTokens,
     Passwords,
     Preferences,
     UserData,
     OneTimeReminders,
     RecurringReminders,
+    RefreshTokens,
     Sobers,
     Statistics,
 }
@@ -61,7 +62,7 @@ impl RelationTrait for Relation {
             Relation::Badges => Entity::has_one(super::badges::Entity).into(),
             Relation::Bans => Entity::has_many(super::super::bans::Entity).into(),
             Relation::Connections => Entity::has_one(super::connections::Entity).into(),
-            Relation::LoginTokens => Entity::has_many(super::login_tokens::Entity).into(),
+            // Relation::LoginTokens => Entity::has_many(super::login_tokens::Entity).into(),
             Relation::Passwords => Entity::has_one(super::passwords::Entity).into(),
             Relation::Preferences => Entity::has_one(super::preferences::Entity).into(),
             Relation::UserData => Entity::has_one(super::userdata::Entity).into(),
@@ -69,6 +70,7 @@ impl RelationTrait for Relation {
             Relation::RecurringReminders => {
                 Entity::has_many(super::recurring_reminders::Entity).into()
             }
+            Relation::RefreshTokens => Entity::has_many(super::refresh_tokens::Entity).into(),
             Relation::Sobers => Entity::has_many(super::sobers::Entity).into(),
             Relation::Statistics => Entity::has_one(super::statistics::Entity).into(),
         }
@@ -105,11 +107,11 @@ impl Related<super::connections::Entity> for Entity {
     }
 }
 
-impl Related<super::login_tokens::Entity> for Entity {
-    fn to() -> RelationDef {
-        Relation::LoginTokens.def()
-    }
-}
+// impl Related<super::login_tokens::Entity> for Entity {
+//     fn to() -> RelationDef {
+//         Relation::LoginTokens.def()
+//     }
+// }
 
 impl Related<super::passwords::Entity> for Entity {
     fn to() -> RelationDef {
@@ -150,6 +152,11 @@ impl Related<super::sobers::Entity> for Entity {
 impl Related<super::statistics::Entity> for Entity {
     fn to() -> RelationDef {
         Relation::Statistics.def()
+    }
+}
+impl Related<super::refresh_tokens::Entity> for Entity {
+    fn to() -> RelationDef {
+        Relation::RefreshTokens.def()
     }
 }
 

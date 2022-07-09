@@ -14,7 +14,7 @@ use axum::{
     Extension, Json,
 };
 use chrono::Utc;
-use kindkapibari_core::{roles::Role, route, secret::SentSecret, user_data::UserSignupRequest};
+use kindkapibari_core::{roles::Role, route, secret::JWTPair, user_data::UserSignupRequest};
 use kindkapibari_schema::{
     error::ServerError,
     redis::{check_if_exists_cache, delet_dis, insert_into_cache, read_from_cache},
@@ -36,7 +36,7 @@ pub const REDIS_USER_CREATION_PENDING_PREFIX: &str = "ucpp";
 
 #[derive(Clone, Debug, PartialOrd, PartialEq, Eq, Serialize, Deserialize, Component)]
 pub enum RedirectedUser {
-    AlreadyExists(SentSecret),
+    AlreadyExists(JWTPair),
     NewUserCreation {
         slip: String,
         suggested_username: Option<String>,
@@ -99,9 +99,6 @@ pub async fn redirect(
         }
         None => {
             // in this case we create a "slip" that the user can trade for not making this request again
-            if user_info_common.email.is_none() {
-                return Err(ServerError::BadRequest(Cow::from("You need an email!")));
-            }
             let user_info_num = format!(
                 "{}{:?}{}{}",
                 user_info_common.id,
@@ -176,7 +173,7 @@ pub async fn burn_signup_token(
 #[derive(Clone, Debug, Hash, PartialEq, Eq, Serialize, Deserialize, Component)]
 pub struct PostSignupSent {
     pub id: u64,
-    pub login_secret: SentSecret,
+    pub login_secret: JWTPair,
 }
 
 #[instrument]

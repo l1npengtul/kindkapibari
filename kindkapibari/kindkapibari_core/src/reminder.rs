@@ -3,6 +3,7 @@ use serde::{Deserialize, Serialize};
 use std::hash::Hash;
 
 #[derive(Clone, Debug, Hash, PartialEq, Eq, PartialOrd, Serialize, Deserialize)]
+#[cfg_attr(feature = "server", derive(utoipa::Component))]
 pub struct OneTimeReminder {
     pub id: u64,
     pub name: String,
@@ -49,12 +50,45 @@ impl Default for RecurringReminder {
     }
 }
 
+#[cfg(feature = "server")]
+impl utoipa::Component for RecurringReminder {
+    fn component() -> utoipa::openapi::Component {
+        use utoipa::openapi::{
+            ArrayBuilder, ComponentFormat, ComponentType, ObjectBuilder, Property, PropertyBuilder,
+        };
+        ObjectBuilder::new()
+            .property(
+                "id",
+                PropertyBuilder::new()
+                    .component_type(ComponentType::Integer)
+                    .format(Some(ComponentFormat::Int64)),
+            )
+            .required("id")
+            .property("name", Property::new(ComponentType::String))
+            .required("name")
+            .property("time", Property::new(ComponentType::String))
+            .required("time")
+            .property(
+                "days",
+                ArrayBuilder::new()
+                    .items(Property::new(ComponentType::Boolean))
+                    .max_items(Some(7))
+                    .min_items(Some(7))
+                    .build(),
+            )
+            .required("days")
+            .into()
+    }
+}
+
 #[derive(Clone, Debug, Default, Hash, PartialEq, Eq, PartialOrd, Serialize, Deserialize)]
+#[cfg_attr(feature = "server", derive(utoipa::Component))]
 pub struct OneTimeReminders {
     pub one_time: Vec<OneTimeReminder>,
 }
 
 #[derive(Clone, Debug, Default, Hash, PartialEq, Eq, PartialOrd, Serialize, Deserialize)]
+#[cfg_attr(feature = "server", derive(utoipa::Component))]
 pub struct RecurringReminders {
     pub recurring: Vec<RecurringReminder>,
 }
@@ -71,6 +105,33 @@ pub fn u8_bitflag_to_days(bitflag: u8) -> [bool; 7] {
     [
         monday, tuesday, wednesday, thursday, friday, saturday, sunday,
     ]
+}
+
+#[must_use]
+pub fn days_to_u8(date: [bool; 7]) -> u8 {
+    let mut days = 0_u8;
+    if date[0] {
+        days += MONDAY;
+    }
+    if date[1] {
+        days += TUESDAY;
+    }
+    if date[2] {
+        days += WEDNESDAY;
+    }
+    if date[3] {
+        days += THURSDAY;
+    }
+    if date[4] {
+        days += FRIDAY;
+    }
+    if date[5] {
+        days += SATURDAY;
+    }
+    if date[6] {
+        days += SUNDAY;
+    }
+    days
 }
 
 #[cfg(feature = "server")]
