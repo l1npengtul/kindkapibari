@@ -52,6 +52,7 @@ pub mod roles;
 #[cfg(feature = "server")]
 #[macro_use]
 pub mod route;
+pub mod map;
 pub mod scopes;
 
 pub use kindkapibari_proc::AttrString;

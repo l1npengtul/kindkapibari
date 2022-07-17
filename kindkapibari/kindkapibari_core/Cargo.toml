@@ -12,6 +12,7 @@ client = ["chrono/wasmbind", "wasm-bindgen"]
 server = ["postcard", "sea-orm",
     "redis", "flume", "tokio",
     "futures-core", "crossbeam", "base64", "chacha20poly1305", "argon2", "blake3", "eyre", "once_cell", "moka", "paste", "tokio-native-tls", "axum-core", "axum", "async-trait", "serde_urlencoded", "http", "rand_chacha", "http-body", "utoipa"]
+game = ["bevy"]
 
 [dependencies]
 serde_json = "^1.0"
@@ -168,4 +169,8 @@ optional = true
 [dependencies.utoipa]
 version = "1.1.0"
 features = ["chrono", "chrono_with_format", "decimal", "uuid"]
+optional = true
+
+[dependencies.bevy]
+version = "0.7"
 optional = true
