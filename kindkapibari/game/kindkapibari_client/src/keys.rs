@@ -24,9 +24,3 @@ pub enum Actions {
     ChatGuild,
     ChatParty,
 }
-
-#[derive(Copy, Clone, Debug, Ord, PartialOrd, Eq, PartialEq, Serialize, Deserialize)]
-#[serde(transparent)]
-pub struct InputMap {
-    imap: HashMap<KeyCode, Actions>,
-}

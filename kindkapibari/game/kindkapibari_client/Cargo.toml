@@ -8,6 +8,8 @@ edition = "2021"
 [dependencies]
 serde = "1.0"
 naia-shared = "0.10"
+naia-client = "0.10"
+naia-bevy-client = "0.10"
 paste = "1.0"
 bevy_rapier3d = "0.15"
 iyes_loopless = "0.6"
