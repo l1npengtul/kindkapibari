@@ -1,6 +1,6 @@
-mod keys;
-mod network;
-mod player_input;
+mod action;
+mod player;
+mod systems;
 
 fn main() {
     println!("Hello, world!");

@@ -13,6 +13,7 @@ naia-bevy-client = "0.10"
 paste = "1.0"
 bevy_rapier3d = "0.15"
 iyes_loopless = "0.6"
+leafwing-input-manager = "0.4"
 
 [dependencies.bevy]
 version = "0.7"

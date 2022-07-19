@@ -17,6 +17,17 @@ pub fn network_event(
     client: Client<Protocol, ChannelIndex>,
 ) {
     for net_event in event_reader.iter() {
-        match net_event {}
+        if let MessageEvent(ChannelIndex::ServerUpdate, net_server_message) = net_event {
+            match net_server_message {
+                Protocol::ConnectionStateUpdate(update) => {}
+                Protocol::TotalGameStateUpdate(update) => {}
+                Protocol::TransformUpdate(update) => {}
+                Protocol::EntityAssignment(update) => {}
+                Protocol::EntityStateUpdate(update) => {}
+                Protocol::LoadMapUpdate(update) => {}
+                Protocol::MapBuildUpdated(update) => {}
+                _ => {}
+            }
+        }
     }
 }

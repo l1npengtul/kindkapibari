@@ -1,6 +1,8 @@
 use crate::components::{
     entities::{health::Health, state::PlayerState},
     place::Location,
+    speed::Speed,
+    velocity::Velocity,
 };
 use bevy::prelude::Bundle;
 use serde::{Deserialize, Serialize};
@@ -11,4 +13,6 @@ pub struct PlayerBundle {
     pub state: PlayerState,
     #[bundle]
     pub location: Location,
+    pub velocity: Velocity,
+    pub speed: Speed,
 }
