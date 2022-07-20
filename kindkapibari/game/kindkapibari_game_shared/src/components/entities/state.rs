@@ -1,3 +1,6 @@
+use bevy::prelude::Component;
+use serde::{Deserialize, Serialize};
+
 #[macro_use]
 macro_rules! define_state {
     {
@@ -13,7 +16,7 @@ macro_rules! define_state {
     } => {
         $(
         paste::paste! {
-            #[derive(Copy, Clone, Debug, PartialEq, Eq, PartialOrd, Ord, serde::Serialize, serde::Deserialize, bevy::prelude::Component)]
+            #[derive(Copy, Clone, Debug, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize, Component)]
             pub enum [<$for_thing State>] {
                 $($state),*
             }

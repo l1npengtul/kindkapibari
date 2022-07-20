@@ -1,4 +1,4 @@
-use bevy::prelude::{Component, UVec3};
+use bevy::{math::Vec3, prelude::Component};
 use serde::{Deserialize, Serialize};
 
 #[derive(
@@ -16,5 +16,5 @@ use serde::{Deserialize, Serialize};
     Component,
 )]
 pub struct Velocity {
-    pub vel: UVec3,
+    pub vel: Vec3,
 }
